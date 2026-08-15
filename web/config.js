@@ -98,6 +98,9 @@ function setSource(id, features) {
     const all = CTX.sources[id] = { type: 'FeatureCollection', features };
     CTX.map.getSource(id)?.setData(CTX.preds.length
         ? { ...all, features: features.filter(f => CTX.preds.every(p => p(f.properties))) } : all);
+    // the table drawer re-renders on this and on moveend; a window change moves
+    // the data without moving the camera, so it has to be said
+    dispatchEvent(new Event('cg-filters'));
 }
 const setDetections = features => setSource('detections', features);
 const setPlumes = features => setSource('plumes', features);
@@ -181,7 +184,7 @@ let _s2Timer = null;
 let _s2Blank = false;
 function updateS2Controls() {
     if (!ARCHIVE) return;
-    const show = mode === 's2' && (D.isDetecting() || (s2ArchiveReady() &&
+    const show = mode === 's2' && flaringOn() && (D.isDetecting() || (s2ArchiveReady() &&
         CTX.map.getZoom() >= MIN_DETECT_ZOOM && (_s2Blank || !isCovered(viewportBbox(CTX.map)))));
     if (show) ensureDetect();   // outside coverage the detect/p2p path is live
     for (const sel of ['#peer-status', '#detect-area'])
@@ -385,9 +388,14 @@ async function updateQuarterIndicators() {
 // comparable quantities and the colours do not mean the same numbers.
 const keySections = cfg => [
     {
+        // the ramp rows are also the family switch: each carries the detections
+        // layer, so clicking any one takes flaring off the map and greys all
+        // three together. what governs flaring alone — the two sliders and the
+        // S2|VNF toggle — goes with it (syncFlaring).
         label: `Flaring — ${cfg.label}`,
         rows: [...cfg.stops].reverse().map((v, i) => ({
-            swatch: { mark: 'flare', color: RAMP[2 - i] }, label: i === 0 ? `${v}+` : String(v) })),
+            swatch: { mark: 'flare', color: RAMP[2 - i] }, label: i === 0 ? `${v}+` : String(v),
+            toggle: 'detections' })),
     },
     {
         // a multi-select band filter rather than a third slider: two sliders is
@@ -413,12 +421,27 @@ const keySections = cfg => [
     },
 ];
 
+// flaring's visibility is the family switch, so everything that governs flaring
+// alone follows it: the two sliders leave the panel rather than sit there dead,
+// and the S2|VNF toggle takes the inactive grey and stops answering. neither
+// value is touched, so both come back as they were. methane keeps drawing.
+const flaringOn = () => !!CTX.map.getLayer('detections')
+    && CTX.map.getLayoutProperty('detections', 'visibility') !== 'none';
+
+function syncFlaring() {
+    const on = flaringOn();
+    for (const k of ['intensity', 'persistence']) CTX.sliders[k].show(on);
+    CTX.filters.mode.unavailable(() => !on);
+    updateS2Controls();
+}
+
 function switchMode(m) {
     if (m === mode) return;
     mode = m;
     const cfg = MODE[m];
 
-    document.querySelector('#main-panel .dd-subtitle').textContent = cfg.subtitle;
+    // the subtitle is not touched: it names the application, and a mode is one
+    // toggle over one of its three layers, not a change of subject
     document.getElementById('main-panel').classList.toggle('mode-s2', m === 's2');
     closeDetail();
     CTX.setKey(keySections(cfg));
@@ -530,16 +553,20 @@ function nearS2(lat, lon) {
 // ends in reselectCurrentFeature — which closes a card it cannot find.
 const drawn = fs => (fs ?? []).filter(f => CTX.preds.every(p => p(f.properties)));
 
+// flaring off means the map is not drawing it, so the row does not offer it:
+// every entry has to open a card the next refresh can find again
 const nearbyGroups = (lat, lon) => [
     { kind: 'plume', one: 'methane plume', many: 'methane plumes',
       features: drawn(CTX.sources.plumes?.features) },
-    // a flare card opened from a vnf map needs its own mode back, and switching
-    // is what puts the site in the source reselectCurrentFeature reads
-    { kind: 'flare', one: 'flare site', many: 'flare sites',
-      features: drawn(nearS2(lat, lon)), before: () => setMode('s2') },
-    ...(isVnf() ? [{ kind: 'vnf', one: 'VNF look', many: 'VNF looks',
-      features: drawn(CTX.sources.detections?.features),
-      count: fs => fs.reduce((n, f) => n + (f.properties.detection_count || 0), 0) }] : []),
+    ...(!flaringOn() ? [] : [
+        // a flare card opened from a vnf map needs its own mode back, and
+        // switching is what puts the site in the source reselectCurrentFeature reads
+        { kind: 'flare', one: 'flare site', many: 'flare sites',
+          features: drawn(nearS2(lat, lon)), before: () => setMode('s2') },
+        ...(isVnf() ? [{ kind: 'vnf', one: 'VNF look', many: 'VNF looks',
+          features: drawn(CTX.sources.detections?.features),
+          count: fs => fs.reduce((n, f) => n + (f.properties.detection_count || 0), 0) }] : []),
+    ]),
 ];
 
 // ---------------------------------------------------------------------------
@@ -547,22 +574,24 @@ const nearbyGroups = (lat, lon) => [
 // ---------------------------------------------------------------------------
 
 mount({
-    title: 'Burnoff',
-    subtitle: MODE.s2.subtitle,
+    title: 'Flux',
+    subtitle: 'Emissions explorer',
+    search: true,
     map: { center: [52.8720, 25.1676], zoom: 12, minZoom: 1.5, maxZoom: 18 },
     about: `
         <div class="region-row">
             <div><div class="dd-secondary">Regions covered:</div><div>Data Desk archive</div></div>
             <svg id="modal-worldmap"></svg>
         </div>
-        <p>Burnoff is an experiment in distributed detection and analysis of gas flaring using Sentinel-2 satellite data, hosted by <a href="https://datadesk.eco">Data Desk</a>. It aims to be a useful tool for researchers, journalists and others monitoring the activities of the fossil fuel industry.</p>
-        <p>Detections from the Data Desk archive are shown automatically. For areas we haven't covered yet, click <em>Detect</em> to download and process Sentinel-2 satellite data for the current view, sharing the workload &mdash; and syncing the results &mdash; with connected peers via <a href="https://en.wikipedia.org/wiki/WebRTC">WebRTC</a>.</p>
-        <p>Click any detection to view the underlying data and flare analysis, and compare to <a href="https://eogdata.mines.edu/products/vnf/global_gas_flare.html" target="_blank">VIIRS Nightfire</a> data using <em>VNF</em> mode.</p>
+        <p>Flux maps two ways the oil and gas industry puts carbon into the air &mdash; gas it burns, and gas it leaks &mdash; on one map, under one date window. It is made by <a href="https://datadesk.eco">Data Desk</a> for researchers, journalists and anyone else watching the industry.</p>
+        <p>Flaring is detected two ways. Sentinel-2 detections come from the Data Desk archive; where the archive has no coverage, <em>Detect</em> processes Sentinel-2 imagery for the current view in your own browser, sharing the work &mdash; and syncing the results &mdash; with connected peers over <a href="https://en.wikipedia.org/wiki/WebRTC">WebRTC</a>. <em>VNF</em> switches to <a href="https://eogdata.mines.edu/products/vnf/global_gas_flare.html" target="_blank">VIIRS Nightfire</a>, which sees flares at night and measures their radiant heat.</p>
+        <p>Methane plumes are dated observations from Carbon Mapper, IMEO, SRON and Data Desk, each carrying a measured release rate. Shape says whether a feature burned or leaked; colour says only how much. Pick quarters to set the window for everything on the map, and click any feature for the data behind it.</p>
         <div class="methods">
             <div class="methods-head" id="methods-toggle"><span class="dd-chevron dd-chevron-down"></span><span class="dd-secondary">Methods &amp; data</span></div>
             <div class="methods-list dd-secondary hidden" id="methods-list">
                 <p>Faruolo et al. (2024) <a href="https://doi.org/10.1088/1748-9326/ad82fb" target="_blank">The DAFI v2 algorithm for gas flare detection</a></p>
                 <p>Elvidge et al. (2013) <a href="https://doi.org/10.3390/rs5094423" target="_blank">VIIRS Nightfire: Satellite pyrometry at night</a></p>
+                <p>Jacob et al. (2022) <a href="https://doi.org/10.5194/acp-22-9617-2022" target="_blank">Quantifying methane emissions from the global scale down to point sources</a></p>
                 <p>Global Energy Monitor <a href="https://globalenergymonitor.org/projects/global-gas-infrastructure-tracker/" target="_blank">Global Gas Infrastructure Tracker</a></p>
                 <p>Design by <a href="https://mikaeldahlen.com/" target="_blank">Mikael Dahlén</a></p>
             </div>
@@ -712,6 +741,25 @@ mount({
 
     key: () => keySections(MODE.s2),
 
+    // the drawer, dragged open from the right edge. plume rows are the live
+    // source, so they follow the ticked window and the key's bands; the
+    // attributions table is its own read of the contract ch4id publishes, and
+    // its rows are not plume properties, so it sits out the filter pipeline.
+    table: [
+        {
+            label: 'Plumes',
+            rows: ({ sources }) => sources.plumes.features.map(f => f.properties),
+            cols: ['id', 'provider', 'date', 'rate_kg_h', 'satellite', 'sector', 'lat', 'lon'],
+        },
+        {
+            label: 'Attributions', filter: false,
+            rows: async ({ read }) => (await read('attributions',
+                { columns: ['id', 'source_label', 'source_kind', 'operator', 'confidence', 'lat', 'lon'] }))
+                .sort((a, b) => String(a.source_label).localeCompare(String(b.source_label))),
+            cols: ['id', 'source_label', 'source_kind', 'operator', 'confidence', 'lat', 'lon'],
+        },
+    ],
+
     detail: {
         layers: ['detections', 'plumes'],
         // one permalink key per identifier space; the written one is a function
@@ -770,6 +818,12 @@ mount({
             if (isVnf()) scheduleVNFRefresh();
             else { D.updateDetectButton(); scheduleS2Refresh(); }
         });
+
+        // the key owns flaring's visibility; this listener runs after
+        // cartograph's, which has already set it, and follows it with the
+        // controls that only mean something while flaring is drawn
+        document.getElementById('key-panel').addEventListener('click', syncFlaring);
+        syncFlaring();
 
         // archive builds start with the detect/p2p controls hidden until the
         // viewport leaves coverage; pure-detect builds load the CRDT up front

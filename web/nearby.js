@@ -9,7 +9,7 @@
 // either way. a bounding-box read per card open is exactly what this row must
 // not cost, which is why a family with nothing resident simply does not appear.
 
-import { showDetail } from './vendor/cartograph/detail.js';
+import { showDetail, setOverlapping } from './vendor/cartograph/detail.js';
 import { haversineM } from './vendor/cartograph/util.js';
 
 // "here" is the installation, not the neighbourhood: wide enough to cross a vnf
@@ -51,8 +51,9 @@ export function nearbyHtml(p) {
     return `<div class="also-here"><span class="dd-secondary">Also here</span><span>${entries}</span></div>`;
 }
 
-// each entry opens the nearest of its group in its own card — cartograph's own
-// 10 px grouping then carries the rest through the header's overlap nav
+// each entry opens the nearest of its group and hands the whole group to the
+// card header, so ‹ 1/n › steps the rest from the first click — the grouping
+// here is the radius, which is what the entry counted, not cartograph's 10 px
 export function wireNearby(el) {
     const gs = near;
     for (const btn of el.querySelectorAll('[data-nearby]'))
@@ -60,6 +61,7 @@ export function wireNearby(el) {
             const g = gs[Number(btn.dataset.nearby)];
             g.before?.();
             map?.easeTo({ center: coordsOf(g.feats[0].f) });
+            setOverlapping(g.feats.map(x => x.f));
             showDetail(g.feats[0].f);
         });
 }

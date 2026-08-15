@@ -14,7 +14,6 @@ export const RH_TO_MCM = 0.0315;
 
 export const MODE = {
     s2: {
-        subtitle: 'Sentinel-2 Flare Detection',
         label: 'B12 reflectance',
         // the site-level ramp key. the shared flares schema has no b12 column,
         // so this is a data-desk extension on the row; markIconExpr coalesces a
@@ -33,7 +32,6 @@ export const MODE = {
         sentinel: null,
     },
     vnf: {
-        subtitle: 'VIIRS Nightfire Flares',
         label: 'Radiant heat (MW)',
         prop: 'max_rh',
         col2: 'RH', col3: 'MCM/d',

@@ -1,7 +1,7 @@
-/* burnoff-specific ui on top of vendor/cartograph/shell.css + vendor/dd/map.css
+/* flux-specific ui on top of vendor/cartograph/shell.css + vendor/dd/map.css
    (data desk design system). the panel/key/detail/modal furniture is all
    cartograph's; only the mode row, detect controls, quarter 'detected' state,
-   card internals and intro-modal extras live here. */
+   the three-group key, card internals and intro-modal extras live here. */
 
 /* --- main panel: mode row + detect controls --- */
 
@@ -20,11 +20,24 @@
 .dd-dot-btn.detected .dd-dot { background: var(--dd-ui-inactive); }
 .dd-dot-btn.detected { pointer-events: none; }
 
-/* --- detail card internals --- */
+/* --- key: three groups on a short viewport --- */
 
-/* no card carries a close control (ruling 2026-07-08): cards dismiss on map
-   interaction elsewhere, or on escape */
-.cg-close { display: none; }
+/* the dd rule lays the groups side by side on viewports too short for the stack
+   to clear the main panel. cartograph switches at 960px, for two groups sharing
+   the left column's width; three groups stacked are 371px and the main panel is
+   719px with Detect showing, so the stack only clears from 1120px — and side by
+   side they need more than the column. so: switch later, and size the key to its
+   own content at gap L, the only panel on that row. */
+@media (max-height: 1120px) and (min-width: 769px) {
+    .cg-key { flex-direction: row; justify-content: space-between;
+              width: auto; max-width: calc(100vw - 60px); gap: 30px; }
+    /* and the main panel stops above the key rather than running through it —
+       panels must never overlap. 180px is the tallest the key gets side by
+       side: a label over the five methane bands, plus its own padding. */
+    .cg-main { max-height: calc(100vh - 210px); }
+}
+
+/* --- detail card internals --- */
 
 /* "also here", the one row only the merged app can draw */
 .also-here { display: flex; justify-content: space-between; gap: 11px; }
