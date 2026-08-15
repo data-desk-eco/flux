@@ -11,7 +11,6 @@ import { viewportBbox } from '../vendor/cartograph/shell.js';
 
 let LWWMap, Store, PeerMesh, geohash3, SyncManager, validateDetection;   // lazy imports
 
-export const MIN_DETECT_ZOOM = 11;    // local-worker COG detect (heavy) + its controls
 const AWARENESS_HEARTBEAT_MS = 15_000;
 const MERGE_DISTANCE_M = 135;         // the bulk pipeline's cluster default (s2e ClusterOptions)
 const BLOCK_DEG = 0.046;              // block grid: 256px at 20m = ~5120m ≈ 0.046° lat
@@ -23,8 +22,9 @@ const SIGNALING_URL = _sigMeta
 
 // injected by initDetect: the map, the cartograph quarter-picker api, a render
 // callback (re-cluster + redraw in the active mode), a quarter-indicator
-// refresh, and the live avg-B12 slider gate.
-let map, quarters, render, updateQuarters, minAvgB12;
+// refresh, the live avg-B12 slider gate, and the zoom this heavy local path
+// needs — config.js holds every zoom floor, so it also decides this one.
+let map, quarters, render, updateQuarters, minAvgB12, minZoom;
 
 let detectionMap = null, processedMap = null, store = null, mesh = null, syncManager = null;
 let allRawDetections = [];
@@ -38,7 +38,7 @@ let _currentPeerCount = 0;
 export const isDetecting = () => _isDetecting;
 
 export function initDetect(deps) {
-    ({ map, quarters, render, updateQuarters, minAvgB12 } = deps);
+    ({ map, quarters, render, updateQuarters, minAvgB12, minZoom } = deps);
     document.getElementById('detect-btn').addEventListener('click', startDetection);
 }
 
@@ -304,6 +304,7 @@ export function crossDateCluster(allDetections, obs) {
             geometry: { type: 'Point', coordinates: [cl.lon, cl.lat] },
             properties: {
                 name,
+                kind: 'flare',              // which card body opens (card/index.js)
                 terminal: terminal?.name || null,
                 lat: cl.lat, lon: cl.lon,   // exact coords for detail/highlight
                 max_b12: cl.max_b12,
@@ -396,10 +397,10 @@ export function getDetectedQuarters() {
 export function updateDetectButton(detected = getDetectedQuarters()) {
     const active = quarters.keys();
     const allDetected = active.size > 0 && [...active].every(k => detected.has(k));
-    const tooZoomedOut = map.getZoom() < MIN_DETECT_ZOOM;
+    const tooZoomedOut = map.getZoom() < minZoom;
     const btn = document.getElementById('detect-btn');
     btn.disabled = allDetected || tooZoomedOut;
-    btn.title = tooZoomedOut ? 'Zoom in to at least level 11' : '';
+    btn.title = tooZoomedOut ? `Zoom in to at least level ${minZoom}` : '';
 }
 
 // ---------------------------------------------------------------------------

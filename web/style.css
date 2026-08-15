@@ -22,6 +22,15 @@
 
 /* --- detail card internals --- */
 
+/* no card carries a close control (ruling 2026-07-08): cards dismiss on map
+   interaction elsewhere, or on escape */
+.cg-close { display: none; }
+
+/* "also here", the one row only the merged app can draw */
+.also-here { display: flex; justify-content: space-between; gap: 11px; }
+.also-here button { background: none; border: none; padding: 0; font: inherit; color: var(--dd-ui-text); text-decoration: underline; cursor: pointer; }
+.also-here button:hover { color: var(--dd-ui-text-secondary); }
+
 .info-stats { display: flex; flex-direction: column; gap: 6px; }
 .info-stats div { display: flex; justify-content: space-between; }
 

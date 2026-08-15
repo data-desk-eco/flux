@@ -1,6 +1,7 @@
 // flux on cartograph — one map, one date window, three detection layers. this
 // config plus the hook modules: layers.js (marking/ramp/colour policy for every
-// layer), flaring/ (render.js mode tables, card.js, detect.js local detect+p2p,
+// layer), card/ (one header and a body per feature kind), nearby.js (the "also
+// here" row), flaring/ (render.js mode tables, detect.js local detect+p2p,
 // s2archive.js / vnf.js readers, clustering.js feature builders) and methane/
 // (attribution.js, candidates.js, licences.js, overlay.js).
 //
@@ -18,14 +19,15 @@ import { MODE } from './flaring/render.js';
 import { DD, RAMP, AREA, MARK, MARKS, ICON_SIZE, PLUME_BANDS, flareIcon, plumeIcon } from './layers.js';
 import { initArchive, objects } from './vendor/cartograph/archive.js';
 import { initVNF, resetVNF, queryVNF, queryVNFFlare, availableQuartersVNF, isReady as vnfReady } from './flaring/vnf.js';
-import { initS2Archive, queryS2Archive, availableQuartersS2, isReady as s2ArchiveReady, isCovered, coverageTiles, whenCovered } from './flaring/s2archive.js';
-import { initDetect, ensureDetect, isDetecting, updateDetectionSource, getDetectedQuarters, updateDetectButton, MIN_DETECT_ZOOM } from './flaring/detect.js';
-import { initCard, cardTitle, cardHtml, onCardShow, onCardClose, refreshCard, reselectCurrentFeature } from './flaring/card.js';
-import { setTerminals, archiveFeature, enrichVNFFeatures } from './flaring/clustering.js';
-import { loadAttributions, enrich } from './methane/attribution.js';
-import { addCandidateLayers, clearSelection } from './methane/candidates.js';
+import { initS2Archive, queryS2Archive, availableQuartersS2, isReady as s2ArchiveReady, isCovered, coverageTiles, whenCovered, residentFlares } from './flaring/s2archive.js';
+import { initCard, cardTitle, cardHtml, onCardShow, onCardClose, refreshCard, reselectCurrentFeature } from './card/index.js';
+import { label, rateT } from './card/plume.js';
+import { initNearby, RADIUS_M } from './nearby.js';
+import { setTerminals, archiveFeature, enrichVNFFeatures, DEG_TO_RAD } from './flaring/clustering.js';
+import { loadAttributions } from './methane/attribution.js';
+import { addCandidateLayers } from './methane/candidates.js';
 import { LICENCE_LAYERS, addLicenceLayers } from './methane/licences.js';
-import { clearProbabilityOverlay, initProbabilityOverlay, showProbabilityOverlay } from './methane/overlay.js';
+import { initProbabilityOverlay } from './methane/overlay.js';
 
 // legacy deep links: #vnf/123 -> #vnf=123 (cartograph hash params)
 if (/^#vnf\/\d+$/.test(location.hash))
@@ -46,6 +48,7 @@ if (ARCHIVE) { initArchive(ARCHIVE); initS2Archive(ARCHIVE); }
 
 const MIN_ARCHIVE_ZOOM = 4;   // displaying precomputed archive clusters (cheap, in-memory)
 const MIN_VNF_ZOOM = 6;
+const MIN_DETECT_ZOOM = 11;   // local-worker COG detect (heavy) + its controls
 
 // date span the quarter grid covers (last 4 calendar years) — bounds the vnf
 // availability query so it stays cheap
@@ -53,7 +56,6 @@ const GRID_START = `${new Date().getFullYear() - 3}-01-01`;
 const GRID_END = `${new Date().getFullYear()}-12-31`;
 
 let mode = null;
-const modeConf = () => MODE[mode] || MODE.s2;
 const isVnf = () => mode === 'vnf';
 
 // slider state. the avg-B12 / avg-RH intensity gate is the active quality gate;
@@ -104,6 +106,37 @@ const setPlumes = features => setSource('plumes', features);
 const setMode = m => document.querySelector(`.cg-filter[data-key="mode"] [data-value="${m}"]`)?.click();
 
 // ---------------------------------------------------------------------------
+// the local detector, loaded on demand
+// ---------------------------------------------------------------------------
+
+// detect.js drags the clustering and scoring modules in with it — about 1,100
+// lines a pure-archive session never runs — so it is imported at the moment its
+// controls appear (outside coverage, or a covered viewport the archive has
+// nothing for), and eagerly only in pure-detect builds. until then these stand
+// in: nothing is detecting, nothing has been detected, and the only detections
+// source is the archive's, so "redraw the local one" means clear it.
+let D = {
+    isDetecting: () => false,
+    getDetectedQuarters: () => new Set(),
+    updateDetectButton: () => {},
+    updateDetectionSource: () => setDetections([]),
+};
+let _detect = null;
+const ensureDetect = () => _detect ??= import('./flaring/detect.js')
+    .then(m => {
+        D = m;
+        m.initDetect({
+            map: CTX.map, quarters: CTX.quarters,
+            render: renderDetections,
+            updateQuarters: updateQuarterIndicators,
+            minAvgB12: () => GATE.s2,
+            minZoom: MIN_DETECT_ZOOM,
+        });
+        return m.ensureDetect();
+    })
+    .catch(err => { _detect = null; console.error('detect init error:', err); });
+
+// ---------------------------------------------------------------------------
 // vnf mode
 // ---------------------------------------------------------------------------
 
@@ -148,7 +181,7 @@ let _s2Timer = null;
 let _s2Blank = false;
 function updateS2Controls() {
     if (!ARCHIVE) return;
-    const show = mode === 's2' && (isDetecting() || (s2ArchiveReady() &&
+    const show = mode === 's2' && (D.isDetecting() || (s2ArchiveReady() &&
         CTX.map.getZoom() >= MIN_DETECT_ZOOM && (_s2Blank || !isCovered(viewportBbox(CTX.map)))));
     if (show) ensureDetect();   // outside coverage the detect/p2p path is live
     for (const sel of ['#peer-status', '#detect-area'])
@@ -157,30 +190,33 @@ function updateS2Controls() {
 
 async function refreshS2Archive() {
     updateS2Controls();
-    if (mode !== 's2' || !ARCHIVE || isDetecting()) return;
-    if (!s2ArchiveReady() || CTX.map.getZoom() < MIN_ARCHIVE_ZOOM) { updateDetectionSource(); return; }
+    if (mode !== 's2' || !ARCHIVE || D.isDetecting()) return;
+    if (!s2ArchiveReady() || CTX.map.getZoom() < MIN_ARCHIVE_ZOOM) { D.updateDetectionSource(); return; }
     const range = CTX.quarters.range();
-    if (!range) { updateDetectionSource(); return; }
+    if (!range) { D.updateDetectionSource(); return; }
     try {
         const clusters = await queryS2Archive(viewportBbox(CTX.map), range.startDate, range.endDate);
-        if (mode !== 's2' || isDetecting()) return;
+        if (mode !== 's2' || D.isDetecting()) return;
         const qKeys = CTX.quarters.keys();
         // negated, so a cluster the table gives no intensity for passes rather
         // than vanishing: the shared flares schema has no site-level b12, and
         // `undefined >= 0.85` is false for every row — the slider would empty
         // the map with nothing in the console, the 2026-07-31 failure again
         const features = clusters.filter(c => !(c.avg_b12 < GATE.s2)).map(c => archiveFeature(c, qKeys));
-        if (!features.length) { updateDetectionSource(); return; }
+        if (!features.length) { D.updateDetectionSource(); return; }
         setDetections(features);
         // every feature above was just rebuilt for the ticked quarters. an open card
         // holds a COPY of the old feature's numbers, taken when it was clicked, so
         // without this it keeps showing the previous selection's persistence and
-        // looks. re-open it from the rebuilt feature at the same coordinates, as the
-        // vnf path does after its own re-query.
+        // looks. re-open it from the rebuilt feature carrying the same id, as the
+        // vnf and plume paths do after their own re-reads.
         reselectCurrentFeature();
     } catch (err) {
         console.error('S2 archive query error:', err);
-        updateDetectionSource();
+        // a read that cannot name its object fails here and nowhere the reader
+        // can see, so say it on the panel as well as in the console
+        CTX.quarters.hint('Flare archive unavailable');
+        D.updateDetectionSource();
     }
 }
 
@@ -194,7 +230,7 @@ function scheduleS2Refresh() {
 // detections source, so a plain updateDetectionSource() (CRDT only) would wipe
 // it — route through the archive path, which falls back to the CRDT where the
 // archive is empty. used by the sync-debounce and slider callers.
-const refreshS2View = () => ARCHIVE ? refreshS2Archive() : updateDetectionSource();
+const refreshS2View = () => ARCHIVE ? refreshS2Archive() : D.updateDetectionSource();
 
 // detect.js render callback: re-draw the s2 view after CRDT/worker updates
 const renderDetections = () => { if (mode === 's2') refreshS2View(); };
@@ -222,13 +258,6 @@ const PLUMES = PRIVATE ? 'data/plumes.parquet' : null;
 // attributions live on the store too (ch4id `sync push` exports the contract)
 const ATTRIBUTIONS = `${ARCHIVE}/data-desk/attributions/data.parquet`;
 
-// a label is editorial, so it is stated here. which providers exist is not, so
-// it is not: a provider the archive adds lands on the map under its own name
-// with no edit to this file. provider is no longer a colour — colour means
-// intensity everywhere on this map (see layers.js).
-const LABEL = { 'carbon-mapper': 'Carbon Mapper', imeo: 'IMEO / MARS', sron: 'SRON', ghgsat: 'GHGSat', 'data-desk': 'Data Desk' };
-const label = p => LABEL[p] ?? p;
-const SECTOR = { og: 'Oil & Gas', coal: 'Coal', waste: 'Waste', other: 'Other' };
 // everything the map, key and detail panel read — the projection stays narrow
 // because every column rides into the geojson. `kind` earns its place twice: it
 // is what the key's rate bands and the detail card dispatch on.
@@ -238,23 +267,6 @@ const PLUME_COLS = ['id', 'kind', 'provider', 'date', 'lat', 'lon', 'rate_kg_h',
 // producer does not trust rides along with valid = false
 const PLUME_WHERE = { kind: ['plume', 'plume'], valid: [true, true] };
 const isPlume = p => p.kind === 'plume';
-
-// null when the provider published no rate estimate
-const rateT = p => p.rate_kg_h == null ? null : (Number(p.rate_kg_h) / 1000).toFixed(1);
-
-function sourceUrl(p) {
-    if (!p.id) return null;
-    if (p.provider === 'carbon-mapper') return `https://data.carbonmapper.org/?plume_id=${encodeURIComponent(p.id)}`;
-    if (p.provider === 'sron' && p.link) return `https://ftp.sron.nl/pub/memo/CSVs/${encodeURIComponent(p.link)}`;
-    if (p.provider === 'data-desk' && p.link)
-        return /^https?:/.test(p.link) ? p.link : `${ARCHIVE}/${p.link.replace(/^\//, '')}?v=viridis`;
-    return null;
-}
-
-function overlayUrl(p) {
-    if (p.provider !== 'data-desk' || !p.overlay) return null;
-    return /^https?:/.test(p.overlay) ? p.overlay : `${ARCHIVE}/${p.overlay.replace(/^\//, '')}?v=viridis`;
-}
 
 // one object per provider, named from the index and read independently:
 // allSettled, so a provider whose object is missing costs its own rows and
@@ -358,9 +370,9 @@ async function updateQuarterIndicators() {
     } else { _s2Blank = false; q.hint(''); }
 
     btns.forEach(b => b.classList.remove('dd-unavailable'));
-    const done = getDetectedQuarters();
+    const done = D.getDetectedQuarters();
     btns.forEach(b => b.classList.toggle('detected', done.has(q.key(b))));
-    updateDetectButton(done);
+    D.updateDetectButton(done);
     updateS2Controls();
 }
 
@@ -431,7 +443,7 @@ function switchMode(m) {
             });
         } else if (vnfReady()) refreshVNF();
     } else {
-        updateDetectionSource();
+        D.updateDetectionSource();
         ensureS2Archive();
     }
 
@@ -490,47 +502,45 @@ async function resolvePlume(id) {
 }
 
 // ---------------------------------------------------------------------------
-// the detail card — one header, a body per kind
+// "also here" — what the other layers hold at an open card's place
 // ---------------------------------------------------------------------------
 
-// a sync skeleton: onShow's enrich() races the wind fetch and the attribution
-// lookup into #stat-wind and #analysis behind a request-id guard
-const plumeHtml = p => `
-    <div class="fd-badges">
-        <span>${escapeHtml(label(p.provider))}</span>
-        ${p.sector ? `<span class="dd-secondary">${SECTOR[p.sector] || escapeHtml(p.sector)}</span>` : ''}
-    </div>
-    <div class="fd-stats">
-        <div><div class="fd-stat-big">${rateT(p) ?? '—'}</div><div class="dd-secondary">t/hr${p.rate_std_kg_h ? ` ±${(p.rate_std_kg_h / 1000).toFixed(1)}` : ''}</div></div>
-        <div id="stat-wind"><div class="fd-stat-big">…</div><div class="dd-secondary">wind</div></div>
-        <div><div class="fd-stat-big">${escapeHtml(p.satellite || '—')}</div><div class="dd-secondary">satellite</div></div>
-        <div><div class="fd-stat-big">${escapeHtml(p.date || '—')}</div><div class="dd-secondary">date</div></div>
-    </div>
-    <div class="fd-analysis">
-        <div class="dd-secondary">Analysis</div>
-        <div id="analysis" class="dd-secondary">Loading…</div>
-    </div>`;
-
-// cartograph owns the header; the body dispatches on the feature's kind (the
-// registry proper is step 4). a selection that crosses families never fires
-// onClose, so the outgoing body takes down its own map state — the flare card's
-// imagery and grey circles, the plume card's candidates and probability
-// overlay — while a re-render of the same kind leaves both alone.
-let cardKind = null;
-const closePlumeCard = () => { clearSelection(); clearProbabilityOverlay(); };
-
-function showCard(p, el) {
-    const kind = isPlume(p) ? 'plume' : 'flare';
-    if (cardKind && cardKind !== kind) (cardKind === 'plume' ? closePlumeCard : onCardClose)();
-    cardKind = kind;
-    if (kind === 'plume') { enrich(p); showProbabilityOverlay(p, overlayUrl(p)); }
-    else onCardShow(p, el);
+// the row is served from collections this session already holds, never a read:
+// the plume read covers the whole world for the ticked window, and the s2
+// cluster table is resident whole. vnf is the one family that would cost a
+// bounding-box read per card open, so it appears only while its own layer is up
+// and its viewport features are in the source — and it is counted in looks,
+// because a look is what vnf measures a night in.
+function nearS2(lat, lon) {
+    const rows = residentFlares(), range = CTX.quarters.range();
+    if (!rows || !range) return [];
+    // a box wide enough to hold the row's own radius test at this latitude,
+    // cheap enough to run over the whole table on every card open
+    const dLat = RADIUS_M / 111320, dLon = dLat / Math.max(0.05, Math.cos(lat * DEG_TO_RAD));
+    const qKeys = CTX.quarters.keys();
+    return rows
+        .filter(c => Math.abs(c.lat - lat) <= dLat && Math.abs(c.lon - lon) <= dLon
+            && c.last_seen >= range.startDate && c.first_seen <= range.endDate
+            && !(c.avg_b12 < GATE.s2))
+        .map(c => archiveFeature(c, qKeys));
 }
 
-function closeCard() {
-    if (cardKind === 'plume') closePlumeCard(); else onCardClose();
-    cardKind = null;
-}
+// count only what the map is drawing. an entry the key or a slider has filtered
+// out would offer a card the next refresh cannot find, and every refresh path
+// ends in reselectCurrentFeature — which closes a card it cannot find.
+const drawn = fs => (fs ?? []).filter(f => CTX.preds.every(p => p(f.properties)));
+
+const nearbyGroups = (lat, lon) => [
+    { kind: 'plume', one: 'methane plume', many: 'methane plumes',
+      features: drawn(CTX.sources.plumes?.features) },
+    // a flare card opened from a vnf map needs its own mode back, and switching
+    // is what puts the site in the source reselectCurrentFeature reads
+    { kind: 'flare', one: 'flare site', many: 'flare sites',
+      features: drawn(nearS2(lat, lon)), before: () => setMode('s2') },
+    ...(isVnf() ? [{ kind: 'vnf', one: 'VNF look', many: 'VNF looks',
+      features: drawn(CTX.sources.detections?.features),
+      count: fs => fs.reduce((n, f) => n + (f.properties.detection_count || 0), 0) }] : []),
+];
 
 // ---------------------------------------------------------------------------
 // mount
@@ -676,7 +686,7 @@ mount({
     quarters: {
         onChange: () => {
             if (isVnf()) scheduleVNFRefresh();
-            else { updateDetectButton(); scheduleS2Refresh(); }
+            else { D.updateDetectButton(); scheduleS2Refresh(); }
             schedulePlumeRefresh();
             // the availability hint is about the ticked window, so it goes stale
             // the moment a dot is ticked — the map does not have to move first
@@ -714,10 +724,11 @@ mount({
         // marking, and the highlight box waits for imagery that resolves the
         // point of interest (pdf:74, 79)
         flyZoom: 15, highlightZoom: 10,
-        title: p => isPlume(p) ? { text: p.id || '—', href: sourceUrl(p) } : cardTitle(p),
-        html: p => isPlume(p) ? plumeHtml(p) : cardHtml(p),
-        onShow: showCard,
-        onClose: closeCard,
+        // one header, one body per kind — card/index.js holds the registry
+        title: cardTitle,
+        html: cardHtml,
+        onShow: onCardShow,
+        onClose: onCardClose,
     },
 
     ready: ctx => {
@@ -734,14 +745,9 @@ mount({
                 </div>
             </div>`);
 
-        initDetect({
-            map: ctx.map, quarters: ctx.quarters,
-            render: renderDetections,
-            updateQuarters: updateQuarterIndicators,
-            minAvgB12: () => GATE.s2,
-        });
-        initCard({ map: ctx.map, modeConf, isVnf, hasArchive: !!ARCHIVE,
+        initCard({ map: ctx.map, hasArchive: !!ARCHIVE, archive: ARCHIVE,
                    quarterKeys: () => ctx.quarters.keys() });
+        initNearby(ctx.map, nearbyGroups);
         initProbabilityOverlay(ctx.map);
         addCandidateLayers(ctx.map, ctx.sql);
 
@@ -762,7 +768,7 @@ mount({
         ctx.map.on('moveend', () => {
             scheduleQuarterIndicators();
             if (isVnf()) scheduleVNFRefresh();
-            else { updateDetectButton(); scheduleS2Refresh(); }
+            else { D.updateDetectButton(); scheduleS2Refresh(); }
         });
 
         // archive builds start with the detect/p2p controls hidden until the

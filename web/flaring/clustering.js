@@ -133,7 +133,11 @@ export function archiveFeature(c, qKeys = new Set()) {
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [c.lon, c.lat] },
         properties: {
+            // the card's body registry dispatches on this, so a feature states
+            // its family rather than the card inferring one from the S2|VNF
+            // toggle — which is what lets one card open from another's
             name: terminal ? terminal.name : `${detection_count} detection${detection_count !== 1 ? 's' : ''}`,
+            kind: 'flare',
             terminal: terminal?.name || null,
             lat: c.lat, lon: c.lon,   // exact coords for detail/highlight
             id: c.id, cell: c.cell, country: c.country || '', detail: c.detail || '',
@@ -192,6 +196,7 @@ export function enrichVNFFeatures(features, minRh) {
             geometry: feat.geometry,
             properties: {
                 name,
+                kind: 'vnf',
                 terminal: terminal?.name || null,
                 lat, lon,   // exact coords for detail/highlight
                 id: p.id,

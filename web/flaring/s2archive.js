@@ -15,7 +15,7 @@ import { read } from '../vendor/cartograph/data.js';
 import { objects } from '../vendor/cartograph/archive.js';
 import { quarterOf } from '../vendor/cartograph/util.js';
 
-let _base = '', _tiles = null, _coverage = null, _initPromise = null, _flares = null;
+let _base = '', _tiles = null, _coverage = null, _initPromise = null, _flares = null, _rows = null;
 const overlaps = ([w, s, e, n], [tw, ts, te, tn]) => w <= te && e >= tw && s <= tn && n >= ts;
 const inBox = ([w, s, e, n], c) => c.lon >= w && c.lon <= e && c.lat >= s && c.lat <= n;
 
@@ -61,7 +61,7 @@ export function initS2Archive(base) {
     _base = base.replace(/\/$/, '');
     // the whole archive is one object, so start pulling it here rather than on
     // the first viewport: it downloads while maplibre loads its style and tiles
-    flares().catch(err => console.warn('S2 archive warm-up failed:', err));
+    flares().catch(err => console.error('S2 archive warm-up failed:', err));
     return _initPromise ??= (async () => {
         try {
             _coverage = await (await fetch(url('data-desk/coverage.geojson'))).json();
@@ -77,8 +77,20 @@ export function initS2Archive(base) {
 // viewport, quarter indicator and re-score is then served from memory, where
 // the old per-tile cache served only the tiles a viewport had already touched.
 const flares = () => _flares ??= objects('flares', { provider: 'data-desk' })
-    .then(([u]) => read(u))
+    .then(([u]) => {
+        // the archive partitions a table past 250 MB, and objects() then names
+        // nothing without a key — this whole-table read would quietly become
+        // zero rows and a blank map. it has to be the loud kind of broken.
+        if (!u) throw new Error('data-desk/flares names no object: the table has partitioned '
+            + 'and this reader must address it by cell');
+        return read(u);
+    })
+    .then(rows => (_rows = rows))
     .catch(err => { _flares = null; throw err; });
+
+/** The rows that whole-table read landed, for callers that need them without
+ *  awaiting — the card's "also here" row. Null until it lands. */
+export const residentFlares = () => _rows;
 
 /**
  * Archive clusters intersecting a viewport bbox + date window. The date window
