@@ -73,7 +73,13 @@ export function ensureDetect() {
 
         detectionMap = new LWWMap();
         processedMap = new LWWMap();
-        store = new Store('burnoff');
+        // the database is origin-scoped and this origin is new, so the old name
+        // buys nothing and the detections are not lost with it — they come back
+        // over the mesh from any peer that holds them. the room is the opposite
+        // case: 'burnoff' is what puts flux readers in the same mesh as builds
+        // still served from research.datadesk.eco, and renaming it would make
+        // the origin change real data loss.
+        store = new Store('flux');
         mesh = new PeerMesh({
             signalingUrl: SIGNALING_URL, room: 'burnoff',
             onPeerConnect: () => {}, onPeerDisconnect: () => {}, onMessage: () => {},

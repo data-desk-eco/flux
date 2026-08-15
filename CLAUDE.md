@@ -164,14 +164,14 @@ is a second place to get the pairing wrong.
 
 **at dense complexes:** sum radiant heat across detection points rather than
 averaging, always check `n_sats`, and read a day with files but no detections as
-cloud, not as zero activity. (burnoff's `docs/ras-laffan-monitoring.md`.)
+cloud, not as zero activity. (`docs/ras-laffan-monitoring.md`.)
 
 **the negation in the S2 intensity gate is deliberate.** `!(c.avg_b12 < GATE.s2)`
 in `config.js` lets a cluster the table gives no intensity for through rather
 than vanishing: the shared flares schema has no site-level b12, and
 `undefined >= 0.85` is false for every row.
 
-**a link that names one flare has already chosen it.** `resolveFlare` enriches at
+**a link that names one flare has already chosen it.** `resolveSite` enriches at
 gate `0`, the literal, not `GATE.vnf` — under the 3 MW default every dim flare
 resolved to nothing at all.
 

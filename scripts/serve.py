@@ -1,9 +1,9 @@
-"""Development server with range requests."""
+"""dev server with http range request support (needed by consumers that
+range-query local data files). usage: serve.py [port] [directory]"""
 
 import http.server
 import os
 import sys
-
 
 DIRECTORY = sys.argv[2] if len(sys.argv) > 2 else "web"
 
@@ -39,9 +39,16 @@ class RangeHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             source.seek(start)
             self.wfile.write(source.read(length))
 
+    def do_OPTIONS(self):
+        # duckdb-wasm preflights its ranged reads; end_headers supplies the rest
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Headers", "Range")
+        self.end_headers()
+
     def end_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Expose-Headers", "Content-Range, Accept-Ranges")
+        # dev server: never cache, so edits to js/css show up on reload
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
 

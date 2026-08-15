@@ -126,7 +126,11 @@ export function reselectCurrentFeature() {
     // as strings and never coerce with Number()
     const match = features.find(f => String(f.properties.id) === String(current.id));
     if (match) reopen(match.properties);
-    else closeDetail();
+    // absent from a viewport that does not reach it is not the same as filtered
+    // out of one that does, and only the second is grounds for closing. a
+    // #site= link opens a card the initial viewport never read and then flies
+    // to it; the refresh in between used to close the card it had just opened.
+    else if (map.getBounds().contains(coords(current))) closeDetail();
 }
 
 // ── the flaring body: information rows, chart, dated rows, action pair ──

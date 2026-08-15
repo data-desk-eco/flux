@@ -103,6 +103,13 @@ export async function queryS2Archive(bbox, startDate, endDate) {
         c.last_seen >= startDate && c.first_seen <= endDate);
 }
 
+/** One cluster row by id, for the mode-agnostic #site= permalink. Served off
+ *  the same resident table every viewport reads, so it costs no request. */
+export async function queryS2Flare(id) {
+    if (!_base) return null;
+    return (await flares()).find(c => String(c.id) === String(id)) ?? null;
+}
+
 /** Set of `year_quarter` keys that have any detection in the viewport (all dates). */
 export async function availableQuartersS2(bbox) {
     if (!_base) return new Set();

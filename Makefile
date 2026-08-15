@@ -1,4 +1,9 @@
-.PHONY: serve signal test deploy terminals vendor help
+.PHONY: serve signal test dist deploy-private signal-deploy terminals vendor help
+
+# the plume etl (carbon mapper / imeo / sron / ghgsat) lives in ~/Tools/etl; the
+# public site reads one detections object per provider live, and only the
+# private bake below writes a parquet of its own
+ETL ?= $(HOME)/Tools/etl
 
 terminals: web/terminals.geojson
 
@@ -51,15 +56,47 @@ serve: vendor signal
 signal:
 	@node signal/server.js &
 
-deploy:
+# exactly what the pages workflow runs, assertions and all — the public build
+# proves it carries no licensed row, so run it here before pushing rather than
+# discovering it in Actions
+dist:
+	@bash scripts/dist.sh $$(git rev-parse HEAD)
+
+# datadesk-only deploy (cloudflare pages behind access). bakes an etl-built
+# plumes.parquet — including local-only ghgsat and our own dd detections — so it
+# refuses to deploy unless the access gate is answering
+deploy-private:
+	@curl -so /dev/null -w '%{redirect_url}' https://flux-private.pages.dev | grep -q cloudflareaccess.com || { echo "access gate is down — refusing to deploy"; exit 1; }
+	$(MAKE) -C $(ETL) carbon-mapper sron imeo ghgsat
+	@mkdir -p web/data
+# s2e-views is not in that list and the data desk plumes come off the archive
+# instead. detection is a campaign rather than a schedule, so the view rebuild is
+# deliberate too — and it writes the flare half in the same wholesale replacement,
+# which no deploy should be triggering. the published object is the same rows.
+	duckdb -c "COPY (FROM read_parquet(['$(ETL)/data/carbon-mapper/detections/**/data.parquet','$(ETL)/data/sron/detections/**/data.parquet','$(ETL)/data/imeo/detections/**/data.parquet','https://s3.WAW3-2.cloudferro.com/data-desk-archive/data-desk/detections/data.parquet','$(ETL)/data/ghgsat/private/detections/**/data.parquet'], union_by_name=true) WHERE kind = 'plume') TO 'web/data/plumes.parquet' (FORMAT PARQUET, COMPRESSION ZSTD)"
+# the licence acreage is a restricted source and its sweep goes down. there is
+# no tolerant path any more: dist.sh refuses a local build missing either bake,
+# because a private deploy that is quietly the public map is the harder failure
+# to notice than one that stops here.
+	cp $(ETL)/data/mapstand/private/licences/data.parquet web/data/licences.parquet
+	bash scripts/dist.sh $$(git rev-parse HEAD) local
+	npx wrangler pages deploy dist --project-name flux-private --branch main
+
+# the webrtc mesh's rendezvous, and the only deploy here that is not the map.
+# readers on every origin share one room, so redeploying drops live peers
+# mid-sync — it is not part of a release. run it when signal/ itself changes,
+# and not otherwise.
+signal-deploy:
 	npx wrangler deploy
 
 test:
 	@node --test test/determinism.test.mjs test/retry-peers.test.mjs
 
 help:
-	@echo "make serve      - Dev server on :8000 + signaling on :4444"
-	@echo "make signal     - Signaling server only"
-	@echo "make vendor     - Vendor dependencies via cartograph + the s2e wasm core"
-	@echo "make test       - Run determinism tests"
-	@echo "make deploy     - Deploy signaling worker to Cloudflare"
+	@echo "make serve          - Dev server on :8000 + signaling on :4444"
+	@echo "make signal         - Signaling server only"
+	@echo "make vendor         - Vendor dependencies via cartograph + the s2e wasm core"
+	@echo "make test           - Run determinism tests"
+	@echo "make dist           - Build the public artifact into dist/ (what Actions publishes)"
+	@echo "make deploy-private - Build with the ghgsat + mapstand bakes, deploy behind Access"
+	@echo "make signal-deploy  - Redeploy the signaling worker (drops live peers)"

@@ -2,10 +2,9 @@
 // IndexedDB Persistence for LWW-Map
 // ---------------------------------------------------------------------------
 
-const DB_NAME = 'burnoff-crdt';
 const STORE_NAME = 'entries';
 export class Store {
-    constructor(dbName = DB_NAME) {
+    constructor(dbName) {
         this._dbName = dbName;
         this._db = null;
         this._dirty = new Map(); // key -> { prefix, value, ts, peerId }

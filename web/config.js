@@ -20,7 +20,7 @@ import { MODE } from './flaring/render.js';
 import { DD, RAMP, AREA, MARK, MARKS, PIN, RATE_LABEL, PLUME_BANDS, flareIcon, plumeIcon } from './layers.js';
 import { initArchive } from './vendor/cartograph/archive.js';
 import { initVNF, resetVNF, queryVNF, queryVNFFlare, availableQuartersVNF, isReady as vnfReady } from './flaring/vnf.js';
-import { initS2Archive, queryS2Archive, availableQuartersS2, isReady as s2ArchiveReady, isCovered, coverageTiles, whenCovered, residentFlares } from './flaring/s2archive.js';
+import { initS2Archive, queryS2Archive, queryS2Flare, availableQuartersS2, isReady as s2ArchiveReady, isCovered, coverageTiles, whenCovered, residentFlares } from './flaring/s2archive.js';
 import { initCard, cardTitle, cardHtml, onCardShow, onCardClose, refreshCard, reselectCurrentFeature } from './card/index.js';
 import { initNearby, RADIUS_M } from './nearby.js';
 import { setTerminals, archiveFeature, enrichVNFFeatures } from './flaring/clustering.js';
@@ -29,8 +29,9 @@ import { addCandidateLayers } from './methane/candidates.js';
 import { LICENCE_LAYERS, addLicenceLayers } from './methane/licences.js';
 import { initProbabilityOverlay } from './methane/overlay.js';
 
-// legacy deep links: #vnf/123 -> #vnf=123 (cartograph hash params)
-if (/^#vnf\/\d+$/.test(location.hash))
+// legacy deep links: #vnf/123 -> #vnf=123 (cartograph hash params), which the
+// site resolver then reads whichever family the id belongs to
+if (/^#vnf\/[^/=&]+$/.test(location.hash))
     history.replaceState(null, '', location.hash.replace('/', '='));
 
 // ---------------------------------------------------------------------------
@@ -437,10 +438,18 @@ function debouncedRecluster() {
     }, 80);
 }
 
-// #vnf=<id> permalink over a dynamic source: switch to vnf mode, wait for the
-// parquet, query the single flare
-async function resolveFlare(id) {
+// #site=<id> names a flare in either family: ask data-desk/flares, then
+// eog/flares, and take the mode of whichever table owns the identifier. the
+// two spaces are disjoint — base36-like against numeric-as-VARCHAR — but that
+// is an accident of two producers and not a contract, so this reads both
+// rather than dispatching on the shape of the id. #vnf= is an alias of the
+// same resolver because burnoff wrote it for s2 sites too: those links have
+// been dead since they were sent, and this is what repairs them.
+async function resolveSite(id) {
     await whenReady;
+    const cluster = await queryS2Flare(id).catch(() => null);
+    if (cluster) { setMode('s2'); return archiveFeature(cluster, CTX.quarters.keys()); }
+
     setMode('vnf');
     const deadline = Date.now() + 15000;
     while (!vnfReady() && Date.now() < deadline) await new Promise(r => setTimeout(r, 100));
@@ -692,11 +701,11 @@ mount({
 
     detail: {
         layers: ['detections', 'plumes'],
-        // one permalink key per identifier space; the written one is a function
-        // of the feature, so a plume gets #plume= and a flare #vnf=. the
-        // mode-agnostic #site= repair is step 6.
-        hashKeys: { vnf: resolveFlare, plume: resolvePlume },
-        hashKey: p => isPlume(p) ? 'plume' : 'vnf',
+        // two keys are written — #site= for a flare of either family, #plume=
+        // for a plume — and #vnf= is read as a legacy spelling of #site=.
+        // config order is read order, so a hash carrying both takes #site=.
+        hashKeys: { site: resolveSite, vnf: resolveSite, plume: resolvePlume },
+        hashKey: p => isPlume(p) ? 'plume' : 'site',
         idProp: 'id',
         // no minZoom: below the threshold a selection is carried by its own shape
         // marking, and the highlight box waits for imagery that resolves the
@@ -755,8 +764,9 @@ mount({
         // archive builds start with the detect/p2p controls hidden until the
         // viewport leaves coverage; pure-detect builds load the CRDT up front
         if (ARCHIVE) updateS2Controls(); else ensureDetect();
-        // start in s2 mode unless a #vnf= deep link is resolving
-        if (!getHashParam(location.hash, 'vnf')) setMode('s2');
+        // start in s2 mode unless a flare deep link is resolving — the resolver
+        // adopts the mode of the table that owns the id, so leave it to say
+        if (!['site', 'vnf'].some(k => getHashParam(location.hash, k))) setMode('s2');
         readyResolve();
     },
 });
