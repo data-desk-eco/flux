@@ -6,7 +6,8 @@
 //
 // config.table: [{
 //   label,                        tab text
-//   rows: ctx => rows | Promise,  row objects (fetched once, on first open)
+//   rows: ctx => rows | Promise,  row objects; a promise is resolved once, a
+//                                 sync return re-read on every render
 //   cols: [names],                column subset/order (default: keys of row 0)
 //   lat, lon: 'lat', 'lon',       coord columns (viewport filter + fly)
 //   pick: (row, ctx) => {},       row click; default opens detail by idProp
@@ -64,7 +65,12 @@ export function initTable(ctx) {
     async function render() {
         if (width < MIN) return;
         const t = tabs[active];
-        let all = await (cache[active] ??= Promise.resolve(t.rows(ctx)));
+        // an async rows() is a read: fetched once. a sync one is a projection of
+        // state the app keeps moving — a source it re-sets on the window — so it
+        // runs every render and the table follows.
+        const src = cache[active] ?? t.rows(ctx);
+        if (src instanceof Promise) cache[active] = src;
+        let all = await src;
         if (t.filter !== false && ctx.preds?.length) all = all.filter(r => ctx.preds.every(p => p(r)));
         const cols = t.cols || Object.keys(all[0] || {});
         const { rows, total } = tableRows(all, {

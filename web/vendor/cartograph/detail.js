@@ -65,6 +65,11 @@ const sameProps = (a, b) => [...new Set([...Object.keys(a), ...Object.keys(b)])]
 
 let shown = null;   // {feature, n, i} — the card on screen and its overlap position
 
+// an app opening a card from its own grouping (a "nearby" list, a table row)
+// hands the whole group over, so the header's ‹ n/N › works from the first
+// click rather than waiting for the camera to settle over the point
+export const setOverlapping = (features, i = 0) => { overlapping = features; overlapIndex = i; };
+
 // apps re-set their sources as the viewport, filters or sliders move, and hand
 // the current feature back here each time. a resize does it too: maplibre's
 // resize fires moveend, so viewport queries re-run for a camera that never
@@ -98,8 +103,7 @@ function render(feature, fromPermalink) {
             <div class="dd-head-text">
                 <div class="dd-heading">${t.href
                     ? `<a class="cg-detail-id" href="${escapeHtml(t.href)}" target="_blank" rel="noopener">${escapeHtml(t.text)}</a>`
-                    : `<span class="cg-detail-id">${escapeHtml(t.text)}</span>`}
-                    <button class="cg-close" data-close title="Close">×</button></div>
+                    : `<span class="cg-detail-id">${escapeHtml(t.text)}</span>`}</div>
                 <div class="dd-subtitle">${fmtCoords(lat, lon)}${n > 1
                     ? ` <span class="cg-overlap"><button class="cg-nav" data-nav="-1">‹</button> ${overlapIndex + 1} / ${n} <button class="cg-nav" data-nav="1">›</button></span>` : ''}</div>
             </div>
@@ -188,7 +192,6 @@ export function initDetail(m, config, getFeatures) {
     }
 
     panel().addEventListener('click', e => {
-        if (e.target.closest('[data-close]')) return closeDetail();
         const nav = e.target.closest('[data-nav]');
         if (nav && overlapping.length > 1) {
             overlapIndex = (overlapIndex + Number(nav.dataset.nav) + overlapping.length) % overlapping.length;

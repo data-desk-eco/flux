@@ -76,11 +76,14 @@ export function buildShell(config) {
     // ⓘ button reopens (pdf:82)
     if (config.about) {
         const modal = document.getElementById('about-modal');
-        const dismiss = () => { modal.classList.add('hidden'); localStorage.setItem('cg-entered', '1'); };
+        // app-scoped: one origin serves several of these, and each introduces
+        // itself once. the bare 'cg-entered' key is deliberately not read.
+        const seen = `cg-entered:${config.title || ''}`;
+        const dismiss = () => { modal.classList.add('hidden'); localStorage.setItem(seen, '1'); };
         modal.addEventListener('click', e => { if (e.target === modal) dismiss(); });
         document.getElementById('enter-btn').addEventListener('click', dismiss);
         document.getElementById('info-btn').addEventListener('click', () => modal.classList.remove('hidden'));
-        if (localStorage.getItem('cg-entered')) modal.classList.add('hidden');
+        if (localStorage.getItem(seen)) modal.classList.add('hidden');
     }
 }
 

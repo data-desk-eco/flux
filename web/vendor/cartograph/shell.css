@@ -74,8 +74,6 @@ a { color: inherit; text-decoration: underline; }
 .cg-detail.visible { display: flex; flex-direction: column; gap: 25px; }
 .cg-detail.collapsed > :not(.dd-head) { display: none; }
 .cg-detail-id { overflow-wrap: anywhere; }
-.cg-close { margin-left: auto; background: none; border: none; color: var(--dd-ui-text-secondary); font: 400 14px/1 Inter, sans-serif; cursor: pointer; }
-.cg-close:hover { color: var(--dd-ui-text); }
 .cg-overlap { white-space: nowrap; }
 .cg-nav { background: none; border: none; color: var(--dd-ui-text); font: inherit; cursor: pointer; padding: 0 3px; }
 
