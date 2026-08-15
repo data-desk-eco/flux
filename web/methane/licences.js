@@ -3,53 +3,38 @@
 
 import { hoverPopup } from '../vendor/cartograph/shell.js';
 import { map as dd } from '../vendor/dd/palette.js';
+import { parquetInput } from '../vendor/cartograph/data.js';
 import { escapeHtml } from '../vendor/cartograph/util.js';
 import { AREA, DASH } from '../layers.js';
+import { sweeper } from './sweep.js';
 
 // absolute, because this goes into raw SQL: cartograph resolves a relative name
 // only inside read()/meta(), and DuckDB treats a bare path as a local file it
-// has no way to open. dist.sh appends its cache-buster inside the literal.
+// has no way to open. dist.sh appends its cache-buster to this path.
 // resolved against the document (web/), not this module's directory, so the
 // bake stays at web/data/ while the module lives under web/methane/.
 const FILE = new URL('data/licences.parquet', document.baseURI).href;
-const MIN_ZOOM = 6;          // whole-continent viewports would sweep the world
+const MIN_LICENCE_ZOOM = 6;   // whole-continent viewports would sweep the world
 const MAX_SCAN = 1500;
 const C = AREA.licence;
 
 export const LICENCE_LAYERS = ['licences-fill', 'licences-line', 'licences-label'];
 
-let map, query, epoch = 0, swept = null;
+let map, query;
 
-// refetch on moveend unless the viewport is still inside the padded rect we
-// last swept (same skip rule as the candidate sweep)
-async function sweep() {
-    if (map.getZoom() < MIN_ZOOM) {
-        if (swept) { swept = null; set([]); }
-        return;
-    }
-    const b = map.getBounds();
-    if (swept && b.getWest() >= swept.minX && b.getEast() <= swept.maxX
-              && b.getSouth() >= swept.minY && b.getNorth() <= swept.maxY) return;
-    const px = (b.getEast() - b.getWest()) * 0.3, py = (b.getNorth() - b.getSouth()) * 0.3;
-    const rect = { minX: b.getWest() - px, minY: b.getSouth() - py,
-                   maxX: b.getEast() + px, maxY: b.getNorth() + py };
-    const e = ++epoch;
-    let out;
+async function fetchRect(rect) {
     try {
         const rows = await query(`
             select * exclude geometry, st_asgeojson(geometry) as geometry_json
-            from read_parquet('${FILE}')
+            from read_parquet(${parquetInput(FILE)})
             where xmin <= ${Number(rect.maxX)} and xmax >= ${Number(rect.minX)}
               and ymin <= ${Number(rect.maxY)} and ymax >= ${Number(rect.minY)}
             limit ${MAX_SCAN}
         `);
-        out = rows.map(({ geometry_json, ...properties }) => ({
+        return rows.map(({ geometry_json, ...properties }) => ({
             type: 'Feature', geometry: JSON.parse(geometry_json), properties,
         }));
-    } catch (err) { return void console.warn('licence GeoParquet query failed:', err); }
-    if (e !== epoch) return;
-    swept = rect;
-    set(out);
+    } catch (err) { console.warn('licence GeoParquet query failed:', err); }
 }
 
 const set = features =>
@@ -88,6 +73,7 @@ export function addLicenceLayers(m, sql) {
         return `<span class="dd-title">${escapeHtml(p.name || 'Licence area')}</span><br>${detail}`;
     }, { click: false });
 
+    const sweep = sweeper(map, MIN_LICENCE_ZOOM, fetchRect, set);
     map.on('moveend', sweep);
     sweep();
 }

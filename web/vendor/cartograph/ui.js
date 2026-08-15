@@ -103,7 +103,7 @@ export function wireSliders(config, ctx) {
             set({ format, ...attrs } = {}) { Object.assign(input, attrs); if (format) fmt = format; render(); },
             // a slider whose layer is off comes out of the panel rather than
             // sitting there dead; its value is untouched and returns with it
-            show: (on = true) => row.classList.toggle('hidden', !on),
+            show: on => row.classList.toggle('hidden', !on),
         };
         render();
     }

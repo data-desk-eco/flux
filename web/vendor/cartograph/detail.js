@@ -24,7 +24,7 @@ const panel = () => document.getElementById('detail');
 
 // properties are exact where present; geometry gets quantized by the tile grid
 // at low zoom, but is the fallback for features without lat/lon properties
-const coordsOf = f => f.properties.lon != null
+export const coordsOf = f => f.properties.lon != null
     ? [Number(f.properties.lon), Number(f.properties.lat)] : f.geometry.coordinates;
 
 // the app's permalink keys, in config order; a selection writes the first of

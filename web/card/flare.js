@@ -143,7 +143,6 @@ function downloadCSV() {
 }
 
 export default {
-    kind: 'flare',
     source: 'detections',
     cfg: MODE.s2,
     passLabel: 'Passes',

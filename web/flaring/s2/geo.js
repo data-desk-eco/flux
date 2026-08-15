@@ -101,11 +101,3 @@ export function utmToWgs84(easting, northing, zone, isNorth) {
 export function utmParams(epsg) {
     return { zone: epsg % 100, isNorth: epsg < 32700 };
 }
-
-export function metersToDegreesLat(m) {
-    return m / 110540;
-}
-
-export function metersToDegreesLon(m, lat) {
-    return m / (111320 * Math.cos(lat * Math.PI / 180));
-}

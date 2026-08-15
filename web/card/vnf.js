@@ -15,7 +15,6 @@ function footprint(det) {
 }
 
 export default {
-    kind: 'vnf',
     source: 'detections',
     cfg: MODE.vnf,
     passLabel: 'Nights read',

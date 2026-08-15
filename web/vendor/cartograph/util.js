@@ -14,6 +14,11 @@ export function haversineKm(lat1, lon1, lat2, lon2) {
 
 export const haversineM = (...a) => haversineKm(...a) * 1000;
 
+// metres -> degrees, for sizing a rect around a point. the cos guard keeps the
+// longitude span finite at the poles
+export const degLat = m => m / 111320;
+export const degLon = (m, lat) => m / (111320 * Math.max(0.05, Math.cos(lat * Math.PI / 180)));
+
 const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
                  'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 export function compass(deg) {
@@ -29,6 +34,12 @@ export function fmtMetres(m) {
 export function fmtCoords(lat, lon) {
     return `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'}, `
          + `${Math.abs(lon).toFixed(4)}°${lon >= 0 ? 'E' : 'W'}`;
+}
+
+export function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    return `${d.getDate()} ${d.toLocaleString('en', { month: 'short' })} ${d.getFullYear()}`;
 }
 
 // the data table's row math: viewport filter (bounds = [w, s, e, n]; rows

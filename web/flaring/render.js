@@ -10,7 +10,7 @@ import { RAMP } from '../layers.js';
 // 18:4765 fig 20): bcm/yr = 0.0115*rh -> mcm/day. metered-flare validated;
 // preferred over eog's per-pass Flow_Rate (cedigaz power law, biased high on
 // dim flares / low on bright ones per the same paper)
-export const RH_TO_MCM = 0.0315;
+const RH_TO_MCM = 0.0315;
 
 export const MODE = {
     s2: {
@@ -70,10 +70,4 @@ export function chartNorm(cfg, val) {
     const [lo, hi] = cfg.chartRange;
     if (cfg.log) return (Math.log(Math.max(lo, val)) - Math.log(lo)) / (Math.log(hi) - Math.log(lo));
     return (val - lo) / (hi - lo);
-}
-
-export function formatDate(dateStr) {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    return d.getDate() + ' ' + d.toLocaleString('en', { month: 'short' }) + ' ' + d.getFullYear();
 }

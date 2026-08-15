@@ -7,7 +7,7 @@ import { read } from '../vendor/cartograph/data.js';
 import { escapeHtml, compass } from '../vendor/cartograph/util.js';
 import { selectPlume } from './candidates.js';
 
-let requestId = 0;
+let epoch = 0;
 
 // full table into a Map at boot: ~2k records, keyed by plume display id.
 // config.js also reads the key set to mark attributed plumes.
@@ -100,14 +100,14 @@ function recordHtml(rec) {
 // ── detail-panel enrich hook ──
 
 export function enrich(p) {
-    const id = ++requestId;
+    const e = ++epoch;
     const lat = Number(p.lat), lon = Number(p.lon);
 
-    fetchWind(lat, lon, p.date).then(w => { if (requestId === id) renderWind(w); });
+    fetchWind(lat, lon, p.date).then(w => { if (epoch === e) renderWind(w); });
 
     (async () => {
         const rec = (await loadAttributions()).get(p.id) || null;
-        if (requestId !== id) return;
+        if (epoch !== e) return;
         const el = document.getElementById('analysis');
         if (el) {
             el.innerHTML = rec ? recordHtml(rec) : 'No source attribution yet.';

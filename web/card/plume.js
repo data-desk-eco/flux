@@ -3,22 +3,15 @@
 // #stat-wind and #analysis behind a request-id guard, then draws the candidate
 // sources around the plume. closing takes both down.
 
-import { escapeHtml } from '../vendor/cartograph/util.js';
+import { escapeHtml, formatDate } from '../vendor/cartograph/util.js';
 import { enrich } from '../methane/attribution.js';
 import { clearSelection } from '../methane/candidates.js';
 import { clearProbabilityOverlay, showProbabilityOverlay } from '../methane/overlay.js';
+import { label, rateT } from '../methane/plumes.js';
 
 let archive = '';
 
-// a label is editorial, so it is stated here. which providers exist is not: a
-// provider the archive adds lands on the map under its own name. provider is no
-// longer a colour — colour means intensity everywhere on this map (layers.js).
-const LABEL = { 'carbon-mapper': 'Carbon Mapper', imeo: 'IMEO / MARS', sron: 'SRON', ghgsat: 'GHGSat', 'data-desk': 'Data Desk' };
-export const label = p => LABEL[p] ?? p;
 const SECTOR = { og: 'Oil & Gas', coal: 'Coal', waste: 'Waste', other: 'Other' };
-
-// null when the provider published no rate estimate
-export const rateT = p => p.rate_kg_h == null ? null : (Number(p.rate_kg_h) / 1000).toFixed(1);
 
 // the provider's own record of this plume, linked from the card's title
 function sourceUrl(p) {
@@ -36,7 +29,6 @@ function overlayUrl(p) {
 }
 
 export default {
-    kind: 'plume',
     source: 'plumes',
     init: deps => { archive = deps.archive; },
     title: p => ({ text: p.id || '—', href: sourceUrl(p) }),
@@ -49,7 +41,7 @@ export default {
             <div><div class="fd-stat-big">${rateT(p) ?? '—'}</div><div class="dd-secondary">t/hr${p.rate_std_kg_h ? ` ±${(p.rate_std_kg_h / 1000).toFixed(1)}` : ''}</div></div>
             <div id="stat-wind"><div class="fd-stat-big">…</div><div class="dd-secondary">wind</div></div>
             <div><div class="fd-stat-big">${escapeHtml(p.satellite || '—')}</div><div class="dd-secondary">satellite</div></div>
-            <div><div class="fd-stat-big">${escapeHtml(p.date || '—')}</div><div class="dd-secondary">date</div></div>
+            <div><div class="fd-stat-big">${escapeHtml(p.date ? formatDate(p.date) : '—')}</div><div class="dd-secondary">date</div></div>
         </div>
         <div class="fd-analysis">
             <div class="dd-secondary">Analysis</div>

@@ -3,7 +3,8 @@
 // layer), card/ (one header and a body per feature kind), nearby.js (the "also
 // here" row), flaring/ (render.js mode tables, detect.js local detect+p2p,
 // s2archive.js / vnf.js readers, clustering.js feature builders) and methane/
-// (attribution.js, candidates.js, licences.js, overlay.js).
+// (plumes.js reader, attribution.js, candidates.js, licences.js, overlay.js,
+// sweep.js viewport sweep).
 //
 // flaring has two modes sharing one detection layer — s2 (archive clusters,
 // detect fallback) and vnf (viirs nightfire) — and the S2|VNF toggle governs
@@ -14,17 +15,16 @@
 import { mount } from './vendor/cartograph/app.js';
 import { closeDetail } from './vendor/cartograph/detail.js';
 import { viewportBbox, boxesWorldmap, ensureMark } from './vendor/cartograph/shell.js';
-import { padBbox, featureBbox, getHashParam, escapeHtml, quarterOf } from './vendor/cartograph/util.js';
+import { padBbox, featureBbox, getHashParam, escapeHtml, formatDate, degLat, degLon } from './vendor/cartograph/util.js';
 import { MODE } from './flaring/render.js';
-import { DD, RAMP, AREA, MARK, MARKS, ICON_SIZE, PLUME_BANDS, flareIcon, plumeIcon } from './layers.js';
-import { initArchive, objects } from './vendor/cartograph/archive.js';
+import { DD, RAMP, AREA, MARK, MARKS, PIN, RATE_LABEL, PLUME_BANDS, flareIcon, plumeIcon } from './layers.js';
+import { initArchive } from './vendor/cartograph/archive.js';
 import { initVNF, resetVNF, queryVNF, queryVNFFlare, availableQuartersVNF, isReady as vnfReady } from './flaring/vnf.js';
 import { initS2Archive, queryS2Archive, availableQuartersS2, isReady as s2ArchiveReady, isCovered, coverageTiles, whenCovered, residentFlares } from './flaring/s2archive.js';
 import { initCard, cardTitle, cardHtml, onCardShow, onCardClose, refreshCard, reselectCurrentFeature } from './card/index.js';
-import { label, rateT } from './card/plume.js';
 import { initNearby, RADIUS_M } from './nearby.js';
-import { setTerminals, archiveFeature, enrichVNFFeatures, DEG_TO_RAD } from './flaring/clustering.js';
-import { loadAttributions } from './methane/attribution.js';
+import { setTerminals, archiveFeature, enrichVNFFeatures } from './flaring/clustering.js';
+import { initPlumes, isPlume, label, rateT, readPlumes, availableQuartersPlumes, canon, readPlume } from './methane/plumes.js';
 import { addCandidateLayers } from './methane/candidates.js';
 import { LICENCE_LAYERS, addLicenceLayers } from './methane/licences.js';
 import { initProbabilityOverlay } from './methane/overlay.js';
@@ -67,6 +67,11 @@ let CTX;                                    // cartograph ctx (set in sources)
 let readyResolve;
 const whenReady = new Promise(r => readyResolve = r);
 
+// every refresh in this file is scheduled, never called on the event: a drag
+// fires moveend once but a quarter click can arrive in bursts, and the reads
+// behind these are viewport-wide
+const debounce = (fn, ms) => { let t; return () => { clearTimeout(t); t = setTimeout(fn, ms); }; };
+
 // `rank` rather than `persistence`, because the two answer different questions:
 // the card shows the rate over the quarters you picked, and the gate ranks the
 // site. clustering.js falls the one back on the other, and leaves rank null for
@@ -103,7 +108,6 @@ function setSource(id, features) {
     dispatchEvent(new Event('cg-filters'));
 }
 const setDetections = features => setSource('detections', features);
-const setPlumes = features => setSource('plumes', features);
 
 // programmatic mode switch routed through the toggle so the ui stays in sync
 const setMode = m => document.querySelector(`.cg-filter[data-key="mode"] [data-value="${m}"]`)?.click();
@@ -143,7 +147,7 @@ const ensureDetect = () => _detect ??= import('./flaring/detect.js')
 // vnf mode
 // ---------------------------------------------------------------------------
 
-let _vnfInitStarted = false, _vnfRaw = null, _vnfTimer = null;
+let _vnfInitStarted = false, _vnfRaw = null;
 
 async function refreshVNF() {
     if (!isVnf() || !vnfReady()) return;
@@ -161,17 +165,14 @@ async function refreshVNF() {
     } catch (err) { console.error('VNF query error:', err); }
 }
 
-const scheduleVNFRefresh = () => { clearTimeout(_vnfTimer); _vnfTimer = setTimeout(refreshVNF, 200); };
-let _quarterTimer;
-const scheduleQuarterIndicators = () => { clearTimeout(_quarterTimer); _quarterTimer = setTimeout(updateQuarterIndicators, 300); };
+const scheduleVNFRefresh = debounce(refreshVNF, 200);
+const scheduleQuarterIndicators = debounce(updateQuarterIndicators, 300);
 const updateVNFSource = () => { if (_vnfRaw) setDetections(enrichVNFFeatures(_vnfRaw, GATE.vnf)); };
 
 // ---------------------------------------------------------------------------
 // s2 archive mode — read precomputed detections for the viewport, falling back
 // to whatever is already in the CRDT (local-worker / synced detections)
 // ---------------------------------------------------------------------------
-
-let _s2Timer = null;
 
 // archive builds serve precomputed clusters, so the local-worker detect path —
 // and the p2p mesh that shares its workload — only make sense where the archive
@@ -223,11 +224,7 @@ async function refreshS2Archive() {
     }
 }
 
-function scheduleS2Refresh() {
-    if (!ARCHIVE) return;
-    clearTimeout(_s2Timer);
-    _s2Timer = setTimeout(refreshS2Archive, 200);
-}
+const scheduleS2Refresh = debounce(refreshS2Archive, 200);
 
 // refresh the whole s2 view. in archive builds the archive overlay owns the
 // detections source, so a plain updateDetectionSource() (CRDT only) would wipe
@@ -258,40 +255,9 @@ function ensureS2Archive() {
 // so that clause only emptied the methane layer for anyone running `make serve`.
 const PRIVATE = !!document.querySelector('meta[name="private"]');
 const PLUMES = PRIVATE ? 'data/plumes.parquet' : null;
+initPlumes(PRIVATE);
 // attributions live on the store too (ch4id `sync push` exports the contract)
 const ATTRIBUTIONS = `${ARCHIVE}/data-desk/attributions/data.parquet`;
-
-// everything the map, key and detail panel read — the projection stays narrow
-// because every column rides into the geojson. `kind` earns its place twice: it
-// is what the key's rate bands and the detail card dispatch on.
-const PLUME_COLS = ['id', 'kind', 'provider', 'date', 'lat', 'lon', 'rate_kg_h',
-    'rate_std_kg_h', 'satellite', 'sector', 'link', 'overlay', 'bounds'];
-// `detections` holds flares as well as plumes, and a data-desk retrieval the
-// producer does not trust rides along with valid = false
-const PLUME_WHERE = { kind: ['plume', 'plume'], valid: [true, true] };
-const isPlume = p => p.kind === 'plume';
-
-// one object per provider, named from the index and read independently:
-// allSettled, so a provider whose object is missing costs its own rows and
-// nothing else. eog is not among them because the index says its detections are
-// partitioned, not because this file knows anything about eog.
-const plumeObjects = () => PRIVATE ? Promise.resolve(['plumes'])
-    : objects('detections').catch(err => (console.warn('archive index:', err), []));
-
-// firedamp read every provider's whole plume history, ~70k features. the window
-// goes into duckdb as a date predicate instead, so the first read covers one
-// window and the quarter grid re-reads — row group statistics make that cheap,
-// and it is a straight improvement whichever window you pick.
-async function readPlumes(startDate, endDate) {
-    const opts = { columns: PLUME_COLS, where: { ...PLUME_WHERE, date: [startDate, endDate] } };
-    const reads = await Promise.allSettled((await plumeObjects()).map(u => CTX.read(u, opts)));
-    for (const r of reads)
-        if (r.status === 'rejected') console.warn('a detections source did not load:', r.reason);
-    const rows = reads.flatMap(r => r.status === 'fulfilled' ? r.value : []);
-    const attribs = await loadAttributions();
-    for (const p of rows) if (attribs.has(p.id)) p.attr = 1;
-    return rows;
-}
 
 let _plumeEpoch = 0;
 async function refreshPlumes() {
@@ -301,35 +267,14 @@ async function refreshPlumes() {
     try {
         const rows = await readPlumes(range.startDate, range.endDate);
         if (e !== _plumeEpoch) return;
-        setPlumes(CTX.fc(rows).features);
+        setSource('plumes', CTX.fc(rows).features);
         // a plume's numbers do not move with the window, but an open flare card's
         // do, and this path runs on the same quarter change as the flaring one
         reselectCurrentFeature();
     } catch (err) { console.error('plume query error:', err); }
 }
 
-let _plumeTimer = null;
-const schedulePlumeRefresh = () => { clearTimeout(_plumeTimer); _plumeTimer = setTimeout(refreshPlumes, 200); };
-
-// availability has to answer for quarters the ticked window does not cover, so
-// it cannot come off the display read. one read of three columns over the whole
-// grid span, held for the session — the shape s2archive.js uses for the flares
-// table — and every viewport is then answered from memory. the span alone would
-// not do: the plume tables hold something in every quarter of the grid, so a
-// global answer greys nothing and the dot state stops meaning anything.
-let _plumeIndex = null;
-const plumeIndex = () => _plumeIndex ??= (async () => {
-    const opts = { columns: ['date', 'lat', 'lon'], where: { ...PLUME_WHERE, date: [GRID_START, GRID_END] } };
-    const reads = await Promise.allSettled((await plumeObjects()).map(u => CTX.read(u, opts)));
-    return reads.flatMap(r => r.status === 'fulfilled' ? r.value : []);
-})().catch(err => (console.warn('plume availability:', err), []));
-
-async function availableQuartersPlumes([w, s, e, n]) {
-    const qs = new Set();
-    for (const p of await plumeIndex())
-        if (p.lon >= w && p.lon <= e && p.lat >= s && p.lat <= n) qs.add(quarterOf(p.date));
-    return qs;
-}
+const schedulePlumeRefresh = debounce(refreshPlumes, 200);
 
 // ---------------------------------------------------------------------------
 // quarter availability indicators
@@ -344,17 +289,21 @@ async function availableQuartersPlumes([w, s, e, n]) {
 // the selected quarters and the local detect fallback is the only way forward.
 async function updateQuarterIndicators() {
     const q = CTX.quarters, btns = [...q.buttons()];
+    const bbox = viewportBbox(CTX.map), pad = padBbox(bbox);
 
-    if (isVnf() || (ARCHIVE && isCovered(viewportBbox(CTX.map)))) {
+    if (isVnf() || (ARCHIVE && isCovered(bbox))) {
         btns.forEach(b => b.classList.remove('detected'));
         const ready = isVnf() ? vnfReady() : s2ArchiveReady();
-        const zoomOk = CTX.map.getZoom() >= (isVnf() ? MIN_VNF_ZOOM : MIN_DETECT_ZOOM);
+        // the floor each mode actually draws from: the archive scan is in memory,
+        // so gating it at the detect floor left z4–z11 with clusters on the map
+        // and a dot grid that greyed nothing and never set _s2Blank
+        const zoomOk = CTX.map.getZoom() >= (isVnf() ? MIN_VNF_ZOOM : MIN_ARCHIVE_ZOOM);
         let flareAvail = null;
         if (ready && zoomOk) {
             try {
                 flareAvail = isVnf()
-                    ? await availableQuartersVNF(padBbox(viewportBbox(CTX.map)), GRID_START, GRID_END)
-                    : await availableQuartersS2(padBbox(viewportBbox(CTX.map)));
+                    ? await availableQuartersVNF(pad, GRID_START, GRID_END)
+                    : await availableQuartersS2(pad);
             } catch (err) { console.error('quarter availability error:', err); }
         }
         // a quarter greys only when NO layer covers it, so the flaring answer is
@@ -362,7 +311,7 @@ async function updateQuarterIndicators() {
         // still read flaring's alone: the local detector is the s2 fallback, and
         // a quarter only methane covers is not one it can process.
         const avail = flareAvail
-            && new Set([...flareAvail, ...await availableQuartersPlumes(padBbox(viewportBbox(CTX.map)))]);
+            && new Set([...flareAvail, ...await availableQuartersPlumes(pad, GRID_START, GRID_END)]);
         const active = b => b.classList.contains('dd-active');
         btns.forEach(b => b.classList.toggle('dd-unavailable', !!avail && !avail.has(q.key(b))));
         // every selected quarter is unavailable here -> the map is blank; say why
@@ -406,7 +355,7 @@ const keySections = cfg => [
         rows: PLUME_BANDS.map(([label, lo, hi, color]) => ({
             swatch: { mark: 'quantitative', color }, label,
             pred: p => !isPlume(p) || (lo == null ? p.rate_kg_h == null
-                : p.rate_kg_h != null && p.rate_kg_h >= lo * 1000 && (!hi || p.rate_kg_h < hi * 1000)),
+                : p.rate_kg_h != null && p.rate_kg_h >= lo && (!hi || p.rate_kg_h < hi)),
         })),
     },
     {
@@ -504,24 +453,13 @@ async function resolveFlare(id) {
     return enrichVNFFeatures(fc.features.slice(0, 1), 0)[0] ?? null;
 }
 
-// a plume id carries its provider's namespace since the archive took the
-// detection tables over: `c096faa6…` became `IMEO:c096faa6…`. a link somebody
-// has already sent is the one thing a rename may not break, so the permalink
-// resolves on the namespace-free form too — one canonical spelling, matched
-// against the loaded features rather than a table of old ids.
-const canon = id => String(id).toLowerCase().replace(/_/g, ':').replace(/^[a-z]+:/, '');
-
-// #plume=<id>. the read is narrowed to the ticked window now, so a link naming a
-// plume outside it needs its own read — one row, and the id predicate is a
-// straight equality the engine pushes down.
+// #plume=<id>, off the loaded features where they hold it — matched on the
+// canonical spelling, so a link written before the archive namespaced the ids
+// still lands — and otherwise off a read of its own
 async function resolvePlume(id) {
     await whenReady;
-    const loaded = CTX.sources.plumes?.features.find(f => canon(f.properties.id) === canon(id));
-    if (loaded) return loaded;
-    const opts = { columns: PLUME_COLS, where: { ...PLUME_WHERE, id: [id, id] } };
-    const reads = await Promise.allSettled((await plumeObjects()).map(u => CTX.read(u, opts)));
-    const row = reads.flatMap(r => r.status === 'fulfilled' ? r.value : [])[0];
-    return row ? CTX.fc([row]).features[0] : null;
+    return CTX.sources.plumes?.features.find(f => canon(f.properties.id) === canon(id))
+        ?? await readPlume(id);
 }
 
 // ---------------------------------------------------------------------------
@@ -539,7 +477,7 @@ function nearS2(lat, lon) {
     if (!rows || !range) return [];
     // a box wide enough to hold the row's own radius test at this latitude,
     // cheap enough to run over the whole table on every card open
-    const dLat = RADIUS_M / 111320, dLon = dLat / Math.max(0.05, Math.cos(lat * DEG_TO_RAD));
+    const dLat = degLat(RADIUS_M), dLon = degLon(RADIUS_M, lat);
     const qKeys = CTX.quarters.keys();
     return rows
         .filter(c => Math.abs(c.lat - lat) <= dLat && Math.abs(c.lon - lon) <= dLon
@@ -608,6 +546,10 @@ mount({
     // one and the quarter grid re-reads the other; terminals are static geojson
     sources: async ctx => {
         CTX = ctx;
+        // before the layers are added, not in ready() after them: an id a layer
+        // names outright is fetched too late by styleimagemissing, and maplibre
+        // has already logged it as unloadable. the reads below cover the fetch.
+        MARKS.forEach(id => ensureMark(ctx.map, id));
         // added here, not in ready(), so the key's visibility toggle has a layer
         // to read — and so licence acreage sits beneath every marking
         if (PRIVATE) addLicenceLayers(ctx.map, ctx.sql);
@@ -634,12 +576,7 @@ mount({
             // slider gates display-only via this layer filter
             id: 'detections', type: 'symbol', source: 'detections',
             filter: persistenceFilter(0.25),
-            layout: {
-                'icon-image': flareIcon(MODE.s2),
-                'icon-size': ICON_SIZE,
-                'icon-allow-overlap': true,
-                'icon-ignore-placement': true,
-            },
+            layout: { ...PIN, 'icon-image': flareIcon(MODE.s2) },
         },
         {
             // methane plumes: the quantitative marking through the same ramp, on
@@ -648,18 +585,13 @@ mount({
             id: 'plumes', type: 'symbol', source: 'plumes',
             filter: ['!', ['has', 'point_count']],
             hover: p => `<span class="dd-title">${rateT(p) ? `${rateT(p)} t/hr` : 'rate n/a'}</span><br>`
-                + `${escapeHtml(label(p.provider))}${p.date ? ' · ' + escapeHtml(p.date) : ''}`,
+                + `${escapeHtml(label(p.provider))}${p.date ? ' · ' + escapeHtml(formatDate(p.date)) : ''}`,
             layout: {
-                'icon-image': plumeIcon(),
-                'icon-size': ICON_SIZE,
-                'icon-allow-overlap': true,
-                'icon-ignore-placement': true,
-                // t/hr up-and-right (dd label rule); colliding labels drop, icons
-                // stay; rate-less plumes get no label
+                ...PIN, ...RATE_LABEL,
+                'icon-image': plumeIcon,
+                // rate-less plumes get no label; colliding ones drop, icons stay
                 'text-field': ['case', ['==', ['typeof', ['get', 'rate_kg_h']], 'number'], ['concat',
                     ['number-format', ['/', ['get', 'rate_kg_h'], 1000], { 'max-fraction-digits': 1 }], ' t/hr'], ''],
-                'text-font': ['Montserrat Regular'], 'text-size': 10,
-                'text-anchor': 'bottom-left', 'text-offset': [0.7, -0.7],
                 'text-optional': true,
             },
             paint: { 'text-color': DD.white },
@@ -670,14 +602,13 @@ mount({
             id: 'plumes-clusters', type: 'symbol', source: 'plumes',
             filter: ['has', 'point_count'],
             layout: {
+                ...PIN, ...RATE_LABEL,
                 'icon-image': `quantitative-${DD.white}`,
-                'icon-size': ICON_SIZE,
-                'icon-allow-overlap': true, 'icon-ignore-placement': true,
                 // round before formatting: maplibre drops a 0 'max-fraction-digits'
                 'text-field': ['concat',
                     ['number-format', ['round', ['/', ['get', 'rate_sum'], 1000]], {}], ' t/hr'],
-                'text-font': ['Montserrat Regular'], 'text-size': 10,
-                'text-anchor': 'bottom-left', 'text-offset': [0.7, -0.7],
+                // a cluster is what the reader clicks through, so its total is
+                // never dropped for a collision
                 'text-allow-overlap': true,
             },
             paint: { 'text-color': DD.white },
@@ -696,10 +627,9 @@ mount({
         {
             id: 'lng-terminal-dots', type: 'symbol', source: 'lng-terminals',
             layout: {
-                'icon-image': MARK.lng,
+                ...PIN, 'icon-image': MARK.lng,
+                // an installation, not a measurement: smaller than the detections
                 'icon-size': ['interpolate', ['linear'], ['zoom'], 0, 0.5, 6, 0.65, 12, 0.9],
-                'icon-allow-overlap': true,
-                'icon-ignore-placement': true,
             },
         },
     ],
@@ -798,9 +728,6 @@ mount({
         initNearby(ctx.map, nearbyGroups);
         initProbabilityOverlay(ctx.map);
         addCandidateLayers(ctx.map, ctx.sql);
-
-        // marking images referenced only in expressions preload up front
-        MARKS.forEach(id => ensureMark(ctx.map, id));
 
         // intro modal extras: archive coverage worldmap (pdf:86) + methods reveal
         boxesWorldmap(document.getElementById('modal-worldmap'), async () => {

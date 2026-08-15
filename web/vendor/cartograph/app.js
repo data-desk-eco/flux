@@ -53,7 +53,7 @@ function wireFilters(map, config, sources, extra, ctx) {
     for (const group of document.querySelectorAll('.cg-filter')) {
         // an option the current data cannot offer reads as unavailable (the dd
         // inactive grey, no clicks) rather than filtering the map to nothing
-        ctx.filters[group.dataset.key] = { unavailable: (test = () => false) =>
+        ctx.filters[group.dataset.key] = { unavailable: test =>
             group.querySelectorAll('.cg-opt').forEach(b => b.classList.toggle('dd-unavailable', !!test(b.dataset.value))) };
         group.addEventListener('click', e => {
             const btn = e.target.closest('.cg-opt');

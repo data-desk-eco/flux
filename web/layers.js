@@ -21,7 +21,7 @@ export const ICON_SIZE = ['interpolate', ['linear'], ['zoom'], 2, 0.55, 10, 0.8,
 // icon-image expression: `mark` stepped low → mid → high through the ramp at
 // the layer's own stops. a row the producer gives no value for coalesces to the
 // bottom of the ramp, which flattens the colour rather than hiding the feature.
-export function rampIcon(mark, prop, stops, log = false) {
+function rampIcon(mark, prop, stops, log = false) {
     const v = ['coalesce', ['get', prop], stops[0]];
     const at = s => log ? Math.log(s + 1) : s;
     return ['step', log ? ['ln', ['+', v, 1]] : v,
@@ -34,17 +34,20 @@ export const flareIcon = cfg => rampIcon('flare', cfg.prop, cfg.stops, cfg.log);
 // methane: a plume carries a measured rate, so it is a quantitative data point
 // and takes the quantitative marking. its stops are the key's band boundaries,
 // so what the map draws and what the key filters on are one set of numbers.
-export const PLUME_STOPS = [1000, 5000, 10000];   // kg/h
-export const plumeIcon = () => rampIcon('quantitative', 'rate_kg_h', PLUME_STOPS);
+const PLUME_STOPS = [1000, 5000, 10000];   // kg/h
+export const plumeIcon = rampIcon('quantitative', 'rate_kg_h', PLUME_STOPS);
 
-// the key's rate bands in t/hr, each shown in the colour the map draws it in.
-// no slider for these: two sliders is the panel budget, and a multi-select band
-// filter reads better than a continuous minimum.
+// the key's rate bands, off those same stops so a band boundary cannot drift
+// from the colour the map draws either side of it: kg/h for the filter, t/hr in
+// the label because that is the unit the key states. no slider for these — two
+// sliders is the panel budget, and a multi-select band filter reads better than
+// a continuous minimum.
+const [LO, MID, HI] = PLUME_STOPS, t = kg => kg / 1000;
 export const PLUME_BANDS = [
-    ['10+', 10, null, RAMP[2]],
-    ['5–10', 5, 10, RAMP[1]],
-    ['1–5', 1, 5, RAMP[0]],
-    ['< 1', 0, 1, RAMP[0]],
+    [`${t(HI)}+`, HI, null, RAMP[2]],
+    [`${t(MID)}–${t(HI)}`, MID, HI, RAMP[1]],
+    [`${t(LO)}–${t(MID)}`, LO, MID, RAMP[0]],
+    [`< ${t(LO)}`, 0, LO, RAMP[0]],
     ['n/a', null, null, RAMP[0]],   // no rate published — drawn at the ramp's foot
 ];
 
@@ -56,8 +59,16 @@ export const MARK = {
     candidate: `square-${DD.white}`,      // ogim / other infrastructure
     attributed: `diamond-${DD.white}`,    // attributed source candidate
 };
-export const AREA = { licence: DD.purple, coverage: DD.white };
+export const AREA = { licence: DD.purple };
 export const DASH = [2, 2];
 
 // marking ids only expressions name, so styleimagemissing never sees them
 export const MARKS = [...RAMP.flatMap(c => [`flare-${c}`, `quantitative-${c}`]), ...Object.values(MARK)];
+
+// every marking layer on this map pins its icon: a detection sits where it was
+// measured, so overlap never moves or drops one
+export const PIN = { 'icon-size': ICON_SIZE, 'icon-allow-overlap': true, 'icon-ignore-placement': true };
+// the rate label beside it, up-and-right (dd label rule). collision behaviour
+// stays per-layer: a point's label is optional, a cluster total's is not.
+export const RATE_LABEL = { 'text-font': ['Montserrat Regular'], 'text-size': 10,
+                            'text-anchor': 'bottom-left', 'text-offset': [0.7, -0.7] };

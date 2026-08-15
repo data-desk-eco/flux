@@ -4,7 +4,7 @@
 // via setTerminals(). No app/CRDT state — crossDateCluster lives in detect.js
 // since it reads the processedMap.
 
-import { dateInQuarters } from '../vendor/cartograph/util.js';
+import { dateInQuarters, degLat } from '../vendor/cartograph/util.js';
 
 export const DEG_TO_RAD = Math.PI / 180;
 const R_EARTH = 6371000;
@@ -22,7 +22,7 @@ const COVERAGE_MIN = 0.8;
 const MIN_LOOKS = 10;
 
 // Fast equirectangular distance — accurate to <0.1% under 1 km and below ~70° lat.
-function fastDistM(lat1, lon1, lat2, lon2) {
+export function fastDistM(lat1, lon1, lat2, lon2) {
     const dLat = (lat2 - lat1) * DEG_TO_RAD;
     const dLon = (lon2 - lon1) * DEG_TO_RAD * Math.cos(((lat1 + lat2) * 0.5) * DEG_TO_RAD);
     return R_EARTH * Math.sqrt(dLat * dLat + dLon * dLon);
@@ -35,7 +35,7 @@ let _terminalGridCell = 0;
 
 export function setTerminals(features) {
     _terminals = features || [];
-    const cell = TERMINAL_MATCH_M / 111320;       // degrees per grid cell
+    const cell = degLat(TERMINAL_MATCH_M);        // degrees per grid cell
     _terminalGridCell = cell;
     const g = new Map();
     for (const f of _terminals) {

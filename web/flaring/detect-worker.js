@@ -10,7 +10,7 @@
  */
 
 import { searchSTAC } from './s2/stac.js';
-import { openCOG, readWindow, enumerateBlocks, BLOCK_SIZE, BLOCK_OVERLAP } from './s2/cog.js';
+import { openCOG, readWindow, enumerateBlocks, BLOCK_SIZE } from './s2/cog.js';
 import { utmToWgs84, utmParams } from './s2/geo.js';
 import initWasm, { detectBlock as wasmDetectBlock } from './s2/wasm/s2e_wasm.js';
 

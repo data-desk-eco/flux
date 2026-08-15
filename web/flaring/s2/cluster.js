@@ -1,19 +1,11 @@
 import { scoreCluster, glintSuspect, glintScoreFromElevation } from './score.js';
-
-const DEG_TO_RAD = Math.PI / 180;
-const R_EARTH = 6371000;
+import { DEG_TO_RAD, fastDistM } from '../clustering.js';
 
 function clusterHash(lat, lon) {
     const s = `${lat.toFixed(4)},${lon.toFixed(4)}`;
     let h = 0;
     for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
     return (h >>> 0).toString(36);
-}
-
-function fastDistM(lat1, lon1, lat2, lon2) {
-    const dLat = (lat2 - lat1) * DEG_TO_RAD;
-    const dLon = (lon2 - lon1) * DEG_TO_RAD * Math.cos(((lat1 + lat2) * 0.5) * DEG_TO_RAD);
-    return R_EARTH * Math.sqrt(dLat * dLat + dLon * dLon);
 }
 
 // Glint discriminator threshold.
@@ -41,7 +33,7 @@ const GLINT_B12_B11_RATIO = 1.25;     // median peak B12/B11 must exceed this to
  * @param {Array<{date: string}>} detections
  * @returns {boolean}
  */
-export function isSeasonal(detections) {
+function isSeasonal(detections) {
     const sunny = new Set([3, 4, 5, 6, 7]); // Apr(3)–Aug(7) (JS months 0-indexed)
     const months = new Set(detections.map(d => new Date(d.date + 'T00:00').getUTCMonth()));
     for (const m of months) { if (!sunny.has(m)) return false; }

@@ -12,9 +12,8 @@
 
 import { showDetail, refreshDetail, closeDetail } from '../vendor/cartograph/detail.js';
 import { dimSatellite } from '../vendor/cartograph/shell.js';
-import { dateInQuarters } from '../vendor/cartograph/util.js';
-import { rampRGB, scaleT, chartNorm, formatDate } from '../flaring/render.js';
-import { DEG_TO_RAD } from '../flaring/clustering.js';
+import { dateInQuarters, degLat, degLon, formatDate } from '../vendor/cartograph/util.js';
+import { rampRGB, scaleT, chartNorm } from '../flaring/render.js';
 import { nearbyHtml, wireNearby } from '../nearby.js';
 import flare from './flare.js';
 import vnf from './vnf.js';
@@ -304,7 +303,7 @@ function renderIntensityChart(el, detections, cfg, onSelectDate) {
 
 // ── map overlays shared by the flaring bodies ──
 
-export function greyCircles(grey) {
+function greyCircles(grey) {
     if (map.getLayer('detections'))
         map.setPaintProperty('detections', 'icon-opacity', grey ? 0.35 : 1);
 }
@@ -340,8 +339,7 @@ export function heatFootprint({ lon, lat, val, radiusM, cfg }) {
     clearCogLayers();
     if (!(val > 0)) return;
 
-    const dLat = radiusM / 111320;
-    const dLon = radiusM / (111320 * Math.cos(lat * DEG_TO_RAD));
+    const dLat = degLat(radiusM), dLon = degLon(radiusM, lat);
 
     const size = 128;
     const canvas = document.createElement('canvas');

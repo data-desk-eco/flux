@@ -2,8 +2,7 @@
 // satellite basemap. The PNG carries viridis RGBA; the canonical analysis
 // footprint supplies its four image-source corners.
 
-const SOURCE = 'dd-plume-probability';
-const LAYER = 'dd-plume-probability';
+const LAYER = 'dd-plume-probability';   // and its source, which has no other user
 let map, epoch = 0, objectUrl = null;
 
 export function initProbabilityOverlay(value) {
@@ -14,7 +13,7 @@ export function clearProbabilityOverlay() {
     epoch++;
     if (!map) return;
     if (map.getLayer(LAYER)) map.removeLayer(LAYER);
-    if (map.getSource(SOURCE)) map.removeSource(SOURCE);
+    if (map.getSource(LAYER)) map.removeSource(LAYER);
     if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
 }
 
@@ -50,11 +49,11 @@ export async function showProbabilityOverlay(properties, url) {
         const blobUrl = await transparentize(url);
         if (now !== epoch) return URL.revokeObjectURL(blobUrl);   // superseded mid-fetch
         objectUrl = blobUrl;
-        map.addSource(SOURCE, { type: 'image', url: blobUrl, coordinates });
+        map.addSource(LAYER, { type: 'image', url: blobUrl, coordinates });
         map.addLayer({
             id: LAYER,
             type: 'raster',
-            source: SOURCE,
+            source: LAYER,
             paint: {
                 'raster-opacity': 0.85,
                 'raster-fade-duration': 0,
