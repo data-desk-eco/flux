@@ -1,13 +1,15 @@
 // MapStand oil and gas licence areas. The private deploy bakes the restricted
 // Hilbert GeoParquet locally; DuckDB range-reads only intersecting row groups.
 
-import { hoverPopup } from './vendor/cartograph/shell.js';
-import { map as dd } from './vendor/dd/palette.js';
-import { escapeHtml } from './vendor/cartograph/util.js';
+import { hoverPopup } from '../vendor/cartograph/shell.js';
+import { map as dd } from '../vendor/dd/palette.js';
+import { escapeHtml } from '../vendor/cartograph/util.js';
 
 // absolute, because this goes into raw SQL: cartograph resolves a relative name
 // only inside read()/meta(), and DuckDB treats a bare path as a local file it
 // has no way to open. dist.sh appends its cache-buster inside the literal.
+// resolved against the document (web/), not this module's directory, so the
+// bake stays at web/data/ while the module lives under web/methane/.
 const FILE = new URL('data/licences.parquet', document.baseURI).href;
 const MIN_ZOOM = 6;          // whole-continent viewports would sweep the world
 const MAX_SCAN = 1500;

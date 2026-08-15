@@ -22,9 +22,9 @@
 // is one object and eog/detections is addressed by `cell`, so the path shape is
 // the producer's to change.
 
-import { read, meta } from './vendor/cartograph/data.js';
-import { objects } from './vendor/cartograph/archive.js';
-import { quarterOf } from './vendor/cartograph/util.js';
+import { read, meta } from '../vendor/cartograph/data.js';
+import { objects } from '../vendor/cartograph/archive.js';
+import { quarterOf } from '../vendor/cartograph/util.js';
 import { sumQuarters } from './clustering.js';
 
 let _flares = null, _initPromise = null, _ready = false;

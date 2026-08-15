@@ -8,7 +8,10 @@ web/vnf_nightly*.parquet
 .claude/
 .wrangler/
 web/vendor/.ok
-docs/
 __pycache__/
+*.pyc
 web/flares.parquet
 web/quarters.parquet
+dist/
+.playwright-mcp/
+promptlab/

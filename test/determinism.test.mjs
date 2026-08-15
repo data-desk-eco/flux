@@ -21,8 +21,8 @@ import { describe, it } from 'node:test';
 import {
     scoreCluster, ratioScore, persistenceScore, glintPenalty,
     glintAngleNadir, glintScoreFromAngle, glintScoreFromElevation,
-} from '../web/s2/score.js';
-import { clusterDetections } from '../web/s2/cluster.js';
+} from '../web/flaring/s2/score.js';
+import { clusterDetections } from '../web/flaring/s2/cluster.js';
 
 // ───────────────────────────────────────────────────────────────────────
 // Constants (copied from detect.js)

@@ -3,8 +3,8 @@
 // repo), read in-browser via DuckDB. wind is fetched per plume from
 // open-meteo as an independent panel stat.
 
-import { read } from './vendor/cartograph/data.js';
-import { escapeHtml, compass } from './vendor/cartograph/util.js';
+import { read } from '../vendor/cartograph/data.js';
+import { escapeHtml, compass } from '../vendor/cartograph/util.js';
 import { selectPlume } from './candidates.js';
 
 let requestId = 0;

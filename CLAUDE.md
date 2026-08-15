@@ -6,7 +6,7 @@ VIIRS Nightfire (VNF) mode for browsing EOG's satellite flare catalog.
 Zero npm dependencies. The only external libraries are MapLibre GL (map
 rendering), geotiff.js (COG reads), DuckDB-Wasm with spatial support, and the
 s2e rust core compiled to wasm (the flare detector) — all vendored under
-`web/vendor/` and `web/s2/`. Everything else — CRDT, WebRTC mesh, sync protocol,
+`web/vendor/` and `web/flaring/s2/`. Everything else — CRDT, WebRTC mesh, sync protocol,
 IndexedDB persistence, UTM projection math, and the signal server's WebSocket
 framing — is hand-rolled using web standards.
 
@@ -39,7 +39,7 @@ framing — is hand-rolled using web standards.
 **S2 mode:** The default data source reads the Data Desk Sentinel-2 tables
 straight from the CloudFerro public parquet archive. `data-desk/flares/data.parquet`
 is **one object** — one row per cluster, with the site's quarterly history nested
-in a `quarters` list — so `web/s2archive.js` reads it once through Cartograph's
+in a `quarters` list — so `web/flaring/s2archive.js` reads it once through Cartograph's
 DuckDB layer and serves every viewport from those rows (bbox + date-overlap
 filter). There is no bucket listing and no MGRS partition: the archive partitions
 only past 250 MB, and it partitions on `cell`, an H3 resolution-1 index a reader
@@ -135,7 +135,7 @@ window) and the flare is dropped rather than ranked. Do not "simplify" the two
 branches back into one — coalescing to 0 in S2 mode is what sank the whole
 archive below the slider's 25% default. The in-browser COG detection worker (`detect-worker.js`, the "Detect"
 button) is the fallback for areas not yet archived: it runs the s2e rust core
-compiled to wasm (`web/s2/wasm/`), the SAME binary methodology as the server-side
+compiled to wasm (`web/flaring/s2/wasm/`), the SAME binary methodology as the server-side
 archive — there is no JS detector port (it drifted from the core and was removed).
 Peers share a single CRDT document, idle peers read
 the job from awareness state, partition blocks by hash, and process their share,
@@ -242,8 +242,8 @@ test/
 | Library | Purpose | Loaded from |
 |---------|---------|-------------|
 | MapLibre GL 5.1 | WebGL map rendering | Vendored (`web/vendor/`) |
-| geotiff.js 2.1 | Cloud Optimized GeoTIFF reads | Vendored in `web/s2/vendor/` (ESM, one copy) |
-| s2e wasm 2.0 | Block flare detector (rust core) | Vendored in `web/s2/wasm/` |
+| geotiff.js 2.1 | Cloud Optimized GeoTIFF reads | Vendored in `web/flaring/s2/vendor/` (ESM, one copy) |
+| s2e wasm 2.0 | Block flare detector (rust core) | Vendored in `web/flaring/s2/wasm/` |
 | DuckDB-Wasm lite | VNF and S2 archive Parquet reads | Vendored by Cartograph (`web/vendor/duckdb/`) |
 
 Everything else uses browser/Node.js builtins:
@@ -276,7 +276,7 @@ Per-block pipeline (fused into minimal passes):
   9. Overlap dedup: canonical block via floor(pixel / 256)
 
 Each detection also carries glint/spectral annotations (s2e core; the
-glint geometry helpers are re-exported from `web/s2/score.js`):
+glint geometry helpers are re-exported from `web/flaring/s2/score.js`):
   - sun_elevation/sun_azimuth (STAC view extension, via stac.js)
   - glint_angle = 90 - sun_elevation; glint_score (1.0 ≤25°, →0 at 65°)
   - peak_b11, b12_b11_ratio (flames are hot, ratio >~1.3; glint is flat ~1.0)
@@ -293,7 +293,7 @@ Cross-date clustering (main thread, grid-indexed):
   - Persistence metric: detections / observations per cluster
   - Cloud-free %: fraction of observations with ≤30% cloud (data quality indicator)
 
-Cluster quality score (vision-validated methodology, web/s2/score.js) — computed
+Cluster quality score (vision-validated methodology, web/flaring/s2/score.js) — computed
 and shown in the detail card, NOT yet a gate. The formula was tuned in
 ~/Research/permian-flaring against an unbiased 2,826-site aerial study (sql/30):
   - total_score = 0.50·ratio_score

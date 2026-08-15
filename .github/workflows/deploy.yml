@@ -42,12 +42,12 @@ jobs:
           # the old rule over the new table. the path pattern forbids a slash, so
           # it stamps config.js and leaves vendor/maplibre-gl.js alone.
           V=${GITHUB_SHA::8}
-          find dist -path dist/vendor -prune -o -path dist/s2/vendor -prune -o \
+          find dist -path dist/vendor -prune -o -path dist/flaring/s2/vendor -prune -o \
             \( -name '*.js' -o -name '*.html' \) -print0 | xargs -0 sed -i -E \
             -e "s|(<script[^>]* src=\")((\./)?[^\"?/]+\.m?js)(\")|\1\2?v=$V\4|g" \
             -e "s|(from ')(\.[^']+\.m?js)(')|\1\2?v=$V\3|g" \
             -e "s|(import\(')(\.[^']+\.m?js)('\))|\1\2?v=$V\3|g" \
-            -e "s|(new Worker\(')([^'?]+\.js)(')|\1\2?v=$V\3|g" \
+            -e "s|(new URL\(')(\.[^']+\.m?js)(')|\1\2?v=$V\3|g" \
             -e "s|\?v=[0-9a-z]+|?v=$V|g" \
             -e "s|(vendor/[^']*\.m?js)\?v=[0-9a-z]+|\1|g"
 

@@ -8,10 +8,10 @@
 // attributed feature(s) highlighted. drawn as dd waypoint markings (white ×,
 // orange and larger when attributed) over an invisible fat hit layer.
 
-import { ensureMark, hoverPopup } from './vendor/cartograph/shell.js';
-import { map as dd } from './vendor/dd/palette.js';
-import { objects } from './vendor/cartograph/archive.js';
-import { escapeHtml, fmtMetres, haversineM } from './vendor/cartograph/util.js';
+import { ensureMark, hoverPopup } from '../vendor/cartograph/shell.js';
+import { map as dd } from '../vendor/dd/palette.js';
+import { objects } from '../vendor/cartograph/archive.js';
+import { escapeHtml, fmtMetres, haversineM } from '../vendor/cartograph/util.js';
 
 const MIN_ZOOM = 13;
 const MAX_SCAN = 4000, MAX_SHOW = 300;

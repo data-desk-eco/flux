@@ -4,7 +4,7 @@
 // via setTerminals(). No app/CRDT state — crossDateCluster lives in detect.js
 // since it reads the processedMap.
 
-import { dateInQuarters } from './vendor/cartograph/util.js';
+import { dateInQuarters } from '../vendor/cartograph/util.js';
 
 export const DEG_TO_RAD = Math.PI / 180;
 const R_EARTH = 6371000;

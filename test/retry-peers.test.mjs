@@ -12,7 +12,7 @@
 
 import { strict as assert } from 'node:assert';
 import { describe, it, beforeEach } from 'node:test';
-import { geohash3, jaccardScore } from '../web/rtc.js';
+import { geohash3, jaccardScore } from '../web/flaring/rtc.js';
 
 // ───────────────────────────────────────────────────────────────────────
 // fetchWithRetry — extracted from detect.js (runs in a Worker, so we

@@ -6,8 +6,8 @@
 <script type="module">
 import { LWWMap, encodeKey, decodeKey, encodeDetection, decodeDetection,
          encodeStringTable, decodeStringTable, encodeStateVector, decodeStateVector,
-         encodeEntries, decodeEntries } from '../web/crdt.js';
-import { validateDetection, isAllowedCogUrl } from '../web/sync.js';
+         encodeEntries, decodeEntries } from '../web/flaring/crdt.js';
+import { validateDetection, isAllowedCogUrl } from '../web/flaring/sync.js';
 
 const el = document.getElementById('log');
 const results = [];

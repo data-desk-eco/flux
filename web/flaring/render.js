@@ -5,7 +5,7 @@
 // the current mode and the slider state and feeds them in; the key itself is
 // built by cartograph from config.js's keySections.
 
-import { map as ddPalette } from './vendor/dd/palette.js';
+import { map as ddPalette } from '../vendor/dd/palette.js';
 
 export const DD = ddPalette.adjusted;
 export const RAMP = [DD.red, DD.orange, DD.white]; // low → high intensity

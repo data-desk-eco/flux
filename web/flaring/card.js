@@ -7,9 +7,9 @@
 import { openCOG } from './s2/cog.js';
 import { wgs84ToUtm, utmToWgs84, utmParams } from './s2/geo.js';
 import { rampRGB, scaleT, chartNorm, formatDate } from './render.js';
-import { showDetail, refreshDetail, closeDetail } from './vendor/cartograph/detail.js';
-import { dimSatellite } from './vendor/cartograph/shell.js';
-import { dateInQuarters } from './vendor/cartograph/util.js';
+import { showDetail, refreshDetail, closeDetail } from '../vendor/cartograph/detail.js';
+import { dimSatellite } from '../vendor/cartograph/shell.js';
+import { dateInQuarters } from '../vendor/cartograph/util.js';
 import { DEG_TO_RAD } from './clustering.js';
 import { fetchVNFDetections } from './vnf.js';
 import { fetchS2Detections } from './s2archive.js';

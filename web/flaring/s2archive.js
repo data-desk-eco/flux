@@ -11,9 +11,9 @@
 // coverage test and the intro-modal worldmap; it is a named asset, not a table,
 // so it stays named. Zero npm dependencies.
 
-import { read } from './vendor/cartograph/data.js';
-import { objects } from './vendor/cartograph/archive.js';
-import { quarterOf } from './vendor/cartograph/util.js';
+import { read } from '../vendor/cartograph/data.js';
+import { objects } from '../vendor/cartograph/archive.js';
+import { quarterOf } from '../vendor/cartograph/util.js';
 
 let _base = '', _tiles = null, _coverage = null, _initPromise = null, _flares = null;
 const overlaps = ([w, s, e, n], [tw, ts, te, tn]) => w <= te && e >= tw && s <= tn && n >= ts;

@@ -7,7 +7,7 @@
 
 import { clusterDetections } from './s2/cluster.js';
 import { findNearestTerminal } from './clustering.js';
-import { viewportBbox } from './vendor/cartograph/shell.js';
+import { viewportBbox } from '../vendor/cartograph/shell.js';
 
 let LWWMap, Store, PeerMesh, geohash3, SyncManager, validateDetection;   // lazy imports
 
@@ -410,7 +410,7 @@ export function updateDetectButton(detected = getDetectedQuarters()) {
 // handshake, block-result caching (the single write path for local + peer help),
 // and progress/done/error handlers.
 function spawnWorker(job, peerIndex, peerCount, handlers = {}) {
-    const w = new Worker('detect-worker.js', { type: 'module' });
+    const w = new Worker(new URL('./detect-worker.js', import.meta.url), { type: 'module' });
     w.onmessage = e => {
         const m = e.data;
         if (m.type === 'ready') w.postMessage({

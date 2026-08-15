@@ -8,13 +8,13 @@ import { mount } from './vendor/cartograph/app.js';
 import { closeDetail } from './vendor/cartograph/detail.js';
 import { viewportBbox, boxesWorldmap, ensureMark } from './vendor/cartograph/shell.js';
 import { padBbox, featureBbox, getHashParam } from './vendor/cartograph/util.js';
-import { MODE, RAMP, DD, markIconExpr, ICON_SIZE } from './render.js';
+import { MODE, RAMP, DD, markIconExpr, ICON_SIZE } from './flaring/render.js';
 import { initArchive } from './vendor/cartograph/archive.js';
-import { initVNF, resetVNF, queryVNF, queryVNFFlare, availableQuartersVNF, isReady as vnfReady } from './vnf.js';
-import { initS2Archive, queryS2Archive, availableQuartersS2, isReady as s2ArchiveReady, isCovered, coverageTiles, whenCovered } from './s2archive.js';
-import { initDetect, ensureDetect, isDetecting, updateDetectionSource, getDetectedQuarters, updateDetectButton, MIN_DETECT_ZOOM } from './detect.js';
-import { initCard, cardTitle, cardHtml, onCardShow, onCardClose, refreshCard, reselectCurrentFeature } from './card.js';
-import { setTerminals, archiveFeature, enrichVNFFeatures } from './clustering.js';
+import { initVNF, resetVNF, queryVNF, queryVNFFlare, availableQuartersVNF, isReady as vnfReady } from './flaring/vnf.js';
+import { initS2Archive, queryS2Archive, availableQuartersS2, isReady as s2ArchiveReady, isCovered, coverageTiles, whenCovered } from './flaring/s2archive.js';
+import { initDetect, ensureDetect, isDetecting, updateDetectionSource, getDetectedQuarters, updateDetectButton, MIN_DETECT_ZOOM } from './flaring/detect.js';
+import { initCard, cardTitle, cardHtml, onCardShow, onCardClose, refreshCard, reselectCurrentFeature } from './flaring/card.js';
+import { setTerminals, archiveFeature, enrichVNFFeatures } from './flaring/clustering.js';
 
 // legacy deep links: #vnf/123 -> #vnf=123 (cartograph hash params)
 if (/^#vnf\/\d+$/.test(location.hash))
