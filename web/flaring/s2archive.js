@@ -42,9 +42,15 @@ export function isCovered(bbox) {
 export function whenCovered() { return _initPromise || Promise.resolve(); }
 
 /** The published scanned-AOI boxes (coverage.geojson) for the coverage overlay.
- *  Null until it lands / if absent. */
+ *  Polygons only: the file states a flare AOI as a bare Point, and the vendor's
+ *  featureBbox walks a ring — the first of the 110 Points threw out of the
+ *  worldmap callback and left the intro modal with no coverage drawn at all.
+ *  isCovered keeps them; it gives a Point the box the detector scans. Null until
+ *  it lands / if absent. */
 export function coverageTiles() {
-    return _coverage && _coverage.features.length ? _coverage : null;
+    const features = _coverage?.features.filter(f => f.geometry?.type === 'Polygon'
+        || f.geometry?.type === 'MultiPolygon') ?? [];
+    return features.length ? { ..._coverage, features } : null;
 }
 
 /** Remember the archive base URL and load the published coverage.geojson — the

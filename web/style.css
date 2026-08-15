@@ -41,6 +41,20 @@
 .col-count, .event-meta-count { width: 32px; }
 .events-empty { color: var(--dd-ui-text-secondary); padding: 2px 7px; }
 
+/* --- detail card: plume body --- */
+
+.fd-badges { display: flex; gap: 11px; }
+
+.fd-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 15px 11px; }
+.fd-stat-big { font-size: 14px; display: flex; align-items: center; gap: 4px; }
+.fd-wind { width: 13px; height: 13px; flex-shrink: 0; }
+
+.fd-analysis { display: flex; flex-direction: column; gap: 11px; }
+.fd-attrib { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.fd-para { color: var(--dd-ui-text); }
+.fd-evidence a { color: var(--dd-ui-text-secondary); text-decoration: none; }
+.fd-evidence a:hover { color: var(--dd-ui-text); }
+
 /* --- intro modal extras: coverage worldmap + methods reveal --- */
 
 .region-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 25px; margin-bottom: 14px; }

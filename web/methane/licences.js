@@ -4,6 +4,7 @@
 import { hoverPopup } from '../vendor/cartograph/shell.js';
 import { map as dd } from '../vendor/dd/palette.js';
 import { escapeHtml } from '../vendor/cartograph/util.js';
+import { AREA, DASH } from '../layers.js';
 
 // absolute, because this goes into raw SQL: cartograph resolves a relative name
 // only inside read()/meta(), and DuckDB treats a bare path as a local file it
@@ -13,7 +14,7 @@ import { escapeHtml } from '../vendor/cartograph/util.js';
 const FILE = new URL('data/licences.parquet', document.baseURI).href;
 const MIN_ZOOM = 6;          // whole-continent viewports would sweep the world
 const MAX_SCAN = 1500;
-const C = dd.adjusted.purple;
+const C = AREA.licence;
 
 export const LICENCE_LAYERS = ['licences-fill', 'licences-line', 'licences-label'];
 
@@ -63,7 +64,8 @@ export function addLicenceLayers(m, sql) {
     });
     map.addLayer({
         id: 'licences-line', type: 'line', source: 'licences',
-        paint: { 'line-color': C, 'line-width': 1, 'line-opacity': 0.8 },
+        // dashed: an acreage boundary is a claim on paper, not a thing seen
+        paint: { 'line-color': C, 'line-width': 1, 'line-opacity': 0.8, 'line-dasharray': DASH },
     });
     // licence name at the polygon centre, tinted to its boundary. collision
     // drops them where acreage is dense (alberta is 55% of the layer), so they

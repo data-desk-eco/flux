@@ -5,17 +5,18 @@
 // DuckDB applies the viewport bounds against Hilbert-clustered lon/lat row
 // groups. Loaded optimistically for the viewport
 // past MIN_ZOOM, plus a radius query around the selected plume with the
-// attributed feature(s) highlighted. drawn as dd waypoint markings (white ×,
-// orange and larger when attributed) over an invisible fat hit layer.
+// attributed feature(s) highlighted. drawn as dd structure markings over an
+// invisible fat hit layer: a square for infrastructure, a diamond for an
+// attributed source. both white — colour on this map means intensity, so the
+// attributed one is told apart by its shape and its size, not by a tint.
 
 import { ensureMark, hoverPopup } from '../vendor/cartograph/shell.js';
-import { map as dd } from '../vendor/dd/palette.js';
 import { objects } from '../vendor/cartograph/archive.js';
 import { escapeHtml, fmtMetres, haversineM } from '../vendor/cartograph/util.js';
+import { MARK } from '../layers.js';
 
 const MIN_ZOOM = 13;
 const MAX_SCAN = 4000, MAX_SHOW = 300;
-const PT = dd.adjusted.white, HL = dd.adjusted.orange;
 
 // ch4id feature ids are OSM:w<id>; older attributions carry OSM:way/<id>
 const normId = id => id.replace(/^OSM:(way|node|relation)\//, (_, t) => `OSM:${t[0]}`);
@@ -116,22 +117,22 @@ export function clearSelection() {
 
 export function addCandidateLayers(m, sql) {
     map = m; query = sql;
-    for (const c of [PT, HL]) ensureMark(map, `waypoint-${c}`);
+    for (const c of [MARK.candidate, MARK.attributed]) ensureMark(map, c);
     map.addSource('candidates', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
     // invisible fat twin of the markings: the hover/touch target
     map.addLayer({
         id: 'candidates-hit', type: 'circle', source: 'candidates',
         paint: { 'circle-radius': 12, 'circle-opacity': 0, 'circle-stroke-width': 0 },
-    }, 'plumes-carbon-mapper');
+    }, 'plumes');
     map.addLayer({
         id: 'candidates', type: 'symbol', source: 'candidates',
         layout: {
-            'icon-image': ['case', ['get', 'hl'], `waypoint-${HL}`, `waypoint-${PT}`],
+            'icon-image': ['case', ['get', 'hl'], MARK.attributed, MARK.candidate],
             'icon-size': ['case', ['get', 'hl'], 1.4, 0.9],
             'icon-allow-overlap': true,
             'icon-ignore-placement': true,
         },
-    }, 'plumes-carbon-mapper');
+    }, 'plumes');
 
     hoverPopup(map, 'candidates-hit', p => {
         const kind = (p.kind || '').replace(/_/g, ' ');

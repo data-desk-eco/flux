@@ -60,7 +60,7 @@ export async function showProbabilityOverlay(properties, url) {
                 'raster-fade-duration': 0,
                 'raster-resampling': 'linear',
             },
-        }, map.getLayer('plumes-data-desk') ? 'plumes-data-desk' : undefined);
+        }, map.getLayer('plumes') ? 'plumes' : undefined);
     } catch (error) {
         clearProbabilityOverlay();
         console.warn('probability overlay unavailable:', error);

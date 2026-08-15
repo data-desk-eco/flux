@@ -146,9 +146,17 @@ export function archiveFeature(c, qKeys = new Set()) {
             // four looks, so narrowing to one puts 90% of sites under MIN_LOOKS
             // and a slider that empties the map when you pick a quarter is not a
             // filter. the site's published whole-history rate stands in, and the
-            // card still shows '—' for a window it could not rate. a site the
-            // archive never rated at all has neither, and scores 0.
-            rank: persistence ?? c.persistence ?? 0,
+            // card still shows '—' for a window it could not rate.
+            //
+            // a site the archive never rated at all has neither, and gets null —
+            // not 0. scoring it 0 states a rate we never measured, and a rate
+            // gate then hides it: every one of the 11 ras laffan sites publishes
+            // detections with no observations behind them, so the whole complex
+            // fell off the map at the slider's default with the quarter grid
+            // still saying those quarters had data. config.js decides what an
+            // unrated site does at the gate, and the two modes decide it
+            // differently.
+            rank: persistence ?? c.persistence ?? null,
         },
     };
 }

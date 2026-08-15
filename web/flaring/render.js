@@ -1,14 +1,11 @@
-// mode config + marking/colour builders — the single source of truth for how
-// detections look in each mode. colours come from the data desk cartography
-// palette (vendor/dd); detections render as the 'flare' marking stepped through
-// the red→orange→white intensity ramp (guidelines pdf:85 key). config.js holds
-// the current mode and the slider state and feeds them in; the key itself is
-// built by cartograph from config.js's keySections.
+// mode lookup tables for the flaring layer — the single source of truth for the
+// scale each mode reads on. what a flare *looks* like is layers.js's job, which
+// owns the marking and the shared intensity ramp for every layer on the map;
+// this file supplies the stops it steps at. config.js holds the current mode and
+// the slider state and feeds them in.
 
-import { map as ddPalette } from '../vendor/dd/palette.js';
+import { RAMP } from '../layers.js';
 
-export const DD = ddPalette.adjusted;
-export const RAMP = [DD.red, DD.orange, DD.white]; // low → high intensity
 // jz-rh calibration for vnf v3 toa radiant heat (zhizhin et al. 2025, energies
 // 18:4765 fig 20): bcm/yr = 0.0115*rh -> mcm/day. metered-flare validated;
 // preferred over eog's per-pass Flow_Rate (cedigaz power law, biased high on
@@ -76,17 +73,6 @@ export function chartNorm(cfg, val) {
     if (cfg.log) return (Math.log(Math.max(lo, val)) - Math.log(lo)) / (Math.log(hi) - Math.log(lo));
     return (val - lo) / (hi - lo);
 }
-
-// icon-image expression: flare marking stepped low→mid→high through the ramp
-export function markIconExpr(cfg) {
-    const prop = ['coalesce', ['get', cfg.prop], cfg.stops[0]];
-    return ['step', cfg.log ? ['ln', ['+', prop, 1]] : prop,
-        `flare-${RAMP[0]}`,
-        cfg.log ? Math.log(cfg.stops[1] + 1) : cfg.stops[1], `flare-${RAMP[1]}`,
-        cfg.log ? Math.log(cfg.stops[2] + 1) : cfg.stops[2], `flare-${RAMP[2]}`];
-}
-
-export const ICON_SIZE = ['interpolate', ['linear'], ['zoom'], 2, 0.55, 10, 0.8, 14, 1];
 
 export function formatDate(dateStr) {
     if (!dateStr) return '-';
