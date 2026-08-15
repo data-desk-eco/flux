@@ -1,32 +1,49 @@
-Burnoff
+Flux
 
-In-browser Sentinel-2 gas-flare detection, on a map.
+Two ways the oil and gas industry puts carbon into the air — gas it burns and
+gas it leaks — on one map, under one date window.
 
   make serve     # static server on :8000 + signaling on :4444
   make test
+  make vendor    # re-vendor cartograph + the s2e wasm core
 
-Three views of one map:
+Three detection layers, one quarter grid over all of them:
 
-  - S2 (default): the data-desk flares and detections tables in the Data Desk
-    CloudFerro archive, read through Cartograph's DuckDB-Wasm layer.
+  - S2 (default): Sentinel-2 flare clusters from the data-desk tables in the
+    Data Desk CloudFerro archive, read through Cartograph's DuckDB-Wasm layer.
   - Detect (outside archive coverage): downloads Sentinel-2 L2A COGs from the
     Element84 STAC catalogue and runs the detector in a Web Worker; connected
     peers split the work over WebRTC and merge results in a CRDT.
-  - VNF: VIIRS Nightfire, from the eog flares and detections tables in the same
-    archive, for cloud-free persistence comparison.
+  - VNF: VIIRS Nightfire, from the eog tables in the same archive, which sees
+    flares at night and measures their radiant heat.
+  - Methane: dated plume observations from Carbon Mapper, IMEO, SRON and Data
+    Desk, each carrying a measured release rate.
+
+The S2 toggle governs the flaring layer alone; plumes are their own layer and
+stay on. Shape says whether a feature burned or leaked, colour says only how
+much.
+
+Where things live:
+
+  web/config.js      the map config, and the orchestration around it
+  web/layers.js      marking, ramp and colour policy for every layer
+  web/card/          one card header, one body per feature kind
+  web/nearby.js      the "also here" row across the families
+  web/flaring/       S2 archive + VNF readers, clustering, the local detector
+  web/methane/       plume reader, attribution, candidates, licences, overlay
+  web/vendor/        cartograph, the dd design system, DuckDB, MapLibre
 
 The detector, clusterer and quality score are the s2-flares methodology core
 (github.com/data-desk-eco/s2-flares), Rust compiled to wasm and vendored in
-web/flaring/s2/ — the in-browser path produces the same results as the archive run.
-The app is a cartograph consumer (github.com/data-desk-eco/cartograph — the
-map system itself is documented there): web/config.js is the config passed to
-mount(), and the burnoff-specific behaviour lives in the hook modules it
-wires in (card.js, detect.js, vnf.js, s2archive.js, clustering.js,
-render.js).
+web/flaring/s2/ — the in-browser path produces the same results as the archive
+run. The app is a cartograph consumer (github.com/data-desk-eco/cartograph —
+the map system itself is documented there): web/config.js is the config passed
+to mount(), and the flux-specific behaviour lives in the hook modules it wires
+in. CLAUDE.md carries the invariants.
 
-Zero npm dependencies: MapLibre GL, geotiff.js, DuckDB-Wasm, and the wasm core
+Zero npm dependencies: MapLibre GL, geotiff.js, DuckDB-Wasm and the wasm core
 are vendored. The rest uses browser and Node.js built-ins. Production signaling
-is a Cloudflare Durable Object (`signal/worker.js`).
+is a Cloudflare Durable Object (signal/worker.js).
 
 References
 
@@ -34,3 +51,6 @@ Faruolo et al. (2024) The DAFI v2 algorithm for gas flare detection
 https://doi.org/10.1088/1748-9326/ad82fb
 Elvidge et al. (2013) VIIRS Nightfire: satellite pyrometry at night
 https://doi.org/10.3390/rs5094423
+Jacob et al. (2022) Quantifying methane emissions from the global scale down to
+point sources
+https://doi.org/10.5194/acp-22-9617-2022
