@@ -31,7 +31,10 @@ a { color: inherit; text-decoration: underline; }
    2026-07-08) and a child styled through its own id — #worldmap below — would
    otherwise outrank a class-only rule and stay on screen */
 #main-panel.collapsed > :not(.dd-head) { display: none; }
-#worldmap { width: 100%; display: block; }
+/* no shrink: an svg's automatic minimum size is 0, so on a viewport short
+   enough to overflow the panel it is the one child that absorbs all of it and
+   the worldmap vanishes rather than the panel scrolling */
+#worldmap { width: 100%; display: block; flex-shrink: 0; }
 
 /* border + padding hang into the panel margins so the input text stays
    aligned with the panel content (the dd hanging-chevron idiom) */
