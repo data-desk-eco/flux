@@ -15,6 +15,7 @@ const RH_TO_MCM = 0.0315;
 export const MODE = {
     s2: {
         label: 'B12 reflectance',
+        unit: 'B12',
         // the site-level ramp key. the shared flares schema has no b12 column,
         // so this is a data-desk extension on the row; markIconExpr coalesces a
         // missing one to stops[0], which flattens the ramp rather than hiding
@@ -33,6 +34,7 @@ export const MODE = {
     },
     vnf: {
         label: 'Radiant heat (MW)',
+        unit: 'MW',
         prop: 'max_rh',
         col2: 'RH', col3: 'MCM/d',
         stops: [1, 7, 20],

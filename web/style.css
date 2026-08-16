@@ -31,6 +31,10 @@
 @media (max-height: 1120px) and (min-width: 769px) {
     .cg-key { flex-direction: row; justify-content: space-between;
               width: auto; max-width: calc(100vw - 60px); gap: 38px; }
+    /* the rows size each column; a group title rides that width rather than
+       stretching it */
+    .cg-key-section { min-width: 0; }
+    .cg-key-head { width: 0; min-width: 100%; white-space: nowrap; }
     /* and the main panel stops above the key rather than running through it —
        panels must never overlap. 180px is the tallest the key gets side by
        side: a label over the five methane bands, plus its own padding. */

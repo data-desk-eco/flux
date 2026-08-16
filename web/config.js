@@ -163,7 +163,12 @@ async function refreshVNF() {
         // keeps a persistence for quarters that are no longer selected, and the
         // '—' a window with no clear night should show never appears
         if (isVnf()) { updateVNFSource(); reselectCurrentFeature(); }
-    } catch (err) { console.error('VNF query error:', err); }
+    } catch (err) {
+        console.error('VNF query error:', err);
+        // transient store failures happen (short parquet reads); say so where
+        // the reader is looking rather than leaving an empty map unexplained
+        CTX.quarters.hint('VNF read failed');
+    }
 }
 
 const scheduleVNFRefresh = debounce(refreshVNF, 200);
@@ -342,7 +347,7 @@ const keySections = cfg => [
         // layer, so clicking any one takes flaring off the map and greys all
         // three together. what governs flaring alone — the two sliders and the
         // S2|VNF toggle — goes with it (syncFlaring).
-        label: `Flaring — ${cfg.label}`,
+        label: `Flaring (${cfg.unit})`,
         rows: [...cfg.stops].reverse().map((v, i) => ({
             swatch: { mark: 'flare', color: RAMP[2 - i] }, label: i === 0 ? `${v}+` : String(v),
             toggle: 'detections' })),
@@ -352,7 +357,7 @@ const keySections = cfg => [
         // the panel budget. active rows OR into the data filter, and cartograph
         // runs those preds over every source it filters — so each band says what
         // it is about, because a rate band is no statement about a flare site.
-        label: 'Methane — t/hr',
+        label: 'Methane (t/hr)',
         rows: PLUME_BANDS.map(([label, lo, hi, color]) => ({
             swatch: { mark: 'quantitative', color }, label,
             pred: p => !isPlume(p) || (lo == null ? p.rate_kg_h == null
@@ -412,6 +417,9 @@ function switchMode(m) {
                 console.error('VNF init error:', err);
                 _vnfInitStarted = false;
                 resetVNF();
+                // do not bounce back silently: data present, no flares and no
+                // message was how a transient store failure read as a dead mode
+                CTX.quarters.hint('VNF unavailable — showing S2');
                 setMode('s2');
             });
         } else if (vnfReady()) refreshVNF();
