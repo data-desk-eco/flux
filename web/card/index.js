@@ -7,8 +7,8 @@
 // chart, the dated row list, the imagery overlays, and the selection
 // bookkeeping that survives a re-cluster.
 //
-// dispatch is on the feature, not on the S2|VNF toggle, so a card opened from
-// "also here" is the kind it names whichever layer the map is drawing.
+// dispatch is on the feature, so a card opened from "also here" is the kind it
+// names — the two flaring families draw at once and each owns its own source.
 
 import { showDetail, refreshDetail, closeDetail } from '../vendor/cartograph/detail.js';
 import { dimSatellite } from '../vendor/cartograph/shell.js';
@@ -71,9 +71,22 @@ export const siteTitle = (p, fallback) => ({
 // ── detail hooks ──
 
 export const cardTitle = p => bodyOf(p).title(p);
+// the "also here" row goes in a slot of its own because it is the one part of
+// the card that reads other layers: they re-read on their own schedule, and the
+// card cannot re-render itself for them (detail.js makes an unchanged feature a
+// no-op, and rightly — a re-render would drop the reader's selected date). so
+// the slot is refilled in place instead. empty it collapses, or the card's 38px
+// section gap would open under a row that is not there.
 export function cardHtml(p) {
     const b = bodyOf(p);
-    return nearbyHtml(p) + (b.html ?? seriesHtml)(p, b);
+    return `<div id="nearby-slot">${nearbyHtml(p)}</div>` + (b.html ?? seriesHtml)(p, b);
+}
+
+function refreshNearbyRow() {
+    const slot = document.getElementById('nearby-slot');
+    if (!slot || !current) return;
+    slot.innerHTML = nearbyHtml(current);
+    wireNearby(slot);
 }
 
 export function onCardShow(p, el) {
@@ -125,7 +138,9 @@ export function reselectCurrentFeature() {
     // close sites each other's card. ids are VARCHAR in every table, so compare
     // as strings and never coerce with Number()
     const match = features.find(f => String(f.properties.id) === String(current.id));
-    if (match) reopen(match.properties);
+    // the row second: reopen rebuilds it when the feature moved, and does
+    // nothing at all when only another layer did
+    if (match) { reopen(match.properties); refreshNearbyRow(); }
     // absent from a viewport that does not reach it is not the same as filtered
     // out of one that does, and only the second is grounds for closing. a
     // #site= link opens a card the initial viewport never read and then flies
@@ -307,9 +322,11 @@ function renderIntensityChart(el, detections, cfg, onSelectDate) {
 
 // ── map overlays shared by the flaring bodies ──
 
+// both flaring layers, because imagery under one of them is imagery under the
+// other: they draw the same place from two instruments
 function greyCircles(grey) {
-    if (map.getLayer('detections'))
-        map.setPaintProperty('detections', 'icon-opacity', grey ? 0.35 : 1);
+    for (const id of ['detections', 'vnf'])
+        if (map.getLayer(id)) map.setPaintProperty(id, 'icon-opacity', grey ? 0.35 : 1);
 }
 
 // tear down the COG / heat-footprint image overlay (idempotent)

@@ -15,7 +15,7 @@ function footprint(det) {
 }
 
 export default {
-    source: 'detections',
+    source: 'vnf',
     cfg: MODE.vnf,
     passLabel: 'Nights read',
     title: p => siteTitle(p, `Flare #${p.id}`),

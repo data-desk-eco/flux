@@ -1,9 +1,9 @@
 # flux
 
 one map of two ways the oil and gas industry puts carbon into the air: gas it
-burns and gas it leaks. flaring is Sentinel-2 archive clusters (S2) or VIIRS
-Nightfire looks (VNF), one layer under a toggle; methane plumes are their own
-layer, always on. one quarter grid sets the date window for all three, and a
+burns and gas it leaks. flaring is Sentinel-2 archive clusters (S2) and VIIRS
+Nightfire looks (VNF), a layer each and both drawn at once; methane plumes are
+the third layer. one quarter grid sets the date window for all three, and a
 quarter greys only when no layer covers it.
 
 flux is the merge of burnoff (flaring) and firedamp (methane). it is a
@@ -51,12 +51,13 @@ so a table that starts partitioning does not break a reader.
 
 ```
 web/
-  config.js          the cartograph config + orchestration: mode switching,
-                     viewport queries, the quarter grid's availability, the
-                     detect controls, deep-link resolve, the "also here" groups
-  layers.js          marking / ramp / colour policy for every layer, and the
-                     shared layout blocks (PIN, RATE_LABEL). shape categorises,
-                     colour means intensity, everywhere on this map
+  config.js          the cartograph config + orchestration: the key's four
+                     groups, viewport queries, the quarter grid's availability,
+                     the detect controls, deep-link resolve, the "also here"
+                     groups
+  layers.js          marking / ramp / colour policy for every layer, the key's
+                     bands, and the shared layout blocks (PIN, RATE_LABEL).
+                     shape categorises, colour means intensity, everywhere
   nearby.js          the "also here" row: what the other layers hold at an open
                      card's place, from collections the session already has
   card/              one header, one body per feature kind
@@ -65,7 +66,7 @@ web/
     flare.js         S2 site body       vnf.js   VNF look body
     plume.js         methane plume body
   flaring/
-    render.js        the MODE tables: the scale each mode reads on
+    render.js        the MODE tables: the scale and floor each instrument reads on
     clustering.js    terminal grid, sumQuarters, the feature builders
     s2archive.js     data-desk/flares + detections, and the coverage geojson
     vnf.js           eog/flares + eog/detections
@@ -131,17 +132,30 @@ different question.
 
 **the two null branches stay split.** in S2 a null persistence means unrated and
 passes the gate; in VNF a null is a finding — no clear night — and the flare is
-dropped. the split lives in the last arm of `persistenceFilter` (`config.js`):
-`isVnf() ? 0 : 1`. coalescing S2 to 0 sank the whole archive below the slider's
-default. do not simplify these into one branch.
+dropped. the split is the last argument of `persistenceFilter` (`config.js`),
+passed `1` where the layer is added for S2 and `0` for VNF. coalescing S2 to 0
+sank the whole archive below the slider's default. do not fold them into one.
+
+**intensity is the key's, not a slider's.** two families draw at once and B12
+reflectance and radiant heat are not one scale, so there is no slider that can
+carry both: `MODE[x].floor` is the published quality gate (a constant, on the
+site's *average*), and the key's rows filter above it, on the *maximum*, at
+exactly the breaks `rampIcon` steps at — `flareBands` in `layers.js` is where
+the two are kept in step. a row a feature is no statement about passes it
+(`p.kind !== kind || …`), which is what lets one key filter a map of several
+sources; cartograph reads a feature every row admits as outside the section, so
+switching a group off entirely drops that family and nothing else.
 
 **floors:** `MIN_LOOKS = 10` for S2, `COVERAGE_MIN = 0.8` for VNF, both in
 `clustering.js`. below them, publish no rate; the card shows an em dash.
 
 **`reselectCurrentFeature()` is load-bearing.** every dot carries the numbers for
 the ticked quarters alone, and an open card holds a copy rather than a reference.
-all four refresh paths end in it — `refreshS2Archive`, `refreshVNF`,
-`refreshPlumes` and `debouncedRecluster` in `config.js`. a fifth must too.
+all three refresh paths end in it — `refreshS2Archive`, `refreshVNF` and
+`refreshPlumes` in `config.js`. a fourth must too. it also refills the "also
+here" slot, which is the card's one part that reads the *other* layers: when
+only they moved the card's own re-render is a no-op (detail.js compares
+properties, and rightly — a rebuild would drop the reader's selected date).
 
 **units and types.** MCM/d is `rh_mw × 0.0315` (JZ-RH, Zhizhin et al. 2025);
 `RH_TO_MCM` in `flaring/render.js` is the only place it is spelled. EOG's own
@@ -166,14 +180,14 @@ is a second place to get the pairing wrong.
 averaging, always check `n_sats`, and read a day with files but no detections as
 cloud, not as zero activity. (`docs/ras-laffan-monitoring.md`.)
 
-**the negation in the S2 intensity gate is deliberate.** `!(c.avg_b12 < GATE.s2)`
+**the negation in the S2 intensity gate is deliberate.** `!(c.avg_b12 < MODE.s2.floor)`
 in `config.js` lets a cluster the table gives no intensity for through rather
 than vanishing: the shared flares schema has no site-level b12, and
 `undefined >= 0.85` is false for every row.
 
 **a link that names one flare has already chosen it.** `resolveSite` enriches at
-gate `0`, the literal, not `GATE.vnf` — under the 3 MW default every dim flare
-resolved to nothing at all.
+floor `0`, the literal, not `MODE.vnf.floor` — under the 3 MW default every dim
+flare resolved to nothing at all.
 
 **`rampIcon` coalesces a missing value to `stops[0]`** (`layers.js`): a row the
 producer gives no value for flattens the ramp rather than hiding the feature.

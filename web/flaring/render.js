@@ -1,8 +1,11 @@
-// mode lookup tables for the flaring layer — the single source of truth for the
-// scale each mode reads on. what a flare *looks* like is layers.js's job, which
-// owns the marking and the shared intensity ramp for every layer on the map;
-// this file supplies the stops it steps at. config.js holds the current mode and
-// the slider state and feeds them in.
+// lookup tables for the two flaring instruments — the single source of truth for
+// the scale each one reads on. what a flare *looks* like is layers.js's job,
+// which owns the marking and the shared intensity ramp for every layer on the
+// map; this file supplies the stops it steps at, and the floor below which a
+// site is not worth drawing.
+//
+// both draw at once, so nothing here is "the current mode": a feature carries
+// its family and the card, the key and the layer each read the table for it.
 
 import { RAMP } from '../layers.js';
 
@@ -25,8 +28,11 @@ export const MODE = {
         stops: [0.9, 1.15, 1.5],
         log: false,
         chartRange: [0.85, 1.6],
-        filter: { min: 0, max: 1.5, step: 0.05, default: 0.85 },
-        formatFilter: v => v === 0 ? 'Off' : v.toFixed(2),
+        // the quality floor, on the site's average — the ramp above reads the
+        // maximum. it was the intensity slider's default; the slider is gone and
+        // the key's colour bands filter above it, so this is now a constant of
+        // the archive rather than a control, and the stops start at it.
+        floor: 0.85,
         yVal: d => d.b12_corrected,
         formatVal: d => d.max_b12?.toFixed(2) || '-',
         formatCount: d => String(d.pixels || '-'),
@@ -37,11 +43,13 @@ export const MODE = {
         unit: 'MW',
         prop: 'max_rh',
         col2: 'RH', col3: 'MCM/d',
-        stops: [1, 7, 20],
+        // stops[0] is the floor, so the key's bottom band names the dimmest
+        // flare the map draws rather than a number nothing can be under
+        stops: [3, 7, 20],
         log: true,
         chartRange: [0.5, 50],
-        filter: { min: 0, max: 10, step: 0.5, default: 3 },
-        formatFilter: v => v === 0 ? 'Off' : `${v} MW`,
+        // 3 MW on the site's average radiant heat, the old slider default
+        floor: 3,
         yVal: d => d.rh_mw || 0,
         formatVal: d => d.rh_mw >= 999 ? '-' : (d.rh_mw?.toFixed(1) || '-'),
         formatCount: d => d.rh_mw >= 999 ? '-' : (d.rh_mw != null ? (d.rh_mw * RH_TO_MCM).toFixed(2) : '-'),

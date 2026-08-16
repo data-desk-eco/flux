@@ -1,18 +1,27 @@
 /* flux-specific ui on top of vendor/cartograph/shell.css + vendor/dd/map.css
    (data desk design system). the panel/key/detail/modal furniture is all
-   cartograph's; only the mode row, detect controls, quarter 'detected' state,
-   the three-group key, card internals and intro-modal extras live here. */
+   cartograph's; only the detect controls, quarter 'detected' state, the
+   four-group key, card internals and intro-modal extras live here. */
 
-/* --- main panel: mode row + detect controls --- */
+/* the panel must never scroll: the reader has no reason to look for a control
+   that is off the bottom of it. the two rules that hold that are the worldmap's
+   media queries below and the key's side-by-side switch further down, and both
+   are sized against a panel of 599px — dd head, worldmap, search, quarter grid,
+   persistence slider, detect controls, at the 38px section gap. */
 
-/* mode toggle left, peers indicator right */
-.cg-filter[data-key="mode"] { display: flex; justify-content: space-between; align-items: baseline; }
+/* --- main panel: detect controls --- */
 
-/* pure-detect builds (no archive meta) show Detect in s2 mode only; archive
-   builds also gate it on coverage via inline display (config.js) */
-#main-panel:not(.mode-s2) .s2-only { display: none; }
-
+/* button (or the progress bar that replaces it) and the peers count on one row */
+.detect-area { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 11px; }
 .detect-area .dd-btn, .detect-progress { width: 100%; padding: 5px 6px; }
+
+/* the worldmap is the first thing to go where the panel would otherwise scroll:
+   a scrollbar hides controls the reader has no reason to look for, and this is
+   a locator, not data. 745px is the viewport where the panel stops fitting
+   above the key; the detect controls add 63px to the panel, so where they are
+   up it goes earlier. */
+@media (max-height: 745px) { #worldmap { display: none; } }
+@media (max-height: 810px) { #main-panel.detect-up #worldmap { display: none; } }
 .detect-progress { position: relative; border-left: 1px solid var(--dd-ui-border); border-right: 1px solid var(--dd-ui-border); text-align: center; color: var(--dd-ui-text-secondary); }
 .detect-bar { position: absolute; left: 0; bottom: 0; height: 1px; width: 0%; background: var(--dd-ui-text); transition: width 0.3s ease; }
 
@@ -20,21 +29,23 @@
 .dd-dot-btn.detected .dd-dot { background: var(--dd-ui-inactive); }
 .dd-dot-btn.detected { pointer-events: none; }
 
-/* --- key: three groups on a short viewport --- */
+/* --- key: four groups on a short viewport --- */
 
 /* the dd rule lays the groups side by side on viewports too short for the stack
    to clear the main panel. cartograph switches at 960px, for two groups sharing
-   the left column's width; three groups stacked are 371px and the main panel is
-   719px with Detect showing, so the stack only clears from 1120px — and side by
+   the left column's width; four groups stacked are 490px and the main panel is
+   599px with Detect showing, so the stack only clears from 1120px — and side by
    side they need more than the column. so: switch later, and size the key to its
    own content at gap L, the only panel on that row. */
 @media (max-height: 1120px) and (min-width: 769px) {
     .cg-key { flex-direction: row; justify-content: space-between;
               width: auto; max-width: calc(100vw - 60px); gap: 38px; }
-    /* the rows size each column; a group title rides that width rather than
-       stretching it */
+    /* each column is as wide as the wider of its rows and its title. the title
+       used to ride the rows' width instead, which kept the key tight until a
+       title outgrew the 38px gap: then it ran into the next column, and the
+       last one ate the panel's right padding. */
     .cg-key-section { min-width: 0; }
-    .cg-key-head { width: 0; min-width: 100%; white-space: nowrap; }
+    .cg-key-head { white-space: nowrap; }
     /* and the main panel stops above the key rather than running through it —
        panels must never overlap. 180px is the tallest the key gets side by
        side: a label over the five methane bands, plus its own padding. */
@@ -43,7 +54,9 @@
 
 /* --- detail card internals --- */
 
-/* "also here", the one row only the merged app can draw */
+/* "also here", the one row only the merged app can draw. its slot is refilled
+   as the other layers read, and collapses rather than spending a section gap */
+#nearby-slot:empty { display: none; }
 .also-here { display: flex; justify-content: space-between; gap: 11px; }
 .also-here button { background: none; border: none; padding: 0; font: inherit; color: var(--dd-ui-text); text-decoration: underline; cursor: pointer; }
 .also-here button:hover { color: var(--dd-ui-text-secondary); }

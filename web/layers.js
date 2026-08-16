@@ -28,8 +28,22 @@ function rampIcon(mark, prop, stops, log = false) {
         `${mark}-${RAMP[0]}`, at(stops[1]), `${mark}-${RAMP[1]}`, at(stops[2]), `${mark}-${RAMP[2]}`];
 }
 
-// flaring: the flare marking, on the mode's own scale (render.js MODE)
+// flaring: the flare marking, on the instrument's own scale (render.js MODE)
 export const flareIcon = cfg => rampIcon('flare', cfg.prop, cfg.stops, cfg.log);
+
+// the key's flaring bands, taken off the same stops the step above breaks at, so
+// a row selects exactly the features drawn in its colour — the guarantee the
+// methane bands already make. the bottom band is written as a negation for the
+// same reason rampIcon coalesces: a site the producer gives no value for reads
+// as the foot of the ramp, which is where the map draws it.
+export const flareBands = cfg => {
+    const [lo, mid, hi] = cfg.stops, v = p => p[cfg.prop];
+    return [
+        [`${hi}+`, RAMP[2], p => v(p) >= hi],
+        [`${mid}`, RAMP[1], p => v(p) >= mid && v(p) < hi],
+        [`${lo}`, RAMP[0], p => !(v(p) >= mid)],
+    ];
+};
 
 // methane: a plume carries a measured rate, so it is a quantitative data point
 // and takes the quantitative marking. its stops are the key's band boundaries,
@@ -39,9 +53,9 @@ export const plumeIcon = rampIcon('quantitative', 'rate_kg_h', PLUME_STOPS);
 
 // the key's rate bands, off those same stops so a band boundary cannot drift
 // from the colour the map draws either side of it: kg/h for the filter, t/hr in
-// the label because that is the unit the key states. no slider for these — two
-// sliders is the panel budget, and a multi-select band filter reads better than
-// a continuous minimum.
+// the label because that is the unit the key states. no slider for these — a
+// multi-select band filter reads better than a continuous minimum, and it is
+// what flaring now does too, on both its scales.
 const [LO, MID, HI] = PLUME_STOPS, t = kg => kg / 1000;
 export const PLUME_BANDS = [
     [`${t(HI)}+`, HI, null, RAMP[2]],

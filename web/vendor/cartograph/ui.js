@@ -132,7 +132,13 @@ async function swatchHtml(s) {
 // together into the filter pipeline via onFilter (all on = no filter). one
 // chevron collapses the whole key; section labels toggle it too (dd heading
 // rule). returns {set(sections), preds()} — set() re-renders, so apps with
-// modes can swap the whole key.
+// several key states can swap the whole thing.
+//
+// a section's rows partition one family, and a row a feature is no statement
+// about passes it — that is how one key filters a map of several sources. so a
+// feature every row admits is a feature outside the section, and it survives
+// the section being switched off entirely; only the last row going off used to
+// blank every layer on the map at once.
 export function initKey(map, onFilter) {
     let sections = [];
     const state = { open: true };
@@ -170,7 +176,8 @@ export function initKey(map, onFilter) {
         set: async s => { sections = s; await render(); },
         preds: () => sections.flatMap(s => {
             const fr = s.rows.filter(r => r.pred);
-            return fr.length && fr.some(r => r.off) ? [p => fr.some(r => !r.off && r.pred(p))] : [];
+            return fr.length && fr.some(r => r.off)
+                ? [p => fr.some(r => !r.off && r.pred(p)) || fr.every(r => r.pred(p))] : [];
         }),
     };
 }

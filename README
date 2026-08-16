@@ -7,10 +7,10 @@ gas it leaks — on one map, under one date window.
   make test
   make vendor    # re-vendor cartograph + the s2e wasm core
 
-Three detection layers, one quarter grid over all of them:
+Three detection layers, all drawn at once, one quarter grid over all of them:
 
-  - S2 (default): Sentinel-2 flare clusters from the data-desk tables in the
-    Data Desk CloudFerro archive, read through Cartograph's DuckDB-Wasm layer.
+  - S2: Sentinel-2 flare clusters from the data-desk tables in the Data Desk
+    CloudFerro archive, read through Cartograph's DuckDB-Wasm layer.
   - Detect (outside archive coverage): downloads Sentinel-2 L2A COGs from the
     Element84 STAC catalogue and runs the detector in a Web Worker; connected
     peers split the work over WebRTC and merge results in a CRDT.
@@ -19,9 +19,10 @@ Three detection layers, one quarter grid over all of them:
   - Methane: dated plume observations from Carbon Mapper, IMEO, SRON and Data
     Desk, each carrying a measured release rate.
 
-The S2 toggle governs the flaring layer alone; plumes are their own layer and
-stay on. Shape says whether a feature burned or leaked, colour says only how
-much.
+Shape says whether a feature burned or leaked, colour says only how much. The
+two flaring instruments read on scales that are not comparable, so the key
+states each one's units and its rows are that layer's colour bands: turn a
+band off to filter it out, turn them all off to take the layer off the map.
 
 Where things live:
 
