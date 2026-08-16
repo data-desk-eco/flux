@@ -50,12 +50,19 @@ fi
 # the entry module is a <script src>, not an import, and it slipped through: on
 # 3 august the browser held a four-hour-old config.js against a freshly stamped
 # clustering.js, so the persistence gate ran the old rule over the new table.
-# the path pattern forbids a slash, so it stamps config.js and style.css and
-# leaves vendor/maplibre-gl.js alone.
+# the <script src> pattern forbids a slash, so it stamps config.js and leaves
+# vendor/maplibre-gl.js alone.
+#
+# stylesheets are the exception to the vendor exemption: the hazard above is
+# module identity, and a <link> has none — a second url for one stylesheet is
+# just a second url. so the link rule takes slashes and stamps vendor css too.
+# unstamped they were served under the store's four-hour max-age, and on
+# 16 august a revendored shell.css sat stale behind a fresh build for exactly
+# that long — the same incident as 3 august, one directory over.
 find dist -path dist/vendor -prune -o -path dist/flaring/s2/vendor -prune -o \
   \( -name '*.js' -o -name '*.html' \) -print0 | xargs -0 sed -i.bak -E \
   -e "s|(<script[^>]* src=\")((\./)?[^\"?/]+\.m?js)(\")|\1\2?v=$V\4|g" \
-  -e "s|(<link[^>]* href=\")((\./)?[^\"?/]+\.css)(\")|\1\2?v=$V\4|g" \
+  -e "s|(<link[^>]* href=\")((\./)?[^\"?]+\.css)(\")|\1\2?v=$V\4|g" \
   -e "s|(from ')(\.[^']+\.m?js)(')|\1\2?v=$V\3|g" \
   -e "s|(import\(')(\.[^']+\.m?js)('\))|\1\2?v=$V\3|g" \
   -e "s|(new URL\(')(\.[^']+\.m?js)(')|\1\2?v=$V\3|g" \
