@@ -27,7 +27,10 @@ a { color: inherit; text-decoration: underline; }
 /* the left column's width: main panel and key share it so their boxes line up */
 :root { --cg-panel: 250px; }
 .cg-main { top: 0; left: 0; width: var(--cg-panel); max-height: calc(100vh - 20px); overflow-y: auto; }
-.cg-main.collapsed > :not(.dd-head) { display: none; }
+/* by panel id, not class: contraction hides content in place (ruling
+   2026-07-08) and a child styled through its own id — #worldmap below — would
+   otherwise outrank a class-only rule and stay on screen */
+#main-panel.collapsed > :not(.dd-head) { display: none; }
 #worldmap { width: 100%; display: block; }
 
 /* border + padding hang into the panel margins so the input text stays
@@ -71,8 +74,10 @@ a { color: inherit; text-decoration: underline; }
 /* --- detail panel --- */
 
 .cg-detail { top: 0; right: 0; width: 290px; max-height: calc(100vh - 20px); overflow-y: auto; display: none; }
-.cg-detail.visible { display: flex; flex-direction: column; gap: 25px; }
-.cg-detail.collapsed > :not(.dd-head) { display: none; }
+/* gap L: the card is the "Detected flare" holding device (pdf:89), which sets
+   L 38px between its sections and 6px between the rows inside one */
+.cg-detail.visible { display: flex; flex-direction: column; gap: 38px; }
+#detail.collapsed > :not(.dd-head) { display: none; }
 .cg-detail-id { overflow-wrap: anywhere; }
 .cg-overlap { white-space: nowrap; }
 .cg-nav { background: none; border: none; color: var(--dd-ui-text); font: inherit; cursor: pointer; padding: 0 3px; }

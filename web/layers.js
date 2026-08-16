@@ -68,7 +68,10 @@ export const MARKS = [...RAMP.flatMap(c => [`flare-${c}`, `quantitative-${c}`]),
 // every marking layer on this map pins its icon: a detection sits where it was
 // measured, so overlap never moves or drops one
 export const PIN = { 'icon-size': ICON_SIZE, 'icon-allow-overlap': true, 'icon-ignore-placement': true };
-// the rate label beside it, up-and-right (dd label rule). collision behaviour
-// stays per-layer: a point's label is optional, a cluster total's is not.
-export const RATE_LABEL = { 'text-font': ['Montserrat Regular'], 'text-size': 10,
+// the rate label beside it, up-and-right (dd label rule), at the 11px every
+// map text takes (pdf:77). the face is not Inter: gl text needs sdf glyphs and
+// the basemap's font endpoint serves no Inter stack, so this is the closest
+// grotesque it does serve. collision behaviour stays per-layer: a point's
+// label is optional, a cluster total's is not.
+export const RATE_LABEL = { 'text-font': ['Montserrat Regular'], 'text-size': 11,
                             'text-anchor': 'bottom-left', 'text-offset': [0.7, -0.7] };

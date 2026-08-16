@@ -152,7 +152,7 @@ export default {
     // archive clusters carry no COG at all, so only a locally detected one can
     // have a date whose product is l1c-only
     l1c: det => !hasArchive && !isCog(det.cog_b12),
-    actions: `<button class="dd-btn" id="open-image-btn">Open Image</button>
+    actions: `<button class="dd-btn" id="open-image-btn">Open image</button>
               <button class="dd-btn" id="download-btn">Download CSV</button>`,
     wire(el) {
         el.querySelector('#download-btn').addEventListener('click', downloadCSV);

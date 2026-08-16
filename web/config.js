@@ -722,7 +722,7 @@ mount({
         // s2-only controls: peers indicator beside the mode toggle, detect
         // button + progress at the panel foot
         document.querySelector('.cg-filter[data-key="mode"]').insertAdjacentHTML('beforeend',
-            '<div id="peer-status"><span class="dd-secondary">Peers Connected:</span> <span id="peer-count">0</span></div>');
+            '<div id="peer-status"><span class="dd-secondary">Peers connected:</span> <span id="peer-count">0</span></div>');
         document.getElementById('main-panel').insertAdjacentHTML('beforeend', `
             <div class="detect-area s2-only" id="detect-area">
                 <button id="detect-btn" class="dd-btn">Detect</button>
