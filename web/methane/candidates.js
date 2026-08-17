@@ -3,22 +3,22 @@
 // candidate carries no per-provider styling at all — so a fifth source appears
 // here on its own.
 //
-// duckdb applies the viewport bounds against hilbert-clustered lon/lat row
-// groups. the viewport is swept optimistically past MIN_CANDIDATE_ZOOM
-// (sweep.js), and a radius query around the selected plume highlights the
-// attributed feature. both are drawn as dd structure markings over an invisible
-// fat hit layer: a square for infrastructure, a diamond for an attributed
-// source, both white — colour on this map is measurement, and a candidate is
-// not one.
+// these belong to an open plume card and to nothing else: one radius query
+// around the selected plume, cleared when the card closes. there is no viewport
+// sweep — a permanent layer of every structure in view answered a question
+// nobody had asked and buried the detections that are the point of the map.
+// duckdb applies the bounds against hilbert-clustered lon/lat row groups.
+//
+// drawn as dd structure markings over an invisible fat hit layer: a triangle
+// for a candidate, a diamond for the attributed source, both white — colour on
+// this map is measurement, and a candidate is not one.
 
 import { hoverPopup } from '../shell/map.js';
 import { objects } from '../shell/archive.js';
 import { parquetInput } from '../shell/data.js';
 import { degLat, degLon, escapeHtml, fmtMetres, haversineM } from '../shell/util.js';
 import { MARK, PIN } from '../layers.js';
-import { sweeper } from './sweep.js';
 
-const MIN_CANDIDATE_ZOOM = 13;
 const MAX_SCAN = 4000, MAX_SHOW = 300;
 
 // ch4id feature ids are OSM:w<id>; older attributions carry OSM:way/<id>
@@ -48,51 +48,43 @@ async function fetchRect(rect) {
         }));
 }
 
-// ── state: viewport sweep + per-plume selection, merged for display ──
+// ── state: the open card's candidates ──
 
-let viewFeats = [], plumeFeats = [], hlIds = new Set();
-let plumeEpoch = 0;
+let shown = [], epoch = 0;
 
-function render() {
-    const seen = new Set(), features = [];
-    for (const f of [...plumeFeats, ...viewFeats]) {
-        if (seen.has(f.properties.id)) continue;
-        seen.add(f.properties.id);
-        f.properties.hl = hlIds.has(f.properties.id);
-        features.push(f);
-    }
-    map.getSource('candidates')?.setData({ type: 'FeatureCollection', features });
-}
+const render = features => map.getSource('candidates')
+    ?.setData({ type: 'FeatureCollection', features: shown = features });
 
 // radius query around the selected plume; the rect is stretched to cover the
 // attribution's assessed source point so a distant attributed feature
 // (coarse-sensor upwind search) still loads, and attributed ids survive both
 // the radius cut and the display cap.
 export async function selectPlume(lon, lat, radiusKm, rec) {
-    hlIds = new Set((rec?.attributed_ids || []).map(normId));
+    const hl = new Set((rec?.attributed_ids || []).map(normId));
     const dLat = degLat(radiusKm * 1000), dLon = degLon(radiusKm * 1000, lat);
     const rect = { minX: lon - dLon, minY: lat - dLat, maxX: lon + dLon, maxY: lat + dLat };
     if (rec?.lat != null) {
         rect.minX = Math.min(rect.minX, rec.lon - 0.02); rect.maxX = Math.max(rect.maxX, rec.lon + 0.02);
         rect.minY = Math.min(rect.minY, rec.lat - 0.02); rect.maxY = Math.max(rect.maxY, rec.lat + 0.02);
     }
-    const e = ++plumeEpoch;
+    const e = ++epoch;
     const feats = await fetchRect(rect);
-    if (e !== plumeEpoch) return;
+    if (e !== epoch) return;
     for (const f of feats) {
         const [flon, flat] = f.geometry.coordinates;
         f.properties.dist = haversineM(lat, lon, flat, flon);
+        f.properties.hl = hl.has(f.properties.id);
     }
     feats.sort((a, b) => a.properties.dist - b.properties.dist);
-    plumeFeats = feats.filter((f, i) =>
-        (i < MAX_SHOW && f.properties.dist <= radiusKm * 1000) || hlIds.has(f.properties.id));
-    render();
+    render(feats.filter((f, i) =>
+        (i < MAX_SHOW && f.properties.dist <= radiusKm * 1000) || f.properties.hl));
 }
 
+// the epoch bump is the whole point: a closed card must not be repopulated by
+// the read it started
 export function clearSelection() {
-    plumeFeats = [];
-    hlIds = new Set();
-    render();
+    epoch++;
+    render([]);
 }
 
 // ── display ──
@@ -122,10 +114,6 @@ export function addCandidateLayers(m, sql) {
             .filter(v => v && v !== title).map(escapeHtml).join(' · ');
         return `<span class="dd-title">${escapeHtml(title)}</span>${p.hl ? ' ★' : ''}<br>${detail}<br><span class="dd-secondary">${escapeHtml(p.id)}</span>`;
     });
-
-    const sweep = sweeper(map, MIN_CANDIDATE_ZOOM, fetchRect, feats => { viewFeats = feats; render(); });
-    map.on('moveend', sweep);
-    sweep();
 }
 
 // fly-to links in the attribution label (data-fly attribute, delegated)
@@ -133,6 +121,6 @@ document.addEventListener('click', e => {
     const a = e.target.closest('[data-fly]');
     if (!a) return;
     e.preventDefault();
-    const f = [...plumeFeats, ...viewFeats].find(f => f.properties.id === a.dataset.fly);
+    const f = shown.find(f => f.properties.id === a.dataset.fly);
     if (f) map?.flyTo({ center: f.geometry.coordinates, zoom: Math.max(map.getZoom(), 16) });
 });

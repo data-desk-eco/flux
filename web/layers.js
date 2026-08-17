@@ -83,10 +83,12 @@ export const PLUME_BANDS = [
 // everything the ramp does not colour. shape categorises and white is the
 // default state; licence acreage is the one area that spends a colour, because
 // two area layers otherwise share one border.
+// the dd structure shapes are triangle, diamond and square; these two are the
+// pair that cannot be mistaken for each other at icon size, where a square is
+// a diamond someone turned 45°.
 export const MARK = {
-    lng: `triangle-${DD.white}`,          // lng terminal
-    candidate: `square-${DD.white}`,      // ogim / other infrastructure
-    attributed: `diamond-${DD.white}`,    // attributed source candidate
+    candidate: `triangle-${DD.white}`,    // infrastructure near the open plume
+    attributed: `diamond-${DD.white}`,    // the attributed source among them
 };
 export const AREA = { licence: DD.purple };
 export const DASH = [2, 2];

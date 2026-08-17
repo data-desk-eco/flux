@@ -38,8 +38,10 @@ does not read (see invariants).
 **methane.** `methane/plumes.js` reads every provider's plume detections for the
 ticked window — one object per provider, named by the archive index, read
 independently so a missing one costs its own rows. `methane/attribution.js`
-stamps ch4id's attributions on, `methane/candidates.js` sweeps the
-`infrastructure` tables around a selection, `methane/overlay.js` drapes a
+stamps ch4id's attributions on, `methane/candidates.js` reads the
+`infrastructure` tables around an open plume card and nowhere else — there is
+no standing infrastructure layer and no key group for one — `methane/overlay.js`
+drapes a
 Data Desk probability surface, and `methane/licences.js` draws MapStand acreage
 in the private build only.
 
@@ -51,7 +53,7 @@ so a table that starts partitioning does not break a reader.
 
 ```
 web/
-  config.js          the whole app declaration + orchestration: the key's four
+  config.js          the whole app declaration + orchestration: the key's three
                      groups, viewport queries, the quarter grid's availability,
                      the table's tabs, deep-link resolve, the "also here" groups
   layers.js          marking / ramp / colour policy for every layer, the key's
@@ -75,10 +77,10 @@ web/
     plumes.js        the plume reader: display read, availability index,
                      permalink read, and the provider label / rate helpers
     attribution.js   ch4id's attribution contract + the wind enrich hook
-    candidates.js    infrastructure candidates around a plume, and the sweep
+    candidates.js    infrastructure candidates around an open plume card only
     licences.js      MapStand licence acreage (private build)
     overlay.js       the MARS-S2L probability surface over the basemap
-    sweep.js         the viewport sweep both parquet layers run
+    sweep.js         the viewport sweep licence acreage runs
   shell/             the map shell: app.js mount, map.js basemap, ui.js panels
                      and key, detail.js card, table.js drawer, quarters.js grid,
                      data.js duckdb, archive.js index, util.js, shell.css

@@ -27,7 +27,7 @@ import { mount } from './shell/app.js';
 import { viewportBbox, boxesWorldmap, ensureMark } from './shell/map.js';
 import { padBbox, featureBbox, escapeHtml, formatDate, degLat, degLon } from './shell/util.js';
 import { MODE } from './flaring/render.js';
-import { DD, AREA, MARK, MARKS, PIN, RATE_LABEL, PLUME_BANDS, flareBands, flareIcon, plumeIcon } from './layers.js';
+import { DD, AREA, MARKS, PIN, RATE_LABEL, PLUME_BANDS, flareBands, flareIcon, plumeIcon } from './layers.js';
 import { initArchive } from './shell/archive.js';
 import { initVNF, resetVNF, queryVNF, queryVNFFlare, availableQuartersVNF, isReady as vnfReady } from './flaring/vnf.js';
 import { initS2Archive, queryS2Archive, queryS2Flare, availableQuartersS2, coverageTiles, whenCovered, residentFlares } from './flaring/s2archive.js';
@@ -313,16 +313,17 @@ const keySections = () => [
                 || (p.rate_kg_h != null && p.rate_kg_h >= lo && (!hi || p.rate_kg_h < hi)),
         })),
     },
-    {
-        label: 'Infrastructure',
-        rows: [
-            { swatch: { mark: 'triangle', color: DD.white }, label: 'LNG',
-              toggle: ['lng-terminal-dots', 'lng-terminal-hitarea'] },
-            // layer toggle, not a data filter: licence areas aren't plumes
-            ...(PRIVATE ? [{ swatch: { ring: AREA.licence }, label: 'Licence areas (MapStand)',
-                             toggle: LICENCE_LAYERS }] : []),
-        ],
-    },
+    // no infrastructure group, because there is no infrastructure layer: the
+    // candidate markings belong to an open plume card and are drawn only around
+    // the source the reader picked (candidates.js), so there is nothing for a
+    // key row to toggle. the terminals are still read, for the names they give
+    // S2 sites — a standing layer of them only competed with the measurements.
+    ...(PRIVATE ? [{
+        label: 'Acreage',
+        // layer toggle, not a data filter: licence areas aren't plumes
+        rows: [{ swatch: { ring: AREA.licence }, label: 'Licence areas (MapStand)',
+                 toggle: LICENCE_LAYERS }],
+    }] : []),
 ];
 
 // ---------------------------------------------------------------------------
@@ -438,8 +439,10 @@ mount({
         prefetch: PRIVATE ? ['plumes'] : [],
     },
 
-    // the three detection sources are dynamic — the viewport handlers own two of
-    // them and the quarter grid re-reads the third; terminals are static geojson
+    // the three detection sources are dynamic — the viewport handlers own two
+    // of them and the quarter grid re-reads the third. the terminals are read
+    // for their names alone (clustering.js says "Near <terminal>"): they are
+    // not a layer, so nothing here draws them
     sources: async ctx => {
         CTX = ctx;
         // before the layers are added, not in ready() after them: an id a layer
@@ -463,7 +466,6 @@ mount({
             // clusters only when far out — points take over from z5 (~UK-sized viewport)
             plumes: { data: ctx.fc(plumes), cluster: true, clusterMaxZoom: 4, clusterRadius: 30,
                       clusterProperties: { rate_sum: ['+', ['coalesce', ['get', 'rate_kg_h'], 0]] } },
-            'lng-terminals': terminals,
         };
     },
 
@@ -520,25 +522,6 @@ mount({
                 'text-allow-overlap': true,
             },
             paint: { 'text-color': DD.white },
-        },
-        {
-            // lng terminal triangles with a generous hit area
-            id: 'lng-terminal-hitarea', type: 'circle', source: 'lng-terminals',
-            hover: p => `<span class="dd-title">${p.name}</span><br>${p.country} · ${p.type}<br>`
-                + (p.capacity_mtpa ? `${p.capacity_mtpa} mtpa` : '—'),
-            paint: {
-                'circle-radius': ['interpolate', ['linear'], ['zoom'], 0, 12, 6, 16, 12, 22],
-                'circle-color': 'transparent',
-                'circle-opacity': 0,
-            },
-        },
-        {
-            id: 'lng-terminal-dots', type: 'symbol', source: 'lng-terminals',
-            layout: {
-                ...PIN, 'icon-image': MARK.lng,
-                // an installation, not a measurement: smaller than the detections
-                'icon-size': ['interpolate', ['linear'], ['zoom'], 0, 0.5, 6, 0.65, 12, 0.9],
-            },
         },
     ],
 

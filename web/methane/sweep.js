@@ -1,4 +1,5 @@
-// the viewport sweep both parquet-backed layers run: refetch on moveend unless
+// the viewport sweep licence acreage runs (candidates read around an open card
+// instead, and nothing else sweeps): refetch on moveend unless
 // the viewport is still inside the padded rect last swept, one epoch so a slow
 // read cannot land after a faster one, and a zoom floor below which the layer
 // empties rather than sweeping a continent.
