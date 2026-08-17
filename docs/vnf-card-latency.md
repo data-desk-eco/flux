@@ -4,13 +4,13 @@ Measured 2026-07-30 against the live archive, headless Chrome over a
 33 ms-RTT link to `s3.WAW3-2.cloudferro.com`.
 
 Kept as the record of a backend flux no longer runs: every cost below is
-hyparquet's, and cartograph reads through DuckDB now, where `where` compiles to
+hyparquet's, and the shell reads through DuckDB now, where `where` compiles to
 a SQL predicate and no rejected row reaches JavaScript. Read it for the shape of
 the table and how it was measured, not for what to optimise next.
 
 ## What we measured
 
-Opening a VNF card calls `fetchVNFDetections(flare_id)` (`web/vnf.js:128`),
+Opening a VNF card calls `fetchVNFDetections(flare_id)` (`web/flaring/vnf.js`),
 the only reader of the big daily parquet. Cold, that costs about **4.5 s**;
 warm (footer already open) about **1 s**. Timings for flare 4998 (Qatar,
 958 detections):
@@ -87,18 +87,15 @@ as it is for anything that needs the full calendar.
 
 ### 2. Filter before normalising — saves ~550 ms today
 
-`read()` in `web/vendor/cartograph/data-core.js` does `.map(norm)` over
+`read()` in the shell's data layer did `.map(norm)` over
 every scanned row and *then* `.filter(matches)`. Normalising 559,574 rows
 costs 568 ms; filtering first and normalising the survivors costs 11 ms.
 `norm` rebuilds each row with `Object.entries`/`fromEntries` and turns
 every `date` into an ISO string, so the waste is real.
 
-The catch is that `matches` compares raw values: bigints compare fine
-against numbers, but a `Date` never compares against a date string. So the
-fix is to normalise per compared cell inside `matches` rather than to
-reorder the two passes wholesale. This lives in vendored cartograph, so it
-belongs upstream in `~/Tools/cartograph`. It benefits the S2 archive reads
-as well.
+The catch was that `matches` compared raw values: bigints compare fine
+against numbers, but a `Date` never compares against a date string. DuckDB
+settled it — the predicate is now SQL and the scan never reaches JavaScript.
 
 ### 3. Put Cloudflare in front of the bucket — ~0.3–0.6 s cold, more on repeat
 
@@ -142,7 +139,7 @@ other. It also speeds up the S2 archive's per-tile cluster reads.
 Do §1. It is a rebuild in the etl repo and a one-line change here, it
 removes roughly 95% of the latency, and it shrinks the object under
 Cloudflare's cache ceiling. Then §3, which helps every archive read the
-site makes, and §2 upstream in cartograph. §4 only if §1 is deferred.
+site makes. §2 is settled by DuckDB; §4 only if §1 is deferred.
 
 ## Sources
 

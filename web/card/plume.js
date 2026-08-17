@@ -3,7 +3,7 @@
 // #stat-wind and #analysis behind a request-id guard, then draws the candidate
 // sources around the plume. closing takes both down.
 
-import { escapeHtml, formatDate } from '../vendor/cartograph/util.js';
+import { escapeHtml, formatDate } from '../shell/util.js';
 import { enrich } from '../methane/attribution.js';
 import { clearSelection } from '../methane/candidates.js';
 import { clearProbabilityOverlay, showProbabilityOverlay } from '../methane/overlay.js';
@@ -33,17 +33,17 @@ export default {
     init: deps => { archive = deps.archive; },
     title: p => ({ text: p.id || '—', href: sourceUrl(p) }),
     html: p => `
-        <div class="fd-badges">
+        <div class="plume-badges">
             <span>${escapeHtml(label(p.provider))}</span>
             ${p.sector ? `<span class="dd-secondary">${SECTOR[p.sector] || escapeHtml(p.sector)}</span>` : ''}
         </div>
-        <div class="fd-stats">
-            <div><div class="fd-stat-big">${rateT(p) ?? '—'}</div><div class="dd-secondary">t/hr${p.rate_std_kg_h ? ` ±${(p.rate_std_kg_h / 1000).toFixed(1)}` : ''}</div></div>
-            <div id="stat-wind"><div class="fd-stat-big">…</div><div class="dd-secondary">wind</div></div>
-            <div><div class="fd-stat-big">${escapeHtml(p.satellite || '—')}</div><div class="dd-secondary">satellite</div></div>
-            <div><div class="fd-stat-big">${escapeHtml(p.date ? formatDate(p.date) : '—')}</div><div class="dd-secondary">date</div></div>
+        <div class="plume-stats">
+            <div><div class="plume-stat-big">${rateT(p) ?? '—'}</div><div class="dd-secondary">t/hr${p.rate_std_kg_h ? ` ±${(p.rate_std_kg_h / 1000).toFixed(1)}` : ''}</div></div>
+            <div id="stat-wind"><div class="plume-stat-big">…</div><div class="dd-secondary">wind</div></div>
+            <div><div class="plume-stat-big">${escapeHtml(p.satellite || '—')}</div><div class="dd-secondary">satellite</div></div>
+            <div><div class="plume-stat-big">${escapeHtml(p.date ? formatDate(p.date) : '—')}</div><div class="dd-secondary">date</div></div>
         </div>
-        <div class="fd-analysis">
+        <div class="plume-analysis">
             <div class="dd-secondary">Analysis</div>
             <div id="analysis" class="dd-secondary">Loading…</div>
         </div>`,

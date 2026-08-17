@@ -7,7 +7,7 @@
 //   hashKeys: {key: resolve},  several permalink keys, each with its resolver
 //   idProp: 'id',
 //   flyZoom: 15,               zoom floor on select
-//   highlightZoom: 12,         zoom the highlight box appears at (default: any)
+//   highlightZoom: 10,         zoom the highlight box appears at (default: any)
 //   title: p => ({text, href?}),
 //   html: p => body html,      sync skeleton below the generic header
 //   onShow: (p, el) => {},     async enrich hook
@@ -15,7 +15,7 @@
 // }
 
 import { escapeHtml, fmtCoords, hashKeysOf, readHashKeys, writeHashKeys } from './util.js';
-import { ensureMark } from './shell.js';
+import { ensureMark } from './map.js';
 
 let map, cfg, allFeatures;
 let overlapping = [], overlapIndex = 0;
@@ -53,7 +53,7 @@ function featuresAt(point, lngLat) {
 }
 
 function setHighlight(features) {
-    map.getSource('cg-highlight')?.setData({ type: 'FeatureCollection', features });
+    map.getSource('fx-highlight')?.setData({ type: 'FeatureCollection', features });
 }
 
 // the same feature reaches us from a source (real values) and from a click
@@ -102,10 +102,10 @@ function render(feature, fromPermalink) {
             <button class="dd-chevron-btn" id="detail-collapse" title="Contract"><span class="dd-chevron"></span></button>
             <div class="dd-head-text">
                 <div class="dd-heading">${t.href
-                    ? `<a class="cg-detail-id" href="${escapeHtml(t.href)}" target="_blank" rel="noopener">${escapeHtml(t.text)}</a>`
-                    : `<span class="cg-detail-id">${escapeHtml(t.text)}</span>`}</div>
+                    ? `<a class="fx-detail-id" href="${escapeHtml(t.href)}" target="_blank" rel="noopener">${escapeHtml(t.text)}</a>`
+                    : `<span class="fx-detail-id">${escapeHtml(t.text)}</span>`}</div>
                 <div class="dd-subtitle">${fmtCoords(lat, lon)}${n > 1
-                    ? ` <span class="cg-overlap"><button class="cg-nav" data-nav="-1">‹</button> ${overlapIndex + 1} / ${n} <button class="cg-nav" data-nav="1">›</button></span>` : ''}</div>
+                    ? ` <span class="fx-overlap"><button class="fx-nav" data-nav="-1">‹</button> ${overlapIndex + 1} / ${n} <button class="fx-nav" data-nav="1">›</button></span>` : ''}</div>
             </div>
         </div>
         ${cfg.html?.(p) || ''}`;
@@ -161,9 +161,9 @@ export function initDetail(m, config, getFeatures) {
 
     // heavy-stroke empty highlight box marking around the selection (dd rule)
     ensureMark(map, 'highlight-#FFFFFF');
-    map.addSource('cg-highlight', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addSource('fx-highlight', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
     map.addLayer({
-        id: 'cg-highlight', type: 'symbol', source: 'cg-highlight',
+        id: 'fx-highlight', type: 'symbol', source: 'fx-highlight',
         // below the threshold a selection is carried by its own shape marking;
         // the box belongs around a point of interest the imagery resolves
         minzoom: cfg.highlightZoom ?? 0,
@@ -177,9 +177,6 @@ export function initDetail(m, config, getFeatures) {
         const features = featuresAt(e.point, e.lngLat);
         if (!features.length) return closeDetail();
         const center = coordsOf(features[0]);
-        // below minZoom features are too dense to pick meaningfully — zoom in instead
-        if (cfg.minZoom && map.getZoom() < cfg.minZoom)
-            return map.flyTo({ center, zoom: cfg.minZoom });
         overlapping = features;
         overlapIndex = 0;
         showDetail(features[0]);

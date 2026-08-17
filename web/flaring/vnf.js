@@ -1,30 +1,29 @@
-// VNF (VIIRS Nightfire) data module — reads Parquet through Cartograph's
-// DuckDB data layer. Remote URLs use range requests, column selection, and
-// row-group statistics. Zero npm dependencies.
+// the vnf (viirs nightfire) reader — eog's tables, read through the shell's
+// duckdb layer. remote urls use range requests, column selection and row group
+// statistics, so a viewport costs a footer and the row groups it names.
 //
-// Two tiers. The viewport reads eog/flares/data.parquet: one row per site,
-// written in `cell` order so a bbox predicate prunes row groups spatially once
-// the table is big enough to have more than one, with the site's own quarterly
-// history nested in a `quarters` list. The UI's quarter window is applied over
-// that list here rather than in the read — cartograph's where-builder only
-// spans scalar columns.
+// two tiers. the viewport reads eog/flares: one row per site, written in `cell`
+// order so a bbox predicate prunes row groups spatially once the table is big
+// enough to have more than one, with the site's own quarterly history nested in
+// a `quarters` list. the ticked window is applied over that list here rather
+// than in the read — the where-builder only spans scalar columns.
 //
-// The daily series is read only per flare, on card open, via
-// fetchVNFDetections. eog/detections is partitioned on `cell`, the H3
-// resolution-1 index of the site's position, and sorted by site_id inside a
-// cell — so a card touches one object and prunes to a row group of it. Nothing
-// here computes an H3 index: the flares row carries the cell it was written
-// under, which is why this module needs no bucket listing and no H3 library.
-// eog/observations is partitioned the same way, and burnoff never reads it —
-// the quarters list already carries the looks a rate divides by.
+// the nightly series is read per flare, on card open, via fetchVNFDetections.
+// eog/detections is partitioned on `cell`, the H3 resolution-1 index of the
+// site's position, and sorted by site_id inside a cell — so a card touches one
+// object and prunes to a row group of it. nothing here computes an H3 index:
+// the flares row carries the cell it was written under, which is why this
+// module needs no bucket listing and no H3 library. eog/observations is
+// partitioned the same way and flux never reads it — the quarters list already
+// carries the looks a rate divides by.
 //
-// It does not name an object either. The archive index states that eog/flares
-// is one object and eog/detections is addressed by `cell`, so the path shape is
-// the producer's to change.
+// it does not name an object either. the archive index states that eog/flares
+// is one object and eog/detections is addressed by `cell`, so the path shape
+// stays the producer's to change.
 
-import { read, meta } from '../vendor/cartograph/data.js';
-import { objects } from '../vendor/cartograph/archive.js';
-import { quarterOf } from '../vendor/cartograph/util.js';
+import { read, meta } from '../shell/data.js';
+import { objects } from '../shell/archive.js';
+import { quarterOf } from '../shell/util.js';
 import { sumQuarters } from './clustering.js';
 
 let _flares = null, _initPromise = null, _ready = false;
@@ -36,10 +35,8 @@ const COLS = ['id', 'lat', 'lon', 'cell', 'country', 'detail', 'quarters'];
 // selects exactly the quarters it ticked
 const inWindow = (start, end) => q => q >= start && q <= end;
 
-/**
- * Initialize VNF: resolve eog/flares against the archive index and open it
- * (remote: footer bytes only) so viewport queries can range-read row groups.
- */
+// resolve eog/flares against the archive index and open it (remote: footer
+// bytes only), so viewport queries can range-read row groups
 export function initVNF() {
     return _initPromise ??= (async () => {
         [_flares] = await objects('flares', { provider: 'eog' });
@@ -48,15 +45,15 @@ export function initVNF() {
     })();
 }
 
-/** Reset state so initVNF can be called again. */
+// clear the state, so a failed init can be retried on the next pan
 export function resetVNF() {
     _initPromise = null;
     _ready = false;
     _flares = null;
 }
 
-// One feature per flare, its quarters summed over the window (detections load
-// per flare on card open, so features carry none).
+// one feature per flare, its quarters summed over the window (the nightly
+// series loads per flare on card open, so a feature carries none)
 function siteFeatures(rows, startDate, endDate, { detectedOnly = false } = {}) {
     const keep = inWindow(startDate, endDate);
     const sites = [];
@@ -95,10 +92,7 @@ function siteFeatures(rows, startDate, endDate, { detectedOnly = false } = {}) {
     };
 }
 
-/**
- * Query VNF sites within a bounding box and date range.
- * Returns a GeoJSON FeatureCollection with per-site aggregated data.
- */
+// the sites in a bbox over a date window, as a geojson feature collection
 export async function queryVNF(bbox, startDate, endDate) {
     if (!_ready) throw new Error('VNF not initialized');
     const [west, south, east, north] = bbox;
@@ -107,10 +101,7 @@ export async function queryVNF(bbox, startDate, endDate) {
     return siteFeatures(rows, startDate, endDate, { detectedOnly: true });
 }
 
-/**
- * Query a single VNF flare by ID (for deep links).
- * Returns a GeoJSON FeatureCollection with 0 or 1 features.
- */
+// one flare by id, for a deep link: a collection of nought or one feature
 export async function queryVNFFlare(flareId, startDate, endDate) {
     if (!_ready) throw new Error('VNF not initialized');
     const id = String(flareId);
@@ -118,18 +109,16 @@ export async function queryVNFFlare(flareId, startDate, endDate) {
     return siteFeatures(rows, startDate, endDate);
 }
 
-/**
- * Daily detection history for one flare (card open) — the only reader of the
- * daily series. Every row in detections is one night the site was seen lit,
- * cloudy nights included, so there is nothing to filter: the nights nobody
- * caught it are observations rows and live in another table. Full history; the
- * card windows it to the selected quarters.
- *
- * The site's cell is the whole of the addressing — one object, and inside it
- * the site_id predicate prunes to a row group off the footer statistics. The
- * cell rides on the feature, so a card names its object without computing an H3
- * index and without a listing.
- */
+// the nightly history for one flare (card open) — the only reader of the daily
+// series. every row in detections is one night the site was seen lit, cloudy
+// nights included, so there is nothing to filter: the nights nobody caught it
+// are observations rows, in a table this app does not read. the whole history
+// comes back and the card windows it to the ticked quarters.
+//
+// the site's cell is the whole of the addressing — one object, and inside it
+// the site_id predicate prunes to a row group off the footer statistics. the
+// cell rides on the feature, so a card names its object without computing an H3
+// index and without a listing.
 export async function fetchVNFDetections({ id, cell }) {
     if (!id || !cell) return [];
     const rows = await read((await objects('detections', { provider: 'eog', key: cell }))[0],
@@ -138,7 +127,7 @@ export async function fetchVNFDetections({ id, cell }) {
         .sort((a, b) => a.date < b.date ? -1 : 1);
 }
 
-/** Set of `year_quarter` keys with any detection in the viewport over [start,end]. */
+// the `year_quarter` keys with any detection in the viewport over [start, end]
 export async function availableQuartersVNF(bbox, startDate, endDate) {
     if (!_ready) return new Set();
     const [west, south, east, north] = bbox;

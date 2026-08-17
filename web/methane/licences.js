@@ -1,15 +1,16 @@
-// MapStand oil and gas licence areas. The private deploy bakes the restricted
-// Hilbert GeoParquet locally; DuckDB range-reads only intersecting row groups.
+// mapstand oil and gas licence areas. the private deploy bakes the restricted
+// hilbert geoparquet locally, and duckdb range-reads only the row groups a
+// viewport intersects.
 
-import { hoverPopup } from '../vendor/cartograph/shell.js';
+import { hoverPopup } from '../shell/map.js';
 import { map as dd } from '../vendor/dd/palette.js';
-import { parquetInput } from '../vendor/cartograph/data.js';
-import { escapeHtml } from '../vendor/cartograph/util.js';
+import { parquetInput } from '../shell/data.js';
+import { escapeHtml } from '../shell/util.js';
 import { AREA, DASH } from '../layers.js';
 import { sweeper } from './sweep.js';
 
-// absolute, because this goes into raw SQL: cartograph resolves a relative name
-// only inside read()/meta(), and DuckDB treats a bare path as a local file it
+// absolute, because this goes into raw SQL: the data layer resolves a relative
+// name only inside read()/meta(), and duckdb treats a bare path as a file it
 // has no way to open. dist.sh appends its cache-buster to this path.
 // resolved against the document (web/), not this module's directory, so the
 // bake stays at web/data/ while the module lives under web/methane/.

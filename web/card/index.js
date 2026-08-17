@@ -1,6 +1,6 @@
 // the detail card: one header, one body per feature kind.
 //
-// cartograph renders the header — title, coordinates, overlap nav — and calls
+// the shell renders the header — title, coordinates, overlap nav — and calls
 // the hooks below; everything under it comes from the body the feature's `kind`
 // selects: an s2 flare site, a vnf flare or a methane plume. what the three
 // share lives here — the "also here" row, the information rows, the intensity
@@ -10,9 +10,9 @@
 // dispatch is on the feature, so a card opened from "also here" is the kind it
 // names — the two flaring families draw at once and each owns its own source.
 
-import { showDetail, refreshDetail, closeDetail } from '../vendor/cartograph/detail.js';
-import { dimSatellite } from '../vendor/cartograph/shell.js';
-import { dateInQuarters, degLat, degLon, formatDate } from '../vendor/cartograph/util.js';
+import { showDetail, refreshDetail, closeDetail } from '../shell/detail.js';
+import { dimSatellite } from '../shell/map.js';
+import { dateInQuarters, degLat, degLon, formatDate } from '../shell/util.js';
 import { rampRGB, scaleT, chartNorm } from '../flaring/render.js';
 import { nearbyHtml, wireNearby } from '../nearby.js';
 import flare from './flare.js';
@@ -24,9 +24,9 @@ import plume from './plume.js';
 const BODIES = { flare, vnf, plume };
 const bodyOf = p => BODIES[p.kind] ?? BODIES.flare;
 
-// injected by initCard: the map, whether this build serves the precomputed
-// archive (its cluster rows carry no COG) and the active quarter-keys getter
-export let map = null, hasArchive = false;
+// injected by initCard: the map, the archive base url (the plume body links
+// into it for a provider's own record) and the active quarter-keys getter
+export let map = null;
 let quarterKeys = () => new Set();
 
 export let current = null;          // the open feature's properties
@@ -36,12 +36,11 @@ let shownBody = null;
 let _skipAuto = false;              // suppress auto imagery load on a re-render
 
 export function initCard(deps) {
-    ({ map, hasArchive, quarterKeys } = deps);
+    ({ map, quarterKeys } = deps);
     for (const b of Object.values(BODIES)) b.init?.(deps);
 
-    // j/k / arrows step the dated rows. escape is cartograph's, and no card
-    // carries a close control (ruling 2026-07-08). rows the body dimmed are
-    // skipped — an l1c-only date has no image to open.
+    // j/k / arrows step the dated rows. escape is the shell's, and no card
+    // carries a close control (ruling 2026-07-08).
     document.addEventListener('keydown', e => {
         if (!document.getElementById('detail').classList.contains('visible')) return;
         let dir = 0;
@@ -49,7 +48,7 @@ export function initCard(deps) {
         else if (e.key === 'ArrowUp' || e.key === 'k') dir = -1;
         if (!dir) return;
         e.preventDefault();
-        const items = [...document.querySelectorAll('.event-item:not(.l1c-only)')];
+        const items = [...document.querySelectorAll('.event-item')];
         if (!items.length) return;
         const at = items.findIndex(el => el.classList.contains('active'));
         const next = Math.max(0, Math.min(items.length - 1, at + dir));
@@ -150,27 +149,11 @@ export function reselectCurrentFeature() {
 
 // ── the flaring body: information rows, chart, dated rows, action pair ──
 
-// a locally detected cluster carries its own dates; an archive row does not,
-// and the presence of the property is what tells them apart. detections arrive
-// as objects from crossDateCluster or json strings via queryRenderedFeatures
-function localDets(p) {
-    if (!p.detections) return null;
-    let d = p.detections;
-    if (typeof d === 'string') { try { d = JSON.parse(d); } catch { d = []; } }
-    return d;
-}
-
 function seriesHtml(p, b) {
     const cfg = b.cfg;
     // both archive tables publish the window's numbers on the feature — the
     // looks they published for the ticked quarters, and the detections in
-    // exactly those looks — so nothing here recomputes a rate. only a locally
-    // detected cluster needs its count derived, from the dates it carries,
-    // because nothing rolled it up.
-    const local = localDets(p);
-    const detection_count = local
-        ? local.filter(d => dateInQuarters(d.date, quarterKeys())).length
-        : p.detection_count;
+    // exactly those looks — so nothing here recomputes a rate.
     const cfLabel = p.passes && p.observations != null
         ? `Cloud-free (${Math.round(p.observations / p.passes * 100)}%)` : 'Cloud-free obs.';
     // the count is the passes we could see the site and it was lit — fewer than
@@ -179,7 +162,7 @@ function seriesHtml(p, b) {
     const stats = [
         // "(clear)" only where a cloud mask says which passes were clear:
         // without one the count and the rate below it run over every pass
-        [local || p.observations == null ? 'Detections' : 'Detections (clear)', detection_count],
+        [p.observations == null ? 'Detections' : 'Detections (clear)', p.detection_count],
         ['Persistence', p.persistence != null ? `${Math.round(p.persistence * 100)}%` : '—'],
         [b.passLabel, p.passes ?? '—'],
         [cfLabel, p.observations ?? '—'],
@@ -200,25 +183,21 @@ function seriesHtml(p, b) {
 
 function seriesShow(p, el, b) {
     greyCircles(true);
-    // the card shows only detections in the selected quarter window. archive
-    // features carry no embedded list — the series is fetched per site, here,
-    // so the big detections parquet (and its footer) loads lazily behind the
-    // card. a failed fetch says so; it used to sit on 'Loading…' for good.
+    // the card shows only detections in the selected quarter window. a feature
+    // carries no list of dates — the series is fetched per site, here, so the
+    // big detections parquet (and its footer) loads lazily behind the card. a
+    // failed fetch says so; it used to sit on 'Loading…' for good.
     const qKeys = quarterKeys();
-    const local = localDets(p);
-    if (local) renderEvents(el, local.filter(d => dateInQuarters(d.date, qKeys)), b);
-    else {
-        el.querySelector('#events-list').innerHTML = '<div class="events-empty">Loading…</div>';
-        b.fetch(p)
-            .then(dets => dets.filter(d => dateInQuarters(d.date, qKeys)))
-            .catch(err => { console.error('detection series error:', err); return []; })
-            .then(dets => { if (current === p) renderEvents(el, dets, b); });
-    }
+    el.querySelector('#events-list').innerHTML = '<div class="events-empty">Loading…</div>';
+    b.fetch(p)
+        .then(dets => dets.filter(d => dateInQuarters(d.date, qKeys)))
+        .catch(err => { console.error('detection series error:', err); return []; })
+        .then(dets => { if (current === p) renderEvents(el, dets, b); });
     b.wire?.(el);
 }
 
 function seriesClose() {
-    clearCogLayers();
+    clearFootprint();
     dimSatellite(map, false);
     greyCircles(false);
 }
@@ -233,10 +212,7 @@ function renderEvents(el, detections, b) {
 
     for (const det of sorted) {
         const item = document.createElement('div');
-        // a row with no image to open is dimmed and skipped, not dropped: it
-        // still carries a date and a raw point for the intensity halo
-        const dim = b.l1c?.(det);
-        item.className = 'dd-row event-item' + (dim ? ' l1c-only' : '');
+        item.className = 'dd-row event-item';
         item.dataset.date = det.date;
         item.innerHTML = `
             <span class="event-date">${formatDate(det.date)}</span>
@@ -245,7 +221,7 @@ function renderEvents(el, detections, b) {
         item.onclick = () => selectDetection(det, item, b);
         list.appendChild(item);
         dateToItem.set(det.date, { det, item });
-        if (!firstItem && !dim) firstItem = { det, item };
+        firstItem ??= { det, item };
     }
 
     renderIntensityChart(el, detections, b.cfg, det => {
@@ -329,52 +305,40 @@ function greyCircles(grey) {
         if (map.getLayer(id)) map.setPaintProperty(id, 'icon-opacity', grey ? 0.35 : 1);
 }
 
-// tear down the COG / heat-footprint image overlay (idempotent)
-export function clearCogLayers() {
-    if (map.getLayer('cog-border')) map.removeLayer('cog-border');
-    if (map.getLayer('cog-layer')) map.removeLayer('cog-layer');
-    if (map.getSource('cog-border')) map.removeSource('cog-border');
-    if (map.getSource('cog-source')) map.removeSource('cog-source');
+const FOOTPRINT = 'detection-footprint';   // the layer id and its image source
+
+// tear down the footprint overlay (idempotent)
+export function clearFootprint() {
+    if (map.getLayer(FOOTPRINT)) map.removeLayer(FOOTPRINT);
+    if (map.getSource(FOOTPRINT)) map.removeSource(FOOTPRINT);
 }
 
-// put a georeferenced canvas under the detection markings, optionally framed
-export function drawImage(coordinates, url, { border, resampling = 'linear' } = {}) {
-    map.addSource('cog-source', { type: 'image', url, coordinates });
-    map.addLayer({ id: 'cog-layer', type: 'raster', source: 'cog-source',
-        paint: { 'raster-opacity': 1, 'raster-resampling': resampling } }, 'detections');
-    if (border) {
-        map.addSource('cog-border', { type: 'geojson', data: { type: 'Feature',
-            geometry: { type: 'Polygon', coordinates: [[...coordinates, coordinates[0]]] } } });
-        map.addLayer({ id: 'cog-border', type: 'line', source: 'cog-border',
-            paint: { 'line-color': '#ffffff', 'line-width': 1 } }, 'detections');
-    }
-    greyCircles(true);
-    dimSatellite(map, true);
-}
-
-// radial-gradient footprint at a detection's point, coloured and sized by
-// intensity, where there is no COG to render: vnf looks and s2 archive rows.
-// each family passes its own quantity — radiant heat and B12 reflectance are
-// not comparable, only their places on the shared ramp are.
+// a radial-gradient halo at a detection's own point, coloured and sized by
+// intensity: neither flaring family publishes a scene, so this is what a
+// selected date draws. each passes its own quantity — radiant heat and B12
+// reflectance are not comparable, only their places on the ramp are. it goes in
+// under 'detections', so both families' markings stay above it.
 export function heatFootprint({ lon, lat, val, radiusM, cfg }) {
-    clearCogLayers();
+    clearFootprint();
     if (!(val > 0)) return;
-
-    const dLat = degLat(radiusM), dLon = degLon(radiusM, lat);
 
     const size = 128;
     const canvas = document.createElement('canvas');
-    canvas.width = size; canvas.height = size;
+    canvas.width = canvas.height = size;
     const ctx = canvas.getContext('2d');
     const [r, g, b] = rampRGB(scaleT(cfg, val));
     const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-    grad.addColorStop(0, `rgba(${r},${g},${b},0.85)`);
-    grad.addColorStop(0.3, `rgba(${r},${g},${b},0.5)`);
-    grad.addColorStop(0.7, `rgba(${r},${g},${b},0.15)`);
-    grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    for (const [stop, alpha] of [[0, 0.85], [0.3, 0.5], [0.7, 0.15], [1, 0]])
+        grad.addColorStop(stop, `rgba(${r},${g},${b},${alpha})`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, size, size);
 
-    drawImage([[lon - dLon, lat + dLat], [lon + dLon, lat + dLat],
-               [lon + dLon, lat - dLat], [lon - dLon, lat - dLat]], canvas.toDataURL());
+    const dLat = degLat(radiusM), dLon = degLon(radiusM, lat);
+    map.addSource(FOOTPRINT, { type: 'image', url: canvas.toDataURL(),
+        coordinates: [[lon - dLon, lat + dLat], [lon + dLon, lat + dLat],
+                      [lon + dLon, lat - dLat], [lon - dLon, lat - dLat]] });
+    map.addLayer({ id: FOOTPRINT, type: 'raster', source: FOOTPRINT,
+        paint: { 'raster-opacity': 1 } }, 'detections');
+    greyCircles(true);
+    dimSatellite(map, true);
 }

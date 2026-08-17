@@ -1,6 +1,7 @@
-// Selected Data Desk MARS-S2L probability surface, georeferenced over the
-// satellite basemap. The PNG carries viridis RGBA; the canonical analysis
-// footprint supplies its four image-source corners.
+// the selected data desk MARS-S2L probability surface, georeferenced over the
+// satellite basemap. the png carries viridis RGBA — the same ramp the plume
+// markings read on (layers.js) — and the canonical analysis footprint supplies
+// its four image-source corners.
 
 const LAYER = 'dd-plume-probability';   // and its source, which has no other user
 let map, epoch = 0, objectUrl = null;
@@ -35,7 +36,7 @@ async function transparentize(url) {
 function imageCorners(bounds) {
     const ring = JSON.parse(bounds)?.coordinates?.[0];
     if (!ring || ring.length < 4) return null;
-    // Canonical chip ring: lower-left, lower-right, upper-right, upper-left.
+    // the canonical chip ring: lower-left, lower-right, upper-right, upper-left
     return [ring[3], ring[2], ring[1], ring[0]];
 }
 

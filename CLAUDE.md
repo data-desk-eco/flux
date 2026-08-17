@@ -6,29 +6,29 @@ Nightfire looks (VNF), a layer each and both drawn at once; methane plumes are
 the third layer. one quarter grid sets the date window for all three, and a
 quarter greys only when no layer covers it.
 
-flux is the merge of burnoff (flaring) and firedamp (methane). it is a
-cartograph consumer (`~/Tools/cartograph`): `web/config.js` is the declarative
-config passed to `mount()`, and the shell, key, quarter picker, sliders, detail
-panel, data table and permalinks are all cartograph's, vendored under
-`web/vendor/cartograph/`. everything flux-specific lives in the hook modules
-config.js wires in.
+flux is the merge of burnoff (flaring) and firedamp (methane). it reads and
+draws, and does nothing else: no detection of its own, no publishing, no peers.
+`web/config.js` is the declarative config `mount()` takes, and everything
+flux-specific lives in the hook modules it wires in.
 
-zero npm dependencies. MapLibre GL, DuckDB-Wasm lite, geotiff.js and the s2e
-rust core compiled to wasm are vendored; everything else — the CRDT, the WebRTC
-mesh, the sync protocol, IndexedDB persistence, UTM math, the signal server's
-WebSocket framing — is hand-rolled on web standards.
+`web/shell/` is the map shell — panels, key, quarter picker, sliders, detail
+card, data drawer, permalinks, the duckdb layer and the archive index. it was
+the cartograph library until 2026-08-17, vendored into three maps; the other two
+forward here now, so it lives in this tree as first-party code. change it here,
+and delete what only a second consumer would have wanted.
+
+zero npm dependencies. MapLibre GL and DuckDB-Wasm lite are vendored; everything
+else is browser built-ins.
 
 ## the three families
 
 **S2 flaring.** `flaring/s2archive.js` reads `data-desk/flares` (one row per
-cluster, the site's quarterly history nested in a `quarters` list) through
-cartograph's DuckDB layer, once, and answers every viewport from those rows.
+cluster, the site's quarterly history nested in a `quarters` list) through the
+shell's DuckDB layer, once, and answers every viewport from those rows.
 `data-desk/detections` holds the per-date series, read per cluster on card open.
-where the archive has no coverage the in-browser detector takes over: `Detect`
-runs the s2e wasm core in a worker (`flaring/detect-worker.js`) and peers split
-the blocks over WebRTC into one shared CRDT. that whole stack — crdt, sync, rtc,
-store — is loaded lazily by `ensureDetect()` and a pure-archive session never
-fetches it.
+the methodology that builds both is s2-flares, and it runs in the etl repo — the
+in-browser detector, its wasm core and the WebRTC mesh that shared its work were
+removed on 2026-08-17. flux is a viewer.
 
 **VNF flaring.** `flaring/vnf.js` reads `eog/flares` for the viewport and
 `eog/detections` per site on card open. every row in detections is a positive
@@ -51,13 +51,14 @@ so a table that starts partitioning does not break a reader.
 
 ```
 web/
-  config.js          the cartograph config + orchestration: the key's four
+  config.js          the whole app declaration + orchestration: the key's four
                      groups, viewport queries, the quarter grid's availability,
-                     the detect controls, deep-link resolve, the "also here"
-                     groups
+                     the table's tabs, deep-link resolve, the "also here" groups
   layers.js          marking / ramp / colour policy for every layer, the key's
                      bands, and the shared layout blocks (PIN, RATE_LABEL).
-                     shape categorises, colour means intensity, everywhere
+                     shape categorises, colour is measurement: the intensity
+                     ramp for flaring, viridis for methane, grey for a plume
+                     with no rate
   nearby.js          the "also here" row: what the other layers hold at an open
                      card's place, from collections the session already has
   card/              one header, one body per feature kind
@@ -70,11 +71,6 @@ web/
     clustering.js    terminal grid, sumQuarters, the feature builders
     s2archive.js     data-desk/flares + detections, and the coverage geojson
     vnf.js           eog/flares + eog/detections
-    detect.js        local detect + p2p wiring          (lazy)
-    detect-worker.js module worker: wasm block detector + COG I/O
-    s2/              the s2e methodology core in-tree: stac/cog/geo I/O,
-                     cluster/score JS, and the rust core as wasm in s2/wasm/
-    crdt.js sync.js rtc.js store.js                     (lazy)
   methane/
     plumes.js        the plume reader: display read, availability index,
                      permalink read, and the provider label / rate helpers
@@ -83,26 +79,27 @@ web/
     licences.js      MapStand licence acreage (private build)
     overlay.js       the MARS-S2L probability surface over the basemap
     sweep.js         the viewport sweep both parquet layers run
-  vendor/            cartograph, dd design system, duckdb, maplibre, fonts
-  index.html         ~25 lines: meta config + vendor includes
-  style.css          flux UI on top of cartograph's shell.css
-scripts/vendor.sh    thin wrapper over cartograph's vendor.sh + the s2e wasm
-signal/              WebSocket signaling: node relay (dev), Worker + DO (prod)
-test/                determinism + p2p retry tests (node:test)
+  shell/             the map shell: app.js mount, map.js basemap, ui.js panels
+                     and key, detail.js card, table.js drawer, quarters.js grid,
+                     data.js duckdb, archive.js index, util.js, shell.css
+  vendor/            dd design system, duckdb, maplibre, fonts
+  index.html         ~25 lines: meta config + includes
+  style.css          flux UI on top of shell.css
+scripts/vendor.sh    the third-party half of web/vendor
+test/                the rate rules, in node:test
 ```
 
 ## commands
 
 ```bash
-make serve     # static server on :8000 + signaling on :4444
-make test      # determinism + p2p retry (node --test)
-make vendor    # re-vendor cartograph + the s2e wasm core
-make deploy    # signaling worker to Cloudflare
+make serve     # static server on :8000
+make test      # the rate rules (node --test)
+make vendor    # re-vendor maplibre, duckdb, the dd design system, inter
+make dist      # the pages artifact, assertions and all
 ```
 
-no `npm install`. after a change in `~/Tools/cartograph`, run `make vendor` here.
-examine DOM logic in the browser (`skills/browser/browse` in `~/data-desk`), not
-only in the tests.
+no `npm install`, and no build step. examine DOM logic in the browser
+(`skills/browser/browse` in `~/data-desk`), not only in the tests.
 
 ## invariants
 
@@ -140,10 +137,10 @@ sank the whole archive below the slider's default. do not fold them into one.
 reflectance and radiant heat are not one scale, so there is no slider that can
 carry both: `MODE[x].floor` is the published quality gate (a constant, on the
 site's *average*), and the key's rows filter above it, on the *maximum*, at
-exactly the breaks `rampIcon` steps at — `flareBands` in `layers.js` is where
+exactly the breaks `flareIcon` steps at — `flareBands` in `layers.js` is where
 the two are kept in step. a row a feature is no statement about passes it
 (`p.kind !== kind || …`), which is what lets one key filter a map of several
-sources; cartograph reads a feature every row admits as outside the section, so
+sources; the key reads a feature every row admits as outside the section, so
 switching a group off entirely drops that family and nothing else.
 
 **floors:** `MIN_LOOKS = 10` for S2, `COVERAGE_MIN = 0.8` for VNF, both in
@@ -165,12 +162,10 @@ in every table; never coerce with `Number()` (`card/index.js` compares
 `String(id) === String(id)`, and never on coordinates: an 11 m coordinate match
 handed two close sites each other's card).
 
-**no H3 in the browser, and no second detector.** nothing computes a cell; it
-only ever passes one on, which is what lets a card name one object without a
-bucket listing — so plumb `cell` through any new feature builder
-(`clustering.js` → `s2archive.js`, `vnf.js`). the wasm core stays the only
-detector; a JavaScript port is how the in-browser pixel counts diverged from the
-core before, and it was removed.
+**no H3 in the browser.** nothing computes a cell; it only ever passes one on,
+which is what lets a card name one object without a bucket listing — so plumb
+`cell` through any new feature builder (`clustering.js` → `s2archive.js`,
+`vnf.js`).
 
 **flux does not read `eog/observations`, deliberately.** the quarters list
 already carries the looks, windowed the same way as the numerator. a second read
@@ -189,8 +184,18 @@ than vanishing: the shared flares schema has no site-level b12, and
 floor `0`, the literal, not `MODE.vnf.floor` — under the 3 MW default every dim
 flare resolved to nothing at all.
 
-**`rampIcon` coalesces a missing value to `stops[0]`** (`layers.js`): a row the
-producer gives no value for flattens the ramp rather than hiding the feature.
+**`flareIcon` coalesces a missing value to `stops[0]`** (`layers.js`): a site
+the producer gives no value for flattens the ramp rather than hiding the site. a
+plume is the other way round: no rate is not a low rate, so it is drawn in grey,
+off the ramp and out of the key's bands — and a band selection leaves it out, as
+it leaves out any rate outside the band.
+
+**two ramps, because they answer different questions.** flaring reads on the dd
+intensity ramp (red → orange → white) and methane on viridis, the same ramp the
+plume rasters `methane/overlay.js` drapes are rendered in. one ramp across both
+invited the reading that a bright plume and a bright flare were the same
+quantity. colour never means provider, and never means category — that is
+shape's job.
 
 ## the tables
 

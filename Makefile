@@ -1,4 +1,4 @@
-.PHONY: serve signal test dist deploy-private signal-deploy terminals vendor help
+.PHONY: serve test dist deploy-private terminals vendor help
 
 # the plume etl (carbon mapper / imeo / sron / ghgsat) lives in ~/Tools/etl; the
 # public site reads one detections object per provider live, and only the
@@ -49,12 +49,9 @@ web/vendor/.ok:
 	@bash scripts/vendor.sh
 	@touch web/vendor/.ok
 
-serve: vendor signal
-	@echo "http://localhost:8000  (signaling on :4444)"
+serve: vendor
+	@echo "http://localhost:8000"
 	@python3 scripts/serve.py 8000 web
-
-signal:
-	@node signal/server.js &
 
 # exactly what the pages workflow runs, assertions and all — the public build
 # proves it carries no licensed row, so run it here before pushing rather than
@@ -82,21 +79,14 @@ deploy-private:
 	bash scripts/dist.sh $$(git rev-parse HEAD) local
 	npx wrangler pages deploy dist --project-name flux-private --branch main
 
-# the webrtc mesh's rendezvous, and the only deploy here that is not the map.
-# readers on every origin share one room, so redeploying drops live peers
-# mid-sync — it is not part of a release. run it when signal/ itself changes,
-# and not otherwise.
-signal-deploy:
-	npx wrangler deploy
-
+# the reducer and the two feature builders, which are pure and where every
+# persistence incident this repo records has happened
 test:
-	@node --test test/determinism.test.mjs test/retry-peers.test.mjs
+	@node --test test/*.test.mjs
 
 help:
-	@echo "make serve          - Dev server on :8000 + signaling on :4444"
-	@echo "make signal         - Signaling server only"
-	@echo "make vendor         - Vendor dependencies via cartograph + the s2e wasm core"
-	@echo "make test           - Run determinism tests"
+	@echo "make serve          - Dev server on :8000"
+	@echo "make test           - Run the flaring rate rules in node"
+	@echo "make vendor         - Vendor maplibre, duckdb, the dd design system and inter"
 	@echo "make dist           - Build the public artifact into dist/ (what Actions publishes)"
 	@echo "make deploy-private - Build with the ghgsat + mapstand bakes, deploy behind Access"
-	@echo "make signal-deploy  - Redeploy the signaling worker (drops live peers)"

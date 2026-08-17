@@ -1,12 +1,12 @@
-// generic data desk full-screen map shell — maplibre + the vendored dd design
-// system (expected as a sibling vendor dir: ../dd/). dark basemap with globe
+// generic data desk full-screen map shell — maplibre + the dd design
+// system (vendor/dd/). dark basemap with globe
 // projection and on-demand marking images, grayscale satellite underlay,
 // mollweide worldmap widget, hover popups and panel collapse.
 
-import { addMarking } from '../dd/markings.js';
-import { drawWorldmap, setBoxes } from '../dd/worldmap.js';
+import { addMarking } from '../vendor/dd/markings.js';
+import { drawWorldmap, setBoxes } from '../vendor/dd/worldmap.js';
 
-const DD = new URL('../dd/', import.meta.url);
+const DD = new URL('../vendor/dd/', import.meta.url);
 
 // dd dark basemap + globe. markings load on demand: styleimagemissing catches any
 // `<name>-<#hex>` id referenced before its image arrives, so layers can be added
@@ -48,7 +48,13 @@ const BLANK = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ
 const SAT = [['satellite', 7, 17], ['satellite-mid', 17, 18], ['satellite-deep', 18, 19]];
 
 maplibregl.addProtocol('esri', async ({ url }, abort) => {
-    const data = await (await fetch(url.replace('esri:', 'https:'), { signal: abort.signal })).arrayBuffer();
+    const res = await fetch(url.replace('esri:', 'https:'), { signal: abort.signal });
+    // past the edge of the cache a tile 404s as readily as it answers with the
+    // placeholder: both mean nothing is there, and answering both with a
+    // transparent tile lets the shallower tier show through instead of logging
+    // one maplibre error per missing tile
+    if (!res.ok) return { data: BLANK };
+    const data = await res.arrayBuffer();
     return { data: data.byteLength === GAP ? BLANK : data };
 });
 

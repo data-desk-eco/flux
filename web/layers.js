@@ -3,12 +3,17 @@
 //
 // the guidelines give shape the categorising job and reserve colour for
 // intensity (pdf:71, 75, 76). so shape alone says whether a feature burned or
-// leaked, and colour says only how much: one ramp across both families,
-// adjusted red -> orange -> white, low to high (design/ir/cartography.json ->
-// markings.intensityRamp, ruling 2026-07-07; the rule is written for markings
-// in general, so the quantitative mark inherits it). each layer keeps its own
-// value stops behind that ramp — b12 reflectance, radiant heat and kg/h are not
-// comparable quantities, and the key states the units per group.
+// leaked, and colour says only how much — never who published it, never what
+// kind of thing it is.
+//
+// there are two ramps, one per question. flaring takes the adjusted intensity
+// ramp, red -> orange -> white, low to high (design/ir/cartography.json ->
+// markings.intensityRamp, ruling 2026-07-07), and both instruments read on it
+// against their own stops: b12 reflectance and radiant heat are not comparable
+// numbers but they are the same question. methane takes viridis, because gas
+// released is not gas burned and a shared ramp made the two look like one
+// measurement — and because the plume rasters this app drapes are already
+// rendered in it. the key states the units of each.
 
 import { map as ddPalette } from './vendor/dd/palette.js';
 
@@ -18,24 +23,25 @@ export const RAMP = [DD.red, DD.orange, DD.white];   // low → high intensity
 // one size for every marking on the map, growing gently with zoom
 export const ICON_SIZE = ['interpolate', ['linear'], ['zoom'], 2, 0.55, 10, 0.8, 14, 1];
 
-// icon-image expression: `mark` stepped low → mid → high through the ramp at
-// the layer's own stops. a row the producer gives no value for coalesces to the
-// bottom of the ramp, which flattens the colour rather than hiding the feature.
-function rampIcon(mark, prop, stops, log = false) {
-    const v = ['coalesce', ['get', prop], stops[0]];
-    const at = s => log ? Math.log(s + 1) : s;
-    return ['step', log ? ['ln', ['+', v, 1]] : v,
-        `${mark}-${RAMP[0]}`, at(stops[1]), `${mark}-${RAMP[1]}`, at(stops[2]), `${mark}-${RAMP[2]}`];
-}
+// icon-image expression: `mark` stepped through `colors` at `breaks` — one more
+// colour than break, low to high.
+const stepIcon = (mark, value, breaks, colors) => ['step', value, `${mark}-${colors[0]}`,
+    ...breaks.flatMap((b, i) => [b, `${mark}-${colors[i + 1]}`])];
 
-// flaring: the flare marking, on the instrument's own scale (render.js MODE)
-export const flareIcon = cfg => rampIcon('flare', cfg.prop, cfg.stops, cfg.log);
+// flaring: the flare marking, on the instrument's own scale (render.js MODE).
+// a site the producer gives no value for coalesces to the foot of the ramp,
+// which flattens the colour rather than hiding the site.
+export const flareIcon = cfg => {
+    const v = ['coalesce', ['get', cfg.prop], cfg.stops[0]];
+    const at = s => cfg.log ? Math.log(s + 1) : s;
+    return stepIcon('flare', cfg.log ? ['ln', ['+', v, 1]] : v, cfg.stops.slice(1).map(at), RAMP);
+};
 
 // the key's flaring bands, taken off the same stops the step above breaks at, so
 // a row selects exactly the features drawn in its colour — the guarantee the
-// methane bands already make. the bottom band is written as a negation for the
-// same reason rampIcon coalesces: a site the producer gives no value for reads
-// as the foot of the ramp, which is where the map draws it.
+// methane bands make too. the bottom band is written as a negation for the same
+// reason flareIcon coalesces: a site the producer gives no value for reads as
+// the foot of the ramp, which is where the map draws it.
 export const flareBands = cfg => {
     const [lo, mid, hi] = cfg.stops, v = p => p[cfg.prop];
     return [
@@ -46,10 +52,20 @@ export const flareBands = cfg => {
 };
 
 // methane: a plume carries a measured rate, so it is a quantitative data point
-// and takes the quantitative marking. its stops are the key's band boundaries,
-// so what the map draws and what the key filters on are one set of numbers.
-const PLUME_STOPS = [1000, 5000, 10000];   // kg/h
-export const plumeIcon = rampIcon('quantitative', 'rate_kg_h', PLUME_STOPS);
+// and takes the quantitative marking. colour is still intensity, but on a ramp
+// of its own — viridis, the ramp the data desk plume rasters this app drapes are
+// already rendered in (methane/overlay.js). on one shared ramp a bright plume
+// and a bright flare read as the same quantity, and they are not comparable at
+// all: one is gas burned, the other gas released.
+const VIRIDIS = ['#3B528B', '#21918C', '#5EC962', '#FDE725'];   // low → high rate
+const PLUME_STOPS = [1000, 5000, 10000];   // kg/h — the key's band boundaries too
+
+// a plume the provider put no number on is drawn in the ui grey, not at the foot
+// of the ramp: the ramp's foot is a small release, and an unquantified plume is
+// not a small one. the key lists no swatch for it — there is no band to filter.
+export const plumeIcon = ['case',
+    ['!=', ['typeof', ['get', 'rate_kg_h']], 'number'], `quantitative-${DD.grey}`,
+    stepIcon('quantitative', ['get', 'rate_kg_h'], PLUME_STOPS, VIRIDIS)];
 
 // the key's rate bands, off those same stops so a band boundary cannot drift
 // from the colour the map draws either side of it: kg/h for the filter, t/hr in
@@ -58,11 +74,10 @@ export const plumeIcon = rampIcon('quantitative', 'rate_kg_h', PLUME_STOPS);
 // what flaring now does too, on both its scales.
 const [LO, MID, HI] = PLUME_STOPS, t = kg => kg / 1000;
 export const PLUME_BANDS = [
-    [`${t(HI)}+`, HI, null, RAMP[2]],
-    [`${t(MID)}–${t(HI)}`, MID, HI, RAMP[1]],
-    [`${t(LO)}–${t(MID)}`, LO, MID, RAMP[0]],
-    [`< ${t(LO)}`, 0, LO, RAMP[0]],
-    ['n/a', null, null, RAMP[0]],   // no rate published — drawn at the ramp's foot
+    [`${t(HI)}+`, HI, null, VIRIDIS[3]],
+    [`${t(MID)}–${t(HI)}`, MID, HI, VIRIDIS[2]],
+    [`${t(LO)}–${t(MID)}`, LO, MID, VIRIDIS[1]],
+    [`< ${t(LO)}`, 0, LO, VIRIDIS[0]],
 ];
 
 // everything the ramp does not colour. shape categorises and white is the
@@ -76,8 +91,11 @@ export const MARK = {
 export const AREA = { licence: DD.purple };
 export const DASH = [2, 2];
 
-// marking ids only expressions name, so styleimagemissing never sees them
-export const MARKS = [...RAMP.flatMap(c => [`flare-${c}`, `quantitative-${c}`]), ...Object.values(MARK)];
+// marking ids only expressions name, so styleimagemissing never sees them: the
+// two ramps, the grey an unrated plume takes, and the white a cluster total does
+export const MARKS = [...RAMP.map(c => `flare-${c}`),
+                      ...[...VIRIDIS, DD.grey, DD.white].map(c => `quantitative-${c}`),
+                      ...Object.values(MARK)];
 
 // every marking layer on this map pins its icon: a detection sits where it was
 // measured, so overlap never moves or drops one

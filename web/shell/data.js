@@ -1,6 +1,7 @@
-// One lazy DuckDB-WASM connection serves Parquet reads, metadata and SQL. DuckDB
-// runs in its own worker, so Cartograph needs no data worker or decode library.
-const DDB = new URL('../duckdb/', import.meta.url).href;
+// one lazy duckdb-wasm connection serves every parquet read, table metadata and
+// raw SQL. duckdb runs in its own worker, so nothing here needs a worker or a
+// decode library of its own.
+const DDB = new URL('../vendor/duckdb/', import.meta.url).href;
 const DUCKDB_RELEASE = 'v1.5.5-lite.2';
 const duckdbAsset = name => `${DDB}${name}?v=${DUCKDB_RELEASE}`;
 
@@ -83,8 +84,8 @@ export function read(name, { columns, where } = {}) {
     return sql(`SELECT ${select} FROM read_parquet(${list(source)}${options})${tests.length ? ` WHERE ${tests.join(' AND ')}` : ''}`);
 }
 
-// Keep the former footer shape for consumers that inspect row-group bounds.
-// DuckDB reads the Parquet footer and returns one metadata row per column.
+// the footer shape a caller inspecting row-group bounds expects: duckdb reads
+// the parquet footer and returns one metadata row per column.
 export function meta(name) {
     const source = url(name);
     if (!metadata.has(source)) metadata.set(source, sql(`
@@ -115,8 +116,8 @@ const stat = (value, type) => value == null ? null
         && /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i.test(value) ? Number(value)
     : value;
 
-// BigInts become numbers and dates become ISO strings. The function recurses
-// through nested lists and structs but preserves typed arrays.
+// bigints become numbers and dates become ISO strings, recursing through nested
+// lists and structs but leaving typed arrays alone.
 export const norm = value =>
     typeof value === 'bigint' ? Number(value)
     : value instanceof Date ? value.toISOString().replace('T00:00:00.000Z', '')

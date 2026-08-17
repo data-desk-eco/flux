@@ -3,48 +3,49 @@ Flux
 Two ways the oil and gas industry puts carbon into the air — gas it burns and
 gas it leaks — on one map, under one date window.
 
-  make serve     # static server on :8000 + signaling on :4444
-  make test
-  make vendor    # re-vendor cartograph + the s2e wasm core
+  make serve     # static server on :8000
+  make test      # the reducer's rules, in node
+  make vendor    # re-vendor maplibre, duckdb, the dd design system and inter
 
 Three detection layers, all drawn at once, one quarter grid over all of them:
 
   - S2: Sentinel-2 flare clusters from the data-desk tables in the Data Desk
-    CloudFerro archive, read through Cartograph's DuckDB-Wasm layer.
-  - Detect (outside archive coverage): downloads Sentinel-2 L2A COGs from the
-    Element84 STAC catalogue and runs the detector in a Web Worker; connected
-    peers split the work over WebRTC and merge results in a CRDT.
+    CloudFerro archive, read through DuckDB-Wasm.
   - VNF: VIIRS Nightfire, from the eog tables in the same archive, which sees
     flares at night and measures their radiant heat.
   - Methane: dated plume observations from Carbon Mapper, IMEO, SRON and Data
     Desk, each carrying a measured release rate.
 
-Shape says whether a feature burned or leaked, colour says only how much. The
-two flaring instruments read on scales that are not comparable, so the key
-states each one's units and its rows are that layer's colour bands: turn a
-band off to filter it out, turn them all off to take the layer off the map.
+Flux reads. It publishes nothing and detects nothing of its own: the archive it
+draws is built by the etl repo, and the methodology behind the Sentinel-2 tables
+is s2-flares (github.com/data-desk-eco/s2-flares).
+
+Shape says whether a feature burned or leaked, and colour says only how much —
+flaring on the Data Desk intensity ramp, methane on viridis, because gas
+released and gas burned are not one quantity. The two flaring instruments read
+on scales that are not comparable either, so the key states each one's units and
+its rows are that layer's colour bands: turn a band off to filter it out, turn
+them all off to take the layer off the map.
 
 Where things live:
 
-  web/config.js      the map config, and the orchestration around it
+  web/config.js      the whole app declaration, and the orchestration around it
   web/layers.js      marking, ramp and colour policy for every layer
+  web/shell/         the map shell: mount, panels, key, quarters, card, drawer
   web/card/          one card header, one body per feature kind
   web/nearby.js      the "also here" row across the families
-  web/flaring/       S2 archive + VNF readers, clustering, the local detector
+  web/flaring/       the S2 archive and VNF readers, and the feature builders
   web/methane/       plume reader, attribution, candidates, licences, overlay
-  web/vendor/        cartograph, the dd design system, DuckDB, MapLibre
+  web/vendor/        the dd design system, DuckDB, MapLibre, Inter
 
-The detector, clusterer and quality score are the s2-flares methodology core
-(github.com/data-desk-eco/s2-flares), Rust compiled to wasm and vendored in
-web/flaring/s2/ — the in-browser path produces the same results as the archive
-run. The app is a cartograph consumer (github.com/data-desk-eco/cartograph —
-the map system itself is documented there): web/config.js is the config passed
-to mount(), and the flux-specific behaviour lives in the hook modules it wires
-in. CLAUDE.md carries the invariants.
+web/shell/ was the cartograph library until August 2026, vendored into three
+maps. The other two now forward here, so it lives in the tree it serves: one
+copy, no vendor step, and no generality kept for a consumer that no longer
+exists. CLAUDE.md carries the invariants — read them before changing how a rate
+is computed.
 
-Zero npm dependencies: MapLibre GL, geotiff.js, DuckDB-Wasm and the wasm core
-are vendored. The rest uses browser and Node.js built-ins. Production signaling
-is a Cloudflare Durable Object (signal/worker.js).
+Zero npm dependencies. MapLibre GL and DuckDB-Wasm are vendored; everything else
+is browser built-ins.
 
 References
 

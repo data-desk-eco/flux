@@ -3,18 +3,18 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="signaling-url" content="wss://burnoff-signaling.louis-6bf.workers.dev">
-    <!-- the data desk archive. vnf mode reads eog/flares and eog/detections, s2
-         mode data-desk/flares and data-desk/detections; index.json says which
-         object each is, so neither is named here. empty = client-side detection
-         only. -->
+    <!-- the data desk archive: vnf reads eog/flares and eog/detections, s2
+         data-desk/flares and data-desk/detections, methane one detections
+         object per provider. index.json says which object each is, so none of
+         them is named here. every layer reads it, so a build without it draws
+         nothing at all. -->
     <meta name="data-bucket" content="https://s3.WAW3-2.cloudferro.com/data-desk-archive">
-    <title>Flux / Emissions explorer</title>
+    <title>flux / emissions explorer</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2240%22 fill=%22%23FD7700%22/%3E%3C/svg%3E">
     <link rel="stylesheet" href="vendor/fonts/inter.css">
     <link rel="stylesheet" href="vendor/maplibre-gl.css">
     <link rel="stylesheet" href="vendor/dd/map.css">
-    <link rel="stylesheet" href="vendor/cartograph/shell.css">
+    <link rel="stylesheet" href="shell/shell.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>

@@ -1,18 +1,20 @@
-// Candidate sources from the provider-owned `infrastructure` tables. Which
+// candidate sources from the provider-owned `infrastructure` tables. which
 // providers publish one is the archive's statement, not this file's, and a
-// candidate feature carries no per-provider styling at all — so a fifth source
-// appears here on its own.
-// DuckDB applies the viewport bounds against Hilbert-clustered lon/lat row
-// groups. Swept optimistically for the viewport past MIN_CANDIDATE_ZOOM
-// (sweep.js), plus a radius query around the selected plume with the attributed
-// feature(s) highlighted. drawn as dd structure markings over an invisible fat
-// hit layer: a square for infrastructure, a diamond for an attributed source.
-// both white — colour on this map means intensity.
+// candidate carries no per-provider styling at all — so a fifth source appears
+// here on its own.
+//
+// duckdb applies the viewport bounds against hilbert-clustered lon/lat row
+// groups. the viewport is swept optimistically past MIN_CANDIDATE_ZOOM
+// (sweep.js), and a radius query around the selected plume highlights the
+// attributed feature. both are drawn as dd structure markings over an invisible
+// fat hit layer: a square for infrastructure, a diamond for an attributed
+// source, both white — colour on this map is measurement, and a candidate is
+// not one.
 
-import { hoverPopup } from '../vendor/cartograph/shell.js';
-import { objects } from '../vendor/cartograph/archive.js';
-import { parquetInput } from '../vendor/cartograph/data.js';
-import { degLat, degLon, escapeHtml, fmtMetres, haversineM } from '../vendor/cartograph/util.js';
+import { hoverPopup } from '../shell/map.js';
+import { objects } from '../shell/archive.js';
+import { parquetInput } from '../shell/data.js';
+import { degLat, degLon, escapeHtml, fmtMetres, haversineM } from '../shell/util.js';
 import { MARK, PIN } from '../layers.js';
 import { sweeper } from './sweep.js';
 

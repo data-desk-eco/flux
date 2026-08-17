@@ -7,9 +7,9 @@
 // window and the quarter grid re-reads — row group statistics make that cheap,
 // and it is a straight improvement whichever window you pick.
 
-import { read, fc } from '../vendor/cartograph/data.js';
-import { objects } from '../vendor/cartograph/archive.js';
-import { quarterOf } from '../vendor/cartograph/util.js';
+import { read, fc } from '../shell/data.js';
+import { objects } from '../shell/archive.js';
+import { quarterOf } from '../shell/util.js';
 import { loadAttributions } from './attribution.js';
 
 // everything the map, key and detail panel read — the projection stays narrow

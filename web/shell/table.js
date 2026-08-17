@@ -1,8 +1,7 @@
-// data table drawer (the gaslight pattern in dd clothing): a mid-right handle
-// drags open a tabbed table of raw rows — viewport-filtered when rows carry
-// lat/lon, substring-searched, sortable by column, capped with an in-view
-// count. clicking a row flies to it and opens the detail panel (or the tab's
-// own pick hook).
+// the data table drawer: a mid-right handle drags open a tabbed table of raw
+// rows — viewport-filtered when rows carry lat/lon, substring-searched, sortable
+// by column, capped with an in-view count. clicking a row flies to it and opens
+// its card (or the tab's own pick hook).
 //
 // config.table: [{
 //   label,                        tab text
@@ -11,14 +10,13 @@
 //   cols: [names],                column subset/order (default: keys of row 0)
 //   lat, lon: 'lat', 'lon',       coord columns (viewport filter + fly)
 //   pick: (row, ctx) => {},       row click; default opens detail by idProp
-//   filter: false,                opt out of the shared filter pipeline
-//                                 (config.filters + key preds follow the map
-//                                 by default; opt out tabs whose rows aren't
-//                                 feature properties)
+//   filter: false,                opt out of the key's filter pipeline, which
+//                                 every tab follows by default — for a tab
+//                                 whose rows are not feature properties
 // }]
 
 import { escapeHtml, tableRows } from './util.js';
-import { viewportBbox } from './shell.js';
+import { viewportBbox } from './map.js';
 import { showDetail } from './detail.js';
 
 const MIN = 300;
@@ -29,18 +27,18 @@ export function initTable(ctx) {
     let width = 0, active = 0, sortCol = null, sortDir = 1, q = '', selected = null, shown = [];
 
     document.body.insertAdjacentHTML('beforeend', `
-        <div class="cg-drawer">
-            <div class="cg-drawer-head">
+        <div class="fx-drawer">
+            <div class="fx-drawer-head">
                 <div class="dd-toggle">${tabs.map((t, i) =>
-                    `<button class="cg-opt${i ? '' : ' active'}" data-tab="${i}">${escapeHtml(t.label)}</button>`
+                    `<button class="fx-opt${i ? '' : ' active'}" data-tab="${i}">${escapeHtml(t.label)}</button>`
                 ).join('<span class="dd-toggle-divider"></span>')}</div>
-                <input type="search" class="cg-search cg-drawer-q" placeholder="Search" spellcheck="false">
+                <input type="search" class="fx-search fx-drawer-q" placeholder="Search" spellcheck="false">
             </div>
-            <div class="cg-drawer-wrap custom-scroll"><table class="cg-table"></table></div>
-            <div class="cg-drawer-foot dd-secondary"></div>
+            <div class="fx-drawer-wrap custom-scroll"><table class="fx-table"></table></div>
+            <div class="fx-drawer-foot dd-secondary"></div>
         </div>
-        <div class="cg-drawer-handle"><span>Data table</span></div>`);
-    const [drawer, handle] = document.querySelectorAll('.cg-drawer, .cg-drawer-handle');
+        <div class="fx-drawer-handle"><span>Data table</span></div>`);
+    const [drawer, handle] = document.querySelectorAll('.fx-drawer, .fx-drawer-handle');
     const el = sel => drawer.querySelector(sel);
 
     // the drag is the only thing that sets the width — a re-render never
@@ -59,7 +57,7 @@ export function initTable(ctx) {
         // keep their natural width — the css never stretches or shrinks them).
         // visibility, not display: it stays in layout so the head never
         // changes height as the drawer crosses the threshold
-        el('.cg-drawer-q').style.visibility = w < el('.dd-toggle').offsetWidth + 200 ? 'hidden' : '';
+        el('.fx-drawer-q').style.visibility = w < el('.dd-toggle').offsetWidth + 200 ? 'hidden' : '';
     };
 
     async function render() {
@@ -76,13 +74,13 @@ export function initTable(ctx) {
         const { rows, total } = tableRows(all, {
             cols, q, sortCol, sortDir, lat: t.lat, lon: t.lon, bounds: viewportBbox(ctx.map) });
         shown = rows;
-        el('.cg-table').innerHTML = rows.length ? `
+        el('.fx-table').innerHTML = rows.length ? `
             <thead><tr>${cols.map(c => `<th data-col="${escapeHtml(c)}">${escapeHtml(c)}${
                 sortCol === c ? (sortDir > 0 ? ' ↑' : ' ↓') : ''}</th>`).join('')}</tr></thead>
             <tbody>${rows.map((r, i) => `<tr data-i="${i}"${r === selected ? ' class="selected"' : ''}>${
                 cols.map(c => `<td>${r[c] == null ? '' : escapeHtml(fmt(r[c]))}</td>`).join('')}</tr>`).join('')}</tbody>`
-            : '<tbody><tr><td class="cg-drawer-empty dd-secondary">No rows in view</td></tr></tbody>';
-        el('.cg-drawer-foot').textContent =
+            : '<tbody><tr><td class="fx-drawer-empty dd-secondary">No rows in view</td></tr></tbody>';
+        el('.fx-drawer-foot').textContent =
             (total > rows.length ? `${rows.length.toLocaleString()} of ` : '') + `${total.toLocaleString()} in view`;
     }
 
@@ -115,12 +113,12 @@ export function initTable(ctx) {
         render();
     });
 
-    el('.cg-drawer-q').addEventListener('input', e => {
+    el('.fx-drawer-q').addEventListener('input', e => {
         q = e.target.value.trim().toLowerCase();
         render();
     });
     ctx.map.on('moveend', render);
-    addEventListener('cg-filters', render);
+    addEventListener('fx-filters', render);
 
     handle.addEventListener('pointerdown', e => {
         e.preventDefault();

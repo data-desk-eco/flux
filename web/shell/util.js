@@ -94,38 +94,6 @@ export const quarterOf = dateStr =>
 // true when the date falls in one of the quarter keys (empty set = no window)
 export const dateInQuarters = (dateStr, keys) => !keys.size || keys.has(quarterOf(dateStr));
 
-// ── declarative config tier ──
-// a config may be pure data (a json manifest): compileConfig gives the common
-// fields their function equivalents so simple maps ship no js at all.
-
-// {prop} string templates: values interpolate escaped (esc) or raw for
-// plain-text slots that are escaped downstream
-export const tpl = (t, esc = escapeHtml) => p => t.replace(/\{(\w+)\}/g, (_, k) => esc(p[k] ?? '—'));
-
-// string hover/detail templates, `prop` shorthands for filter/key equality
-// predicates, sources defaulted from the data files (full read), table rows
-// named by source id
-export function compileConfig(config) {
-    for (const l of config.layers || [])
-        if (typeof l.hover === 'string') l.hover = tpl(l.hover);
-    for (const f of config.filters || [])
-        if (!f.pred && f.prop) f.pred = v => v === (f.value ?? 'all') ? null : p => String(p[f.prop]) === v;
-    const d = config.detail;
-    if (typeof d?.title === 'string') { const t = tpl(d.title, String); d.title = p => ({ text: t(p) }); }
-    if (typeof d?.html === 'string') d.html = tpl(d.html);
-    if (config.key && typeof config.key !== 'function') {
-        for (const s of config.key) for (const r of s.rows)
-            if (!r.pred && r.prop) r.pred = p => String(p[r.prop]) === String(r.value ?? r.label);
-        const sections = config.key;
-        config.key = () => sections;
-    }
-    for (const t of config.table || [])
-        if (typeof t.rows === 'string') { const id = t.rows; t.rows = ctx => ctx.sources[id].features.map(f => f.properties); }
-    config.sources ??= async ({ read, fc }) => Object.fromEntries(await Promise.all(
-        Object.keys(config.data?.files || {}).map(async n => [n, fc(await read(n))])));
-    return config;
-}
-
 // #<key>=<id> permalinks, coexisting with maplibre's #map= hash
 export function getHashParam(hash, key) {
     const m = hash.match(new RegExp(`${key}=([^&]*)`));

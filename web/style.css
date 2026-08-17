@@ -1,55 +1,41 @@
-/* flux-specific ui on top of vendor/cartograph/shell.css + vendor/dd/map.css
-   (data desk design system). the panel/key/detail/modal furniture is all
-   cartograph's; only the detect controls, quarter 'detected' state, the
-   four-group key, card internals and intro-modal extras live here. */
+/* flux's own ui, on top of shell/shell.css and vendor/dd/map.css (the data desk
+   design system). the panel, key, detail and modal furniture is the shell's;
+   what lives here is the four-group key's short-viewport layout, the card
+   internals and the intro modal's extras. */
 
 /* the panel must never scroll: the reader has no reason to look for a control
    that is off the bottom of it. the two rules that hold that are the worldmap's
-   media queries below and the key's side-by-side switch further down, and both
-   are sized against a panel of 599px — dd head, worldmap, search, quarter grid,
-   persistence slider, detect controls, at the 38px section gap. */
-
-/* --- main panel: detect controls --- */
-
-/* button (or the progress bar that replaces it) and the peers count on one row */
-.detect-area { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 11px; }
-.detect-area .dd-btn, .detect-progress { width: 100%; padding: 5px 6px; }
+   media query below and the key's side-by-side switch under it, and both are
+   sized against a panel of 536px — dd head, worldmap, search, quarter grid and
+   the persistence slider, at the 38px section gap. */
 
 /* the worldmap is the first thing to go where the panel would otherwise scroll:
    a scrollbar hides controls the reader has no reason to look for, and this is
-   a locator, not data. 745px is the viewport where the panel stops fitting
-   above the key; the detect controls add 63px to the panel, so where they are
-   up it goes earlier. */
-@media (max-height: 745px) { #worldmap { display: none; } }
-@media (max-height: 810px) { #main-panel.detect-up #worldmap { display: none; } }
-.detect-progress { position: relative; border-left: 1px solid var(--dd-ui-border); border-right: 1px solid var(--dd-ui-border); text-align: center; color: var(--dd-ui-text-secondary); }
-.detect-bar { position: absolute; left: 0; bottom: 0; height: 1px; width: 0%; background: var(--dd-ui-text); transition: width 0.3s ease; }
-
-/* local-worker detected quarters: greyed like dd-unavailable, display-only */
-.dd-dot-btn.detected .dd-dot { background: var(--dd-ui-inactive); }
-.dd-dot-btn.detected { pointer-events: none; }
+   a locator, not data. 718px is where the panel stops fitting above the key —
+   its 533px of content against the max-height the rule below leaves it. */
+@media (max-height: 718px) { #worldmap { display: none; } }
 
 /* --- key: four groups on a short viewport --- */
 
 /* the dd rule lays the groups side by side on viewports too short for the stack
-   to clear the main panel. cartograph switches at 960px, for two groups sharing
-   the left column's width; four groups stacked are 490px and the main panel is
-   599px with Detect showing, so the stack only clears from 1120px — and side by
-   side they need more than the column. so: switch later, and size the key to its
-   own content at gap L, the only panel on that row. */
-@media (max-height: 1120px) and (min-width: 769px) {
-    .cg-key { flex-direction: row; justify-content: space-between;
+   to clear the main panel. the shell switches at 960px, for two groups sharing
+   the left column's width; four groups stacked are 465px against a 536px panel,
+   so the stack only clears from 1040px — and side by side they need more than
+   the column. so: switch later, and size the key to its own content at gap L,
+   the only panel on that row. */
+@media (max-height: 1040px) and (min-width: 769px) {
+    .fx-key { flex-direction: row; justify-content: space-between;
               width: auto; max-width: calc(100vw - 60px); gap: 38px; }
     /* each column is as wide as the wider of its rows and its title. the title
        used to ride the rows' width instead, which kept the key tight until a
        title outgrew the 38px gap: then it ran into the next column, and the
        last one ate the panel's right padding. */
-    .cg-key-section { min-width: 0; }
-    .cg-key-head { white-space: nowrap; }
+    .fx-key-section { min-width: 0; }
+    .fx-key-head { white-space: nowrap; }
     /* and the main panel stops above the key rather than running through it —
-       panels must never overlap. 180px is the tallest the key gets side by
-       side: a label over the five methane bands, plus its own padding. */
-    .cg-main { max-height: calc(100vh - 210px); }
+       panels must never overlap. 155px is the tallest the key gets side by
+       side: a label over the four methane bands, plus its own padding. */
+    .fx-main { max-height: calc(100vh - 185px); }
 }
 
 /* --- detail card internals --- */
@@ -73,34 +59,31 @@
 .event-item { grid-template-columns: 1fr auto auto; gap: 8px; display: grid; cursor: pointer; padding: 2px 6px; }
 .event-item:hover { background: var(--dd-ui-hover); }
 .event-item.active { background: var(--dd-ui-active-background); color: var(--dd-ui-active-text); }
-.event-item.loading { opacity: 0.5; pointer-events: none; }
-.event-item.l1c-only { opacity: 0.4; pointer-events: none; }
 .col-right, .event-meta { text-align: right; }
 .col-val, .event-meta-val { width: 36px; }
 .col-count, .event-meta-count { width: 32px; }
 .events-empty { color: var(--dd-ui-text-secondary); padding: 2px 7px; }
 
-/* --- detail card: plume body --- */
+/* --- detail card: the plume body --- */
 
-.fd-badges { display: flex; gap: 11px; }
+.plume-badges { display: flex; gap: 11px; }
 
-.fd-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 15px 11px; }
-.fd-stat-big { font-size: 14px; display: flex; align-items: center; gap: 4px; }
-.fd-wind { width: 13px; height: 13px; flex-shrink: 0; }
+.plume-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 15px 11px; }
+.plume-stat-big { font-size: 14px; display: flex; align-items: center; gap: 4px; }
+.plume-wind { width: 13px; height: 13px; flex-shrink: 0; }
 
-.fd-analysis { display: flex; flex-direction: column; gap: 11px; }
-.fd-attrib { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.fd-para { color: var(--dd-ui-text); }
-.fd-evidence a { color: var(--dd-ui-text-secondary); text-decoration: none; }
-.fd-evidence a:hover { color: var(--dd-ui-text); }
+.plume-analysis { display: flex; flex-direction: column; gap: 11px; }
+.plume-attrib { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.plume-para { color: var(--dd-ui-text); }
+.plume-evidence a { color: var(--dd-ui-text-secondary); text-decoration: none; }
+.plume-evidence a:hover { color: var(--dd-ui-text); }
 
-/* --- intro modal extras: coverage worldmap + methods reveal --- */
+/* --- intro modal: the coverage worldmap and the sources under it --- */
 
 .region-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 25px; margin-bottom: 14px; }
 .region-row .dd-secondary { margin-bottom: 6px; }
 .region-row svg { width: 170px; flex-shrink: 0; }
 .methods { margin-top: 14px; }
-.methods-head { display: flex; align-items: center; gap: 11px; cursor: pointer; user-select: none; }
 .methods-list { margin-top: 15px; }
 .methods-list p + p { margin-top: 6px; }
 

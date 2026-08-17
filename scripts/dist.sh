@@ -15,7 +15,7 @@ V="${1:-dev}"; V="${V:0:8}"
 MODE="${2:-}"
 
 rm -rf dist
-# the whole web tree — card/, flaring/ and its wasm, methane/, vendor/,
+# the whole web tree — card/, flaring/, methane/, shell/, vendor/,
 # terminals.geojson — rather than a file list a new module can fall off.
 # web/data is a symlink to the local bakes and never rides along: cp copies the
 # link, and dist/data would then resolve straight back into the private files.
@@ -25,7 +25,7 @@ mkdir -p dist/data
 
 [ -f dist/vendor/duckdb/duckdb-eh.wasm ]
 [ "$(wc -c < dist/vendor/duckdb/duckdb-eh.wasm)" -lt 25000000 ]
-grep -q "duckdbAsset('duckdb-eh\.wasm')" dist/vendor/cartograph/data.js
+grep -q "duckdbAsset('duckdb-eh\.wasm')" dist/shell/data.js
 
 if [ "$MODE" = local ]; then
     for f in plumes licences; do
@@ -39,19 +39,20 @@ fi
 # stamp the sha into every first-party module specifier + the html asset tags,
 # so a deploy can never pair a fresh module with a stale cached one (github
 # pages caches for 10 min). vendor bundles keep their own paths — they only
-# change when revendored.
+# change when revendored, and the last rule strips the stamp back off them.
 #
-# the last rule strips the stamp back off vendor specifiers. vendor trees are
-# pruned from the rewrite, so cartograph's own `from './detail.js'` stays bare;
-# stamping our `from './vendor/cartograph/detail.js'` would name a second url
-# for the same file and the browser would hold two module instances of it —
-# app.js initialising one while card.js calls the other, whose cfg is still
-# undefined.
-# the entry module is a <script src>, not an import, and it slipped through: on
-# 3 august the browser held a four-hour-old config.js against a freshly stamped
-# clustering.js, so the persistence gate ran the old rule over the new table.
-# the <script src> pattern forbids a slash, so it stamps config.js and leaves
-# vendor/maplibre-gl.js alone.
+# every first-party specifier resolves to the same stamped url whichever module
+# writes it (`./shell/util.js?v=x` and shell's own `./util.js?v=x` are one file),
+# so the browser holds one module instance. that was not true while the shell
+# was vendored: stamping `from './vendor/cartograph/detail.js'` named a second
+# url for a file cartograph imported bare, and app.js initialised one instance
+# while card.js called the other, whose cfg was still undefined.
+#
+# the entry module is a <script src>, not an import, and it slipped the rewrite
+# once: on 3 august the browser held a four-hour-old config.js against a freshly
+# stamped clustering.js, so the persistence gate ran the old rule over the new
+# table. the <script src> pattern forbids a slash, so it stamps config.js and
+# leaves vendor/maplibre-gl.js alone.
 #
 # stylesheets are the exception to the vendor exemption: the hazard above is
 # module identity, and a <link> has none — a second url for one stylesheet is
@@ -59,7 +60,7 @@ fi
 # unstamped they were served under the store's four-hour max-age, and on
 # 16 august a revendored shell.css sat stale behind a fresh build for exactly
 # that long — the same incident as 3 august, one directory over.
-find dist -path dist/vendor -prune -o -path dist/flaring/s2/vendor -prune -o \
+find dist -path dist/vendor -prune -o \
   \( -name '*.js' -o -name '*.html' \) -print0 | xargs -0 sed -i.bak -E \
   -e "s|(<script[^>]* src=\")((\./)?[^\"?/]+\.m?js)(\")|\1\2?v=$V\4|g" \
   -e "s|(<link[^>]* href=\")((\./)?[^\"?]+\.css)(\")|\1\2?v=$V\4|g" \

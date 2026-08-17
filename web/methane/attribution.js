@@ -3,8 +3,8 @@
 // repo), read in-browser via DuckDB. wind is fetched per plume from
 // open-meteo as an independent panel stat.
 
-import { read } from '../vendor/cartograph/data.js';
-import { escapeHtml, compass } from '../vendor/cartograph/util.js';
+import { read } from '../shell/data.js';
+import { escapeHtml, compass } from '../shell/util.js';
 import { selectPlume } from './candidates.js';
 
 let epoch = 0;
@@ -59,11 +59,11 @@ async function fetchWind(lat, lon, dateISO) {
 function renderWind(wind) {
     const el = document.getElementById('stat-wind');
     if (!el) return;
-    if (!wind) { el.querySelector('.fd-stat-big').textContent = '—'; return; }
+    if (!wind) { el.querySelector('.plume-stat-big').textContent = '—'; return; }
     const speed = wind.speed.toFixed(1);
     el.title = `${speed} m/s from ${compass(wind.fromDeg)} (${Math.round(wind.fromDeg)}°)`;
-    el.querySelector('.fd-stat-big').innerHTML = `
-        <svg class="fd-wind" viewBox="0 0 24 24" style="transform: rotate(${wind.toDeg}deg)">
+    el.querySelector('.plume-stat-big').innerHTML = `
+        <svg class="plume-wind" viewBox="0 0 24 24" style="transform: rotate(${wind.toDeg}deg)">
             <path d="M12 4 L12 20 M12 4 L7 9 M12 4 L17 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg> ${speed}`;
 }
@@ -87,13 +87,13 @@ function labelHtml(rec) {
 
 function recordHtml(rec) {
     const evidence = rec.evidence?.length
-        ? `<div class="fd-evidence">${rec.evidence.map((u, i) =>
+        ? `<div class="plume-evidence">${rec.evidence.map((u, i) =>
             `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" title="${escapeHtml(u)}">[${i + 1}]</a>`).join(' ')}</div>`
         : '';
     return `
-        <div class="fd-attrib">${labelHtml(rec)}
+        <div class="plume-attrib">${labelHtml(rec)}
             ${rec.confidence ? `<span class="dd-secondary">(confidence: ${escapeHtml(rec.confidence)})</span>` : ''}</div>
-        ${rec.paragraph ? `<p class="fd-para">${escapeHtml(rec.paragraph)}</p>` : ''}
+        ${rec.paragraph ? `<p class="plume-para">${escapeHtml(rec.paragraph)}</p>` : ''}
         ${evidence}`;
 }
 

@@ -1,13 +1,11 @@
-// Terminal grid + the pure feature-builders shared across modes: the S2 archive
-// view (archiveFeature), VNF (enrichVNFFeatures), and naming for the cross-date
-// clusterer (findNearestTerminal). Terminal features come from terminals.geojson
-// via setTerminals(). No app/CRDT state — crossDateCluster lives in detect.js
-// since it reads the processedMap.
+// the terminal grid and the two pure feature builders both flaring families go
+// through: archiveFeature for an s2 cluster, enrichVNFFeatures for a vnf site.
+// terminal features arrive from terminals.geojson via setTerminals(), and
+// findNearestTerminal is what lets a site be named after the plant it sits on.
+// no app state and no dom, so a node test can hold the reducer to its rules.
 
-import { dateInQuarters, degLat } from '../vendor/cartograph/util.js';
+import { dateInQuarters, degLat, haversineM } from '../shell/util.js';
 
-export const DEG_TO_RAD = Math.PI / 180;
-const R_EARTH = 6371000;
 const TERMINAL_MATCH_M = 7500;
 // the denominator is ours now: a night counts as read when a satellite flew and
 // we sampled the sky at the site's overpass hours, so a low share means one
@@ -21,14 +19,7 @@ const COVERAGE_MIN = 0.8;
 // three looks is noise — report the count and no rate.
 const MIN_LOOKS = 10;
 
-// Fast equirectangular distance — accurate to <0.1% under 1 km and below ~70° lat.
-export function fastDistM(lat1, lon1, lat2, lon2) {
-    const dLat = (lat2 - lat1) * DEG_TO_RAD;
-    const dLon = (lon2 - lon1) * DEG_TO_RAD * Math.cos(((lat1 + lat2) * 0.5) * DEG_TO_RAD);
-    return R_EARTH * Math.sqrt(dLat * dLat + dLon * dLon);
-}
-
-// Pre-built grid index for terminal features, rebuilt when terminals load.
+// a grid index over the terminal features, rebuilt when they load
 let _terminals = [];
 let _terminalGrid = null;
 let _terminalGridCell = 0;
@@ -63,25 +54,25 @@ export function findNearestTerminal(lat, lon) {
     let best = null, bestDist = Infinity;
     for (const f of bucket) {
         const [tLon, tLat] = f.geometry.coordinates;
-        const d = fastDistM(lat, lon, tLat, tLon);
+        const d = haversineM(lat, lon, tLat, tLon);
         if (d < bestDist) { bestDist = d; best = f; }
     }
     return best && bestDist <= TERMINAL_MATCH_M ? { name: best.properties.name, distance: bestDist } : null;
 }
 
-// Both flares tables publish one `quarters` struct, so both modes window it the
-// same way. `clear` is the cloud-free day count a rate divides by; the wider
+// both flares tables publish one `quarters` struct, so both families window it
+// the same way. `clear` is the cloud-free day count a rate divides by; the wider
 // `observations` is every day an instrument looked, and `detections_clear` is
-// the only numerator that pairs with `clear`. Keeping the three in one reducer
+// the only numerator that pairs with `clear`. keeping the three in one reducer
 // is what stops a caller redefining persistence without changing how it reads.
 // `n` is the number of quarters kept — 0 means the window measured nothing,
 // which is not the same as measuring zero.
 //
-// mind the grain: days/observations/clear count days, detections and
-// detections_clear count ROWS. only eog writes one row per site-day, so a
+// mind the grain: days, observations and clear count days, while detections and
+// detections_clear count rows. only eog writes one row per site-day, so a
 // data-desk rate off these can exceed 1 and its caller has to clamp.
 //
-// a field comes back null unless EVERY quarter in the window carried it. a
+// a field comes back null unless every quarter in the window carried it. a
 // producer states what it did not measure by writing null, and summing that as
 // zero turns "we never counted the passes" into "no pass was ever made" — which
 // a caller then reads as a measurement. that is what a whole map of null
@@ -100,10 +91,9 @@ export function sumQuarters(quarters, keep) {
     return t;
 }
 
-// Map an archive flares row (data-desk/flares/data.parquet) to the same Feature
-// shape crossDateCluster emits, so rendering/detail/CSV are unchanged. The table
-// is pre-clustered server-side, so the avg-B12 slider gates these rows
-// client-side and the merge-distance/score controls don't re-run.
+// one archive flares row (data-desk/flares) as a map feature. the table is
+// clustered by the producer, so nothing here re-clusters: the row is windowed,
+// rated and named, and that is all.
 //
 // the table publishes the looks persistence divides by, split by calendar
 // quarter, so a selection sums the quarters it shows and divides the detections
@@ -140,7 +130,7 @@ export function archiveFeature(c, qKeys = new Set()) {
             kind: 'flare',
             terminal: terminal?.name || null,
             lat: c.lat, lon: c.lon,   // exact coords for detail/highlight
-            id: c.id, cell: c.cell, country: c.country || '', detail: c.detail || '',
+            id: c.id, cell: c.cell,
             // a data-desk extension column, not part of the shared flares
             // schema — the ramp and the intensity gate both fail soft if the
             // producer stops writing it. see render.js and config.js
@@ -165,7 +155,9 @@ export function archiveFeature(c, qKeys = new Set()) {
     };
 }
 
-// Filter + name VNF flare features; minRh is the avg-RH slider gate.
+// filter and name vnf site features; minRh is the intensity floor, on the
+// site's average radiant heat (MODE.vnf.floor, or 0 for a link that has already
+// named one flare)
 export function enrichVNFFeatures(features, minRh) {
     const result = [];
     for (const feat of features) {

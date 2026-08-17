@@ -1,11 +1,11 @@
-// lookup tables for the two flaring instruments — the single source of truth for
-// the scale each one reads on. what a flare *looks* like is layers.js's job,
-// which owns the marking and the shared intensity ramp for every layer on the
-// map; this file supplies the stops it steps at, and the floor below which a
-// site is not worth drawing.
+// one lookup table per flaring instrument — the single source of truth for the
+// scale each reads on. what a flare *looks* like is layers.js's business, which
+// owns the marking and the intensity ramp; this file supplies the stops that
+// ramp steps at, and the floor below which a site is not worth drawing.
 //
-// both draw at once, so nothing here is "the current mode": a feature carries
-// its family and the card, the key and the layer each read the table for it.
+// both instruments draw at once, so nothing here is "the current mode": a
+// feature carries its family, and the card, the key and the layer each read the
+// table for it.
 
 import { RAMP } from '../layers.js';
 
@@ -17,12 +17,11 @@ const RH_TO_MCM = 0.0315;
 
 export const MODE = {
     s2: {
-        label: 'B12 reflectance',
         unit: 'B12',
         // the site-level ramp key. the shared flares schema has no b12 column,
-        // so this is a data-desk extension on the row; markIconExpr coalesces a
-        // missing one to stops[0], which flattens the ramp rather than hiding
-        // the site. locally detected clusters set it themselves.
+        // so this is a data-desk extension on the row, and flareIcon coalesces a
+        // missing one to stops[0] — which flattens the ramp rather than hiding
+        // the site.
         prop: 'max_b12',
         col2: 'B12', col3: 'px',
         stops: [0.9, 1.15, 1.5],
@@ -33,13 +32,12 @@ export const MODE = {
         // the key's colour bands filter above it, so this is now a constant of
         // the archive rather than a control, and the stops start at it.
         floor: 0.85,
-        yVal: d => d.b12_corrected,
+        yVal: d => d.max_b12,
         formatVal: d => d.max_b12?.toFixed(2) || '-',
         formatCount: d => String(d.pixels || '-'),
         sentinel: null,
     },
     vnf: {
-        label: 'Radiant heat (MW)',
         unit: 'MW',
         prop: 'max_rh',
         col2: 'RH', col3: 'MCM/d',
@@ -54,10 +52,10 @@ export const MODE = {
         formatVal: d => d.rh_mw >= 999 ? '-' : (d.rh_mw?.toFixed(1) || '-'),
         formatCount: d => d.rh_mw >= 999 ? '-' : (d.rh_mw != null ? (d.rh_mw * RH_TO_MCM).toFixed(2) : '-'),
         sentinel: 999,
-    }
+    },
 };
 
-// Normalize value to 0→1 on the mode's intensity scale (stops[0]→stops[2])
+// normalise a value to 0→1 on the instrument's intensity scale (stops[0]→stops[2])
 export function scaleT(cfg, val) {
     const [lo, , hi] = cfg.stops;
     const raw = cfg.log
@@ -75,7 +73,7 @@ export function rampRGB(t) {
     return a.map((v, i) => Math.round(v + f * (b[i] - v)));
 }
 
-// Normalize value to 0→1 on the chart y-axis (wider than colour stops)
+// normalise a value to 0→1 on the chart's y axis, which is wider than the stops
 export function chartNorm(cfg, val) {
     const [lo, hi] = cfg.chartRange;
     if (cfg.log) return (Math.log(Math.max(lo, val)) - Math.log(lo)) / (Math.log(hi) - Math.log(lo));
