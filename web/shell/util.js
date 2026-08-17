@@ -5,14 +5,15 @@ export function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-export function haversineKm(lat1, lon1, lat2, lon2) {
+// metres between two positions: the one distance this app measures, and it
+// measures it in metres — a card's "also here" radius, and the terminal a flare
+// is named after
+export function haversineM(lat1, lon1, lat2, lon2) {
     const toRad = d => d * Math.PI / 180;
     const a = Math.sin(toRad(lat2 - lat1) / 2) ** 2 +
               Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(toRad(lon2 - lon1) / 2) ** 2;
-    return 6371 * 2 * Math.asin(Math.sqrt(a));
+    return 6371000 * 2 * Math.asin(Math.sqrt(a));
 }
-
-export const haversineM = (...a) => haversineKm(...a) * 1000;
 
 // metres -> degrees, for sizing a rect around a point. the cos guard keeps the
 // longitude span finite at the poles

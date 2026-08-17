@@ -21,7 +21,7 @@ export const DD = ddPalette.adjusted;
 export const RAMP = [DD.red, DD.orange, DD.white];   // low → high intensity
 
 // one size for every marking on the map, growing gently with zoom
-export const ICON_SIZE = ['interpolate', ['linear'], ['zoom'], 2, 0.55, 10, 0.8, 14, 1];
+const ICON_SIZE = ['interpolate', ['linear'], ['zoom'], 2, 0.55, 10, 0.8, 14, 1];
 
 // icon-image expression: `mark` stepped through `colors` at `breaks` — one more
 // colour than break, low to high.
