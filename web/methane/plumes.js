@@ -9,7 +9,7 @@
 
 import { read, fc } from '../shell/data.js';
 import { objects } from '../shell/archive.js';
-import { quarterOf } from '../shell/util.js';
+import { canon, quarterOf } from '../shell/util.js';
 import { loadAttributions } from './attribution.js';
 
 // everything the map, key and detail panel read — the projection stays narrow
@@ -55,7 +55,7 @@ async function readAll(opts) {
 export async function readPlumes(startDate, endDate) {
     const rows = await readAll({ columns: PLUME_COLS, where: { ...PLUME_WHERE, date: [startDate, endDate] } });
     const attribs = await loadAttributions();
-    for (const p of rows) if (attribs.has(p.id)) p.attr = 1;
+    for (const p of rows) if (attribs.has(canon(p.id))) p.attr = 1;
     return rows;
 }
 
@@ -76,13 +76,6 @@ export async function availableQuartersPlumes([w, s, e, n], start, end) {
         if (p.lon >= w && p.lon <= e && p.lat >= s && p.lat <= n) qs.add(quarterOf(p.date));
     return qs;
 }
-
-// a plume id carries its provider's namespace since the archive took the
-// detection tables over: `c096faa6…` became `IMEO:c096faa6…`. a link somebody
-// has already sent is the one thing a rename may not break, so the permalink
-// resolves on the namespace-free form too — one canonical spelling, matched
-// against the loaded features rather than a table of old ids.
-export const canon = id => String(id).toLowerCase().replace(/_/g, ':').replace(/^[a-z]+:/, '');
 
 // the display read is narrowed to the ticked window, so a link naming a plume
 // outside it needs its own read — one row, and the id predicate is a straight

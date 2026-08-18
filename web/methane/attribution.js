@@ -4,20 +4,22 @@
 // open-meteo as an independent panel stat.
 
 import { read } from '../shell/data.js';
-import { escapeHtml, compass } from '../shell/util.js';
+import { canon, escapeHtml, compass } from '../shell/util.js';
 import { selectPlume } from './candidates.js';
 
 let epoch = 0;
 
-// full table into a Map at boot: ~2k records, keyed by plume display id.
-// config.js also reads the key set to mark attributed plumes.
+// full table into a Map at boot: ~2k records, keyed by the canonical spelling
+// of the plume id -- this object and the detections it joins are replaced
+// separately, so the join cannot depend on the two agreeing on a namespace.
+// plumes.js reads the key set the same way, to mark attributed plumes.
 let attribs = null;
 export function loadAttributions() {
     return attribs ??= (async () => {
         try {
             return new Map((await read('attributions', { columns: [
                 'id', 'source_label', 'attributed_ids', 'lat', 'lon', 'confidence',
-                'paragraph', 'evidence'] })).map(r => [r.id, r]));
+                'paragraph', 'evidence'] })).map(r => [canon(r.id), r]));
         } catch (err) {
             console.warn('attributions unavailable:', err);
             return new Map();
@@ -106,7 +108,7 @@ export function enrich(p) {
     fetchWind(lat, lon, p.date).then(w => { if (epoch === e) renderWind(w); });
 
     (async () => {
-        const rec = (await loadAttributions()).get(p.id) || null;
+        const rec = (await loadAttributions()).get(canon(p.id)) || null;
         if (epoch !== e) return;
         const el = document.getElementById('analysis');
         if (el) {

@@ -5,6 +5,14 @@ export function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// a detection id carries its provider's namespace since the archive took the
+// detection tables over: `c096faa6…` became `IMEO:c096faa6…`, and carbon
+// mapper's ids are gaining the `CM:` the others have carried all along. two
+// things read on the spelling that survives such a rename -- a permalink
+// somebody sent before it, and the join between the attributions object and
+// the detections objects, which are never replaced in the same instant.
+export const canon = id => String(id).toLowerCase().replace(/_/g, ':').replace(/^[a-z]+:/, '');
+
 // metres between two positions: the one distance this app measures, and it
 // measures it in metres — a card's "also here" radius, and the terminal a flare
 // is named after

@@ -25,7 +25,7 @@
 
 import { mount } from './shell/app.js';
 import { viewportBbox, boxesWorldmap, ensureMark } from './shell/map.js';
-import { padBbox, featureBbox, escapeHtml, formatDate, degLat, degLon } from './shell/util.js';
+import { canon, padBbox, featureBbox, escapeHtml, formatDate, degLat, degLon } from './shell/util.js';
 import { MODE } from './flaring/render.js';
 import { DD, AREA, MARKS, PIN, RATE_LABEL, PLUME_BANDS, flareBands, flareIcon, plumeIcon } from './layers.js';
 import { initArchive } from './shell/archive.js';
@@ -34,7 +34,7 @@ import { initS2Archive, queryS2Archive, queryS2Flare, availableQuartersS2, cover
 import { initCard, cardTitle, cardHtml, onCardShow, onCardClose, refreshCard, reselectCurrentFeature } from './card/index.js';
 import { initNearby, RADIUS_M } from './nearby.js';
 import { setTerminals, archiveFeature, enrichVNFFeatures } from './flaring/clustering.js';
-import { initPlumes, isPlume, label, rateT, readPlumes, availableQuartersPlumes, canon, readPlume } from './methane/plumes.js';
+import { initPlumes, isPlume, label, rateT, readPlumes, availableQuartersPlumes, readPlume } from './methane/plumes.js';
 import { addCandidateLayers } from './methane/candidates.js';
 import { LICENCE_LAYERS, addLicenceLayers } from './methane/licences.js';
 import { initProbabilityOverlay } from './methane/overlay.js';
