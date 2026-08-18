@@ -298,8 +298,8 @@ const flareSection = (label, kind, cfg) => ({
 });
 
 const keySections = () => [
-    flareSection(`Flaring, S2 (${MODE.s2.unit})`, 'flare', MODE.s2),
-    flareSection(`Flaring, VNF (${MODE.vnf.unit})`, 'vnf', MODE.vnf),
+    flareSection(`S2 flaring (${MODE.s2.unit})`, 'flare', MODE.s2),
+    flareSection(`VNF flaring (${MODE.vnf.unit})`, 'vnf', MODE.vnf),
     {
         // no row for a plume the provider put no rate on: it is drawn (in grey,
         // off the ramp — layers.js), but it belongs to no band, so narrowing to
