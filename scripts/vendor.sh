@@ -6,7 +6,7 @@ set -euo pipefail
 
 VENDOR=web/vendor
 DD_DIST="${DD_DIST:-$HOME/Tools/design/dist}"
-DUCKDB_TAG="v1.5.5-lite.2"   # DuckDB data engine release
+DUCKDB_TAG="v2.0.0-alpha1-lite.1"   # DuckDB data engine release
 grep -q "DUCKDB_RELEASE = '$DUCKDB_TAG'" web/shell/data.js
 
 rm -rf "$VENDOR"
@@ -24,8 +24,12 @@ gh release download "$DUCKDB_TAG" -R data-desk-eco/duckdb-wasm-lite \
     -p 'duckdb-eh.wasm' -p 'duckdb-browser.mjs' \
     -p 'duckdb-browser-eh.worker.js' \
     -D "$VENDOR/duckdb" --clobber
-[ "$(wc -c < "$VENDOR/duckdb/duckdb-eh.wasm")" -lt 25000000 ] || {
-    echo "duckdb-wasm-lite: WASM exceeds 25 MB" >&2
+# the guard is for the category error — a build that linked gdal and proj, or the
+# stock npm wasm (35.96 MB) vendored by mistake. 25 MB was that with room to spare
+# when the profile was duckdb 1.5.5 at 20.35 MB; the 2.0 substrate is 24.17 MB, so
+# the same intent is 30 MB. it still sits below every build this must refuse.
+[ "$(wc -c < "$VENDOR/duckdb/duckdb-eh.wasm")" -lt 30000000 ] || {
+    echo "duckdb-wasm-lite: WASM exceeds 30 MB" >&2
     exit 1
 }
 

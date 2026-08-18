@@ -1,14 +1,14 @@
-// one lazy duckdb-wasm connection serves every parquet read, table metadata and
-// raw SQL. duckdb runs in its own worker, so nothing here needs a worker or a
-// decode library of its own.
+// one lazy duckdb-wasm engine serves every parquet read, table metadata and raw
+// SQL. duckdb runs in its own worker, so nothing here needs a worker or a decode
+// library of its own.
 const DDB = new URL('../vendor/duckdb/', import.meta.url).href;
-const DUCKDB_RELEASE = 'v1.5.5-lite.2';
+const DUCKDB_RELEASE = 'v2.0.0-alpha1-lite.1';
 const duckdbAsset = name => `${DDB}${name}?v=${DUCKDB_RELEASE}`;
 
 let files = {}, base, connection;
 const metadata = new Map();
 
-// the engine is ~6 MB over the wire, so start it here rather than on the first
+// the engine is ~7 MB over the wire, so start it here rather than on the first
 // read: it then downloads and compiles while the map loads its own style and
 // tiles, instead of after.
 export function initData({ files: f = {}, prefetch = [], base: b } = {}) {
@@ -28,6 +28,18 @@ async function connect() {
     })();
     return connection;
 }
+
+// one statement at a time, whoever asks. this engine yields to the event loop
+// inside a remote read, so a second statement started meanwhile runs interleaved
+// with the first: on one connection the two come back crossed — an empty result
+// for one caller and another caller's rows for the next — and on a connection
+// each the parked scans deadlock outright. neither fails loudly, so the queue is
+// the guard. it costs nothing this engine was giving us: the ranges *within* a
+// statement still fly together, which is where its speed comes from, and the app
+// fans out with Promise.allSettled, which the queue serialises without changing
+// what any caller sees.
+let chain = Promise.resolve();
+const serial = task => (chain = chain.then(task, task));
 
 const quote = value => {
     if (value instanceof Date) value = value.toISOString();
@@ -51,7 +63,7 @@ export const parquetInput = name => list(url(name));
 // the engine has discarded the rest before this point — and the schema is read
 // once rather than rebuilt per row: a viewport read returns tens of thousands.
 export async function sql(statement) {
-    const result = await (await connect()).query(statement);
+    const result = await serial(async () => (await connect()).query(statement));
     const fields = result.schema.fields;
     return result.toArray().map(row => {
         const out = {};

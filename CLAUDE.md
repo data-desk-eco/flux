@@ -199,6 +199,22 @@ invited the reading that a bright plume and a bright flare were the same
 quantity. colour never means provider, and never means category — that is
 shape's job.
 
+**one statement at a time, and `serial` in `web/shell/data.js` is all that holds
+it.** the engine reads remote parquet by range and yields to the event loop while
+those ranges are in flight, so a second statement started meanwhile runs
+interleaved with the first. on one connection the two come back *crossed* — an
+empty result for one caller and another caller's rows for the next — and on a
+connection each the parked scans deadlock outright. neither says so: no
+exception, no warning, just wrong layers or a map that never finishes loading.
+so every read goes through `sql()`, `.query()` is called in exactly one place,
+and the fan-out over providers stays a `Promise.allSettled` the queue drains one
+at a time. the cost is real and known — a cold load's VNF layer and the card's
+series land at ~9 s rather than ~4 s, because they no longer overlap — and it
+buys the range reads, which took one cold load from 68.7 MB to 8.5 MB actually
+transferred. when the engine serialises per connection itself, drop the queue and
+the overlap comes back; until then, do not "restore" it by handing each provider
+its own connection, which is the deadlock.
+
 ## the tables
 
 the ETL that publishes what this map reads lives in `~/Tools/etl`; see

@@ -24,7 +24,7 @@ rm -rf dist/data dist/vendor/.ok
 mkdir -p dist/data
 
 [ -f dist/vendor/duckdb/duckdb-eh.wasm ]
-[ "$(wc -c < dist/vendor/duckdb/duckdb-eh.wasm)" -lt 25000000 ]
+[ "$(wc -c < dist/vendor/duckdb/duckdb-eh.wasm)" -lt 30000000 ]   # see scripts/vendor.sh
 grep -q "duckdbAsset('duckdb-eh\.wasm')" dist/shell/data.js
 
 if [ "$MODE" = local ]; then
