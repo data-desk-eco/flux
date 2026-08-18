@@ -2,7 +2,7 @@
 // SQL. duckdb runs in its own worker, so nothing here needs a worker or a decode
 // library of its own.
 const DDB = new URL('../vendor/duckdb/', import.meta.url).href;
-const DUCKDB_RELEASE = 'v2.0.0-alpha1-lite.4';
+const DUCKDB_RELEASE = 'v2.0.0-alpha1-lite.5';
 const duckdbAsset = name => `${DDB}${name}?v=${DUCKDB_RELEASE}`;
 
 let files = {}, base, engine;
