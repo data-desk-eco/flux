@@ -6,7 +6,7 @@ set -euo pipefail
 
 VENDOR=web/vendor
 DD_DIST="${DD_DIST:-$HOME/Tools/design/dist}"
-DUCKDB_TAG="v2.0.0-alpha1-lite.1"   # DuckDB data engine release
+DUCKDB_TAG="v2.0.0-alpha1-lite.4"   # DuckDB data engine release
 grep -q "DUCKDB_RELEASE = '$DUCKDB_TAG'" web/shell/data.js
 
 rm -rf "$VENDOR"

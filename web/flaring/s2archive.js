@@ -102,7 +102,8 @@ export async function fetchS2Detections({ id, cell }) {
     // read(undefined) is a worse way to say so. vnf.js guards the same way.
     if (!detections) return [];
     const rows = await read(detections,
-        { columns: ['date', 'lat', 'lon', 'max_b12', 'pixels'],
+        { lane: 'card',
+          columns: ['date', 'lat', 'lon', 'max_b12', 'pixels'],
           where: { site_id: [String(id), String(id)], kind: ['flare', 'flare'],
                    ...(cell ? { cell: [cell, cell] } : {}) } });
     return rows.map(r => ({

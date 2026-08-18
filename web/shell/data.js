@@ -2,10 +2,11 @@
 // SQL. duckdb runs in its own worker, so nothing here needs a worker or a decode
 // library of its own.
 const DDB = new URL('../vendor/duckdb/', import.meta.url).href;
-const DUCKDB_RELEASE = 'v2.0.0-alpha1-lite.1';
+const DUCKDB_RELEASE = 'v2.0.0-alpha1-lite.4';
 const duckdbAsset = name => `${DDB}${name}?v=${DUCKDB_RELEASE}`;
 
-let files = {}, base, engine, connection;
+let files = {}, base, engine;
+const lanes = new Map();
 const metadata = new Map();
 
 // the engine is ~7 MB over the wire, so start it here rather than on the first
@@ -28,10 +29,15 @@ async function db() {
     })();
     return engine;
 }
-async function connect() {
-    if (!connection) connection = db().then(d => d.connect());
-    return connection;
-}
+// one connection per lane. the engine runs a connection's statements one at a
+// time and overlaps the reads of different connections, so a lane is the unit of
+// "may wait behind itself, must not wait behind anything else". the map is one
+// lane; a card opening over the big detections objects is another, so opening a
+// card cannot hold a pan behind it.
+const connect = (lane = 'map') => {
+    if (!lanes.has(lane)) lanes.set(lane, db().then(d => d.connect()));
+    return lanes.get(lane);
+};
 
 // an object small enough to hold is fetched whole here — a plain parallel GET,
 // off the statement queue, overlapping the engine download — and registered as
@@ -65,18 +71,6 @@ const viaBuffer = async source => Array.isArray(source)
     ? Promise.all(source.map(viaBuffer))
     : (buffers.has(source) ? await buffers.get(source) : null) ?? source;
 
-// one statement at a time, whoever asks. this engine yields to the event loop
-// inside a remote read, so a second statement started meanwhile runs interleaved
-// with the first: on one connection the two come back crossed — an empty result
-// for one caller and another caller's rows for the next — and on a connection
-// each the parked scans deadlock outright. neither fails loudly, so the queue is
-// the guard. it costs nothing this engine was giving us: the ranges *within* a
-// statement still fly together, which is where its speed comes from, and the app
-// fans out with Promise.allSettled, which the queue serialises without changing
-// what any caller sees.
-let chain = Promise.resolve();
-const serial = task => (chain = chain.then(task, task));
-
 const quote = value => {
     if (value instanceof Date) value = value.toISOString();
     if (typeof value === 'string') return `'${value.replaceAll("'", "''")}'`;
@@ -100,8 +94,8 @@ export const parquetInput = name => list(url(name));
 // only the rows a query keeps are normalised — read()'s predicates are SQL, so
 // the engine has discarded the rest before this point — and the schema is read
 // once rather than rebuilt per row: a viewport read returns tens of thousands.
-export async function sql(statement) {
-    const result = await serial(async () => (await connect()).query(statement));
+export async function sql(statement, { lane } = {}) {
+    const result = await (await connect(lane)).query(statement);
     const fields = result.schema.fields;
     return result.toArray().map(row => {
         const out = {};
@@ -122,7 +116,7 @@ const value = (item, type) => {
     return norm(item);
 };
 
-export async function read(name, { columns, where } = {}) {
+export async function read(name, { columns, where, lane } = {}) {
     const select = columns?.length ? columns.map(ident).join(', ') : '*';
     const tests = Object.entries(where ?? {}).flatMap(([column, [lo, hi]]) => {
         const col = ident(column);
@@ -131,7 +125,7 @@ export async function read(name, { columns, where } = {}) {
     });
     const source = await viaBuffer(url(name));
     const options = Array.isArray(source) ? ', union_by_name = true' : '';
-    return sql(`SELECT ${select} FROM read_parquet(${list(source)}${options})${tests.length ? ` WHERE ${tests.join(' AND ')}` : ''}`);
+    return sql(`SELECT ${select} FROM read_parquet(${list(source)}${options})${tests.length ? ` WHERE ${tests.join(' AND ')}` : ''}`, { lane });
 }
 
 // the footer shape a caller inspecting row-group bounds expects: duckdb reads

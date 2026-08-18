@@ -125,7 +125,7 @@ export async function queryVNFFlare(flareId, startDate, endDate) {
 export async function fetchVNFDetections({ id, cell }) {
     if (!id || !cell) return [];
     const rows = await read((await objects('detections', { provider: 'eog', key: cell }))[0],
-        { columns: ['date', 'rh_mw'], where: { site_id: [String(id), String(id)] } });
+        { lane: 'card', columns: ['date', 'rh_mw'], where: { site_id: [String(id), String(id)] } });
     return rows.map(r => ({ date: String(r.date).slice(0, 10), rh_mw: Number(r.rh_mw) || 0 }))
         .sort((a, b) => a.date < b.date ? -1 : 1);
 }

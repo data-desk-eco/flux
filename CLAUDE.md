@@ -199,21 +199,22 @@ invited the reading that a bright plume and a bright flare were the same
 quantity. colour never means provider, and never means category — that is
 shape's job.
 
-**one statement at a time, and `serial` in `web/shell/data.js` is all that holds
-it.** the engine reads remote parquet by range and yields to the event loop while
-those ranges are in flight, so a second statement started meanwhile runs
-interleaved with the first. on one connection the two come back *crossed* — an
-empty result for one caller and another caller's rows for the next — and on a
-connection each the parked scans deadlock outright. neither says so: no
-exception, no warning, just wrong layers or a map that never finishes loading.
-so every read goes through `sql()`, `.query()` is called in exactly one place,
-and the fan-out over providers stays a `Promise.allSettled` the queue drains one
-at a time. the queue's cost fell when the small objects moved to the prefetch
-tier below — statements over buffers cost no network turn to serialise — and
-what the queue still prices is the ranged tier: card opens and the availability
-index. when the engine serialises per connection itself (duckdb-wasm-lite#3),
-drop the queue and the overlap comes back; until then, do not "restore" it by
-handing each provider its own connection, which is the deadlock.
+**a lane is a connection, and the engine serialises each one.** the engine reads
+remote parquet by range and yields to the event loop while those ranges are in
+flight, so two statements started together run interleaved. it now holds a queue
+and a range stage per connection (duckdb-wasm-lite lite.2), which is what the
+app-level `serial` queue used to stand in for: on one connection statements run
+one after another and each caller gets its own rows, and on a connection each
+they overlap without touching each other's staged ranges. so `sql()` and `read()`
+take a `lane`, `connect(lane)` holds one connection per lane, and `.query()` is
+still called in exactly one place. the map is the default lane and a card open is
+`lane: 'card'`, because a card reads the objects too big to prefetch: sharing one
+lane made a pan wait for the card, measured at 6.1 s against 1.3 s. a lane is
+only ever a parallelism choice — flux issues no `CREATE`, so no statement depends
+on another's connection state, and a registered buffer is the database's and
+visible on every lane. add a lane when work must not wait behind other work; do
+not add one per provider, which just spends connections on a fan-out that is
+already one statement each.
 
 **two read tiers, and size picks the tier.** every object small enough to hold
 is fetched whole at page parse — plain parallel GETs racing the engine download,
