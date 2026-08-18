@@ -9,6 +9,10 @@
          them is named here. every layer reads it, so a build without it draws
          nothing at all. -->
     <meta name="data-bucket" content="https://s3.WAW3-2.cloudferro.com/data-desk-archive">
+    <!-- the two remote hosts every load talks to: warm their tls before the
+         module graph gets around to asking -->
+    <link rel="preconnect" href="https://s3.waw3-2.cloudferro.com" crossorigin>
+    <link rel="preconnect" href="https://tiles.basemaps.cartocdn.com" crossorigin>
     <title>flux / emissions explorer</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2240%22 fill=%22%23FD7700%22/%3E%3C/svg%3E">
     <link rel="stylesheet" href="vendor/fonts/inter.css">

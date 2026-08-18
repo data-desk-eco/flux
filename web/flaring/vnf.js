@@ -1,6 +1,8 @@
 // the vnf (viirs nightfire) reader — eog's tables, read through the shell's
-// duckdb layer. remote urls use range requests, column selection and row group
-// statistics, so a viewport costs a footer and the row groups it names.
+// duckdb layer. eog/flares is small enough that the shell prefetches it whole
+// into an engine buffer, so a viewport read usually costs no request; when the
+// prefetch has fallen back, remote range requests, column selection and row
+// group statistics bound what it costs instead.
 //
 // two tiers. the viewport reads eog/flares: one row per site, written in `cell`
 // order so a bbox predicate prunes row groups spatially once the table is big
@@ -21,7 +23,7 @@
 // is one object and eog/detections is addressed by `cell`, so the path shape
 // stays the producer's to change.
 
-import { read, meta } from '../shell/data.js';
+import { read } from '../shell/data.js';
 import { objects } from '../shell/archive.js';
 import { quarterOf } from '../shell/util.js';
 import { sumQuarters } from './clustering.js';
@@ -35,12 +37,13 @@ const COLS = ['id', 'lat', 'lon', 'cell', 'country', 'detail', 'quarters'];
 // selects exactly the quarters it ticked
 const inWindow = (start, end) => q => q >= start && q <= end;
 
-// resolve eog/flares against the archive index and open it (remote: footer
-// bytes only), so viewport queries can range-read row groups
+// resolve eog/flares against the archive index. no warm-up statement: the
+// shell has usually prefetched the whole object as an engine buffer by now,
+// and the first viewport read opens it either way — a parquet_metadata pass
+// here was one more turn of the statement queue before any flare drew
 export function initVNF() {
     return _initPromise ??= (async () => {
         [_flares] = await objects('flares', { provider: 'eog' });
-        await meta(_flares);
         _ready = true;
     })();
 }

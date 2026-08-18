@@ -28,7 +28,8 @@ import { viewportBbox, boxesWorldmap, ensureMark } from './shell/map.js';
 import { canon, padBbox, featureBbox, escapeHtml, formatDate, degLat, degLon } from './shell/util.js';
 import { MODE } from './flaring/render.js';
 import { DD, AREA, MARKS, PIN, RATE_LABEL, PLUME_BANDS, flareBands, flareIcon, plumeIcon } from './layers.js';
-import { initArchive } from './shell/archive.js';
+import { initArchive, objects } from './shell/archive.js';
+import { prefetchData } from './shell/data.js';
 import { initVNF, resetVNF, queryVNF, queryVNFFlare, availableQuartersVNF, isReady as vnfReady } from './flaring/vnf.js';
 import { initS2Archive, queryS2Archive, queryS2Flare, availableQuartersS2, coverageTiles, whenCovered, residentFlares } from './flaring/s2archive.js';
 import { initCard, cardTitle, cardHtml, onCardShow, onCardClose, refreshCard, reselectCurrentFeature } from './card/index.js';
@@ -57,10 +58,32 @@ if (/^#vnf\/[^/=&]+$/.test(location.hash))
 // with the detector gone there is no build that draws anything without it.
 const ARCHIVE = document.querySelector('meta[name="data-bucket"]').content;
 initArchive(ARCHIVE);
+
+// the datadesk-only deploy (dist.sh local mode, behind cloudflare access). it
+// bakes a plumes parquet carrying ghgsat and is the only place mapstand licence
+// acreage — licensed data — is drawn. the meta tag is the whole test: taking
+// localhost as private too, as firedamp did, only emptied the methane layer for
+// anyone running `make serve`, because web/data holds no plumes parquet here.
+const PRIVATE = !!document.querySelector('meta[name="private"]');
+// attributions live on the store too (ch4id `sync push` exports the contract)
+const ATTRIBUTIONS = `${ARCHIVE}/data-desk/attributions/data.parquet`;
+
+// pull every small object this map reads whole, in parallel, at page parse —
+// overlapping the engine download instead of queueing statements behind it.
+// prefetchData holds an 8 MB cap, so data-desk/detections (60 MB, plumes and
+// the per-date flare series in one table) stays on the ranged tier, and a
+// table that grows past the cap demotes itself rather than breaking. the
+// private build reads its own baked plumes, so the public detections objects
+// are not fetched for it.
+for (const t of ['flares', ...(PRIVATE ? [] : ['detections'])])
+    objects(t).then(us => us.forEach(prefetchData)).catch(() => {});
+prefetchData(ATTRIBUTIONS);
+
 initS2Archive(ARCHIVE);
 
 const MIN_ARCHIVE_ZOOM = 4;   // displaying precomputed archive clusters (cheap, in-memory)
-const MIN_VNF_ZOOM = 6;       // one parquet read per viewport, so not at world scale
+const MIN_VNF_ZOOM = 6;       // 20k+ dim sites would drown the archive clusters at world scale
+                              // (and when the prefetch falls back, a viewport is a remote read)
 
 // date span the quarter grid covers (last 4 calendar years) — bounds the vnf
 // availability query so it stays cheap
@@ -208,16 +231,10 @@ const scheduleS2Refresh = debounce(refreshS2Archive, 200);
 // methane — plume detections for the ticked window, every provider at once
 // ---------------------------------------------------------------------------
 
-// the datadesk-only deploy (dist.sh local mode, behind cloudflare access). it
-// bakes a plumes parquet carrying ghgsat and is the only place mapstand licence
-// acreage — licensed data — is drawn. the meta tag is the whole test: taking
-// localhost as private too, as firedamp did, only emptied the methane layer for
-// anyone running `make serve`, because web/data holds no plumes parquet here.
-const PRIVATE = !!document.querySelector('meta[name="private"]');
+// the private build's baked plumes parquet (see PRIVATE, defined with the
+// build config above)
 const PLUMES = PRIVATE ? 'data/plumes.parquet' : null;
 initPlumes(PRIVATE);
-// attributions live on the store too (ch4id `sync push` exports the contract)
-const ATTRIBUTIONS = `${ARCHIVE}/data-desk/attributions/data.parquet`;
 
 let _plumeEpoch = 0;
 async function refreshPlumes() {
@@ -452,19 +469,17 @@ mount({
         // added here, not in ready(), so the key's visibility toggle has a layer
         // to read — and so licence acreage sits beneath every marking
         if (PRIVATE) addLicenceLayers(ctx.map, ctx.sql);
-        const range = ctx.quarters.range();
-        const [terminals, plumes] = await Promise.all([
-            fetch('terminals.geojson').then(r => r.json()),
-            range ? readPlumes(range.startDate, range.endDate)
-                .catch(err => (console.error('plume query error:', err), [])) : [],
-        ]);
+        const terminals = await fetch('terminals.geojson').then(r => r.json());
         terminals.features = terminals.features.filter(f => f.properties.type === 'export');
         setTerminals(terminals.features);
+        // all three sources start empty and ready() fires their first reads:
+        // holding the mount here for the plume read held the layers — and so
+        // the first flare dot, already resident by then — behind it
         return {
             detections: { type: 'FeatureCollection', features: [] },
             vnf: { type: 'FeatureCollection', features: [] },
             // clusters only when far out — points take over from z5 (~UK-sized viewport)
-            plumes: { data: ctx.fc(plumes), cluster: true, clusterMaxZoom: 4, clusterRadius: 30,
+            plumes: { data: ctx.fc([]), cluster: true, clusterMaxZoom: 4, clusterRadius: 30,
                       clusterProperties: { rate_sum: ['+', ['coalesce', ['get', 'rate_kg_h'], 0]] } },
         };
     },
@@ -626,11 +641,15 @@ mount({
             scheduleVNFRefresh();
         });
 
-        // first draw. both flaring layers read the same viewport and window from
-        // here on; the flares table is already downloading, fired at page parse
+        // first draw, all three layers. their tables started downloading at
+        // page parse (the prefetch block up top), so these mostly run against
+        // buffers already resident. the quarter dots wait for the first plume
+        // paint: the availability index is the one read here that still goes
+        // to the network (data-desk/detections is past the prefetch cap), and
+        // queued earlier it sat between the layers and their first points
         refreshS2Archive();
         refreshVNF();
-        updateQuarterIndicators();
+        refreshPlumes().then(() => updateQuarterIndicators());
         readyResolve();
     },
 });

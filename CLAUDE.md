@@ -208,13 +208,24 @@ connection each the parked scans deadlock outright. neither says so: no
 exception, no warning, just wrong layers or a map that never finishes loading.
 so every read goes through `sql()`, `.query()` is called in exactly one place,
 and the fan-out over providers stays a `Promise.allSettled` the queue drains one
-at a time. the cost is real and known — a cold load's VNF layer and the card's
-series land at ~9 s rather than ~4 s, because they no longer overlap — and it
-buys the range reads, which took one cold load from 68.7 MB to 8.5 MB actually
-transferred. when the engine serialises per connection itself
-(duckdb-wasm-lite#3), drop the queue and the overlap comes back; until then, do
-not "restore" it by handing each provider its own connection, which is the
-deadlock.
+at a time. the queue's cost fell when the small objects moved to the prefetch
+tier below — statements over buffers cost no network turn to serialise — and
+what the queue still prices is the ranged tier: card opens and the availability
+index. when the engine serialises per connection itself (duckdb-wasm-lite#3),
+drop the queue and the overlap comes back; until then, do not "restore" it by
+handing each provider its own connection, which is the deadlock.
+
+**two read tiers, and size picks the tier.** every object small enough to hold
+is fetched whole at page parse — plain parallel GETs racing the engine download,
+registered as engine buffers (`prefetchData`, `web/shell/data.js`) — and every
+statement over it then runs at memory speed. what is past the 8 MB cap
+(`data-desk/detections`, the partitioned `eog/detections`) stays on remote range
+reads, which is also every prefetch's fallback: an object that grows past the
+cap, a failed fetch, or a server that will not say its size demote themselves to
+the url and cost what they cost, rather than breaking. do not put the first
+paint behind a ranged read again — the serial cascade of small remote
+statements is exactly what took the first points from ~2 s to ~5 s
+(`docs/cold-load.md`).
 
 **the engine is ~7 MB over the wire, and the first load after a deploy pays for
 it.** pages caches for ten minutes, so the first visitor to reach a cold edge

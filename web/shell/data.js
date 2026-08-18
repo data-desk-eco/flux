@@ -5,7 +5,7 @@ const DDB = new URL('../vendor/duckdb/', import.meta.url).href;
 const DUCKDB_RELEASE = 'v2.0.0-alpha1-lite.1';
 const duckdbAsset = name => `${DDB}${name}?v=${DUCKDB_RELEASE}`;
 
-let files = {}, base, connection;
+let files = {}, base, engine, connection;
 const metadata = new Map();
 
 // the engine is ~7 MB over the wire, so start it here rather than on the first
@@ -15,19 +15,55 @@ export function initData({ files: f = {}, prefetch = [], base: b } = {}) {
     files = f;
     base = b ?? globalThis.location?.href;
     connect().catch(() => {});
-    for (const name of prefetch) meta(name).catch(() => {});
+    for (const name of prefetch) prefetchData(name);
 }
 
-async function connect() {
-    if (!connection) connection = (async () => {
+async function db() {
+    if (!engine) engine = (async () => {
         const d = await import(duckdbAsset('duckdb-browser.mjs'));
         const worker = new Worker(duckdbAsset('duckdb-browser-eh.worker.js'));
         const db = new d.AsyncDuckDB(new d.VoidLogger(), worker);
         await db.instantiate(duckdbAsset('duckdb-eh.wasm'));
-        return db.connect();
+        return db;
     })();
+    return engine;
+}
+async function connect() {
+    if (!connection) connection = db().then(d => d.connect());
     return connection;
 }
+
+// an object small enough to hold is fetched whole here — a plain parallel GET,
+// off the statement queue, overlapping the engine download — and registered as
+// an engine buffer, so every statement over it runs at memory speed instead of
+// paying the open-probe-footer round trips per statement and the same ranges
+// again per viewport. measured on a cold load, this is what took the first
+// points from ~4.7 s to ~2.2 s and the full three layers from ~6.4 s to ~3.2 s.
+// an object past the cap, a failed fetch, or a server that will not say its
+// size all fall back to the url and the ranged read they were getting anyway —
+// which is the right tier for what is too big to hold (data-desk/detections,
+// the partitioned eog/detections).
+const PREFETCH_CAP = 8 << 20;
+const buffers = new Map();
+let bufSeq = 0;
+export function prefetchData(name) {
+    const u = url(name);
+    if (!buffers.has(u)) buffers.set(u, (async () => {
+        const res = await fetch(u);
+        const size = +res.headers.get('content-length');
+        if (!res.ok || !(size <= PREFETCH_CAP)) { res.body?.cancel(); return null; }
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        const buf = `prefetch${bufSeq++}.parquet`;
+        await (await db()).registerFileBuffer(buf, bytes);
+        return buf;
+    })().catch(() => null));
+    return buffers.get(u);
+}
+// a read of a prefetched object waits for its buffer rather than racing it to
+// the network; anything else (and any prefetch that fell back) keeps its url
+const viaBuffer = async source => Array.isArray(source)
+    ? Promise.all(source.map(viaBuffer))
+    : (buffers.has(source) ? await buffers.get(source) : null) ?? source;
 
 // one statement at a time, whoever asks. this engine yields to the event loop
 // inside a remote read, so a second statement started meanwhile runs interleaved
@@ -54,7 +90,9 @@ const url = name => {
     if (Array.isArray(name)) return name.map(url);
     const value = files[name] ?? name;
     if (Array.isArray(value)) return value.map(url);
-    return base ? new URL(value, base).href : value;
+    // always canonicalised, so a prefetch at page parse and a read after
+    // initData key the buffers map with one spelling of one object
+    return new URL(value, base ?? globalThis.location?.href).href;
 };
 const list = source => Array.isArray(source) ? `[${source.map(quote).join(', ')}]` : quote(source);
 export const parquetInput = name => list(url(name));
@@ -84,14 +122,14 @@ const value = (item, type) => {
     return norm(item);
 };
 
-export function read(name, { columns, where } = {}) {
+export async function read(name, { columns, where } = {}) {
     const select = columns?.length ? columns.map(ident).join(', ') : '*';
     const tests = Object.entries(where ?? {}).flatMap(([column, [lo, hi]]) => {
         const col = ident(column);
         return [`${col} IS NOT NULL`, ...(lo == null ? [] : [`${col} >= ${quote(lo)}`]),
             ...(hi == null ? [] : [`${col} <= ${quote(hi)}`])];
     });
-    const source = url(name);
+    const source = await viaBuffer(url(name));
     const options = Array.isArray(source) ? ', union_by_name = true' : '';
     return sql(`SELECT ${select} FROM read_parquet(${list(source)}${options})${tests.length ? ` WHERE ${tests.join(' AND ')}` : ''}`);
 }
