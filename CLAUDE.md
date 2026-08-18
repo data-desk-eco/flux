@@ -211,9 +211,16 @@ and the fan-out over providers stays a `Promise.allSettled` the queue drains one
 at a time. the cost is real and known — a cold load's VNF layer and the card's
 series land at ~9 s rather than ~4 s, because they no longer overlap — and it
 buys the range reads, which took one cold load from 68.7 MB to 8.5 MB actually
-transferred. when the engine serialises per connection itself, drop the queue and
-the overlap comes back; until then, do not "restore" it by handing each provider
-its own connection, which is the deadlock.
+transferred. when the engine serialises per connection itself
+(duckdb-wasm-lite#3), drop the queue and the overlap comes back; until then, do
+not "restore" it by handing each provider its own connection, which is the
+deadlock.
+
+**the engine is ~7 MB over the wire, and the first load after a deploy pays for
+it.** pages caches for ten minutes, so the first visitor to reach a cold edge
+pulls the whole wasm through it — one such load took over two minutes to mount,
+where every warm load settles in about eight seconds. it is the deploy that is
+cold, not the map; do not read one slow first load as a regression.
 
 ## the tables
 
