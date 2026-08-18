@@ -223,7 +223,11 @@ statement over it then runs at memory speed. what is past the 8 MB cap
 (`data-desk/detections`, the partitioned `eog/detections`) stays on remote range
 reads, which is also every prefetch's fallback: an object that grows past the
 cap, a failed fetch, or a server that will not say its size demote themselves to
-the url and cost what they cost, rather than breaking. do not put the first
+the url and cost what they cost, rather than breaking. what the ranged tier
+repeats is held instead of re-read: a card series goes through `memoised()`,
+keyed by object url and site id, bounded at 30 MB of estimated rows and evicting
+least recently used, so reopening a card is free where it cost a round trip. the
+rows it hands back are shared — read them, do not write them. do not put the first
 paint behind a ranged read again — the serial cascade of small remote
 statements is exactly what took the first points from ~2 s to ~5 s
 (`docs/cold-load.md`).

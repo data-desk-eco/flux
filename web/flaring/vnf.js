@@ -23,7 +23,7 @@
 // is one object and eog/detections is addressed by `cell`, so the path shape
 // stays the producer's to change.
 
-import { read } from '../shell/data.js';
+import { read, memoised } from '../shell/data.js';
 import { objects } from '../shell/archive.js';
 import { quarterOf } from '../shell/util.js';
 import { sumQuarters } from './clustering.js';
@@ -124,10 +124,15 @@ export async function queryVNFFlare(flareId, startDate, endDate) {
 // index and without a listing.
 export async function fetchVNFDetections({ id, cell }) {
     if (!id || !cell) return [];
-    const rows = await read((await objects('detections', { provider: 'eog', key: cell }))[0],
-        { lane: 'card', columns: ['date', 'rh_mw'], where: { site_id: [String(id), String(id)] } });
-    return rows.map(r => ({ date: String(r.date).slice(0, 10), rh_mw: Number(r.rh_mw) || 0 }))
-        .sort((a, b) => a.date < b.date ? -1 : 1);
+    const [detections] = await objects('detections', { provider: 'eog', key: cell });
+    if (!detections) return [];
+    // object url plus site id, as s2archive.js keys it: reopening is free
+    return memoised(`${detections}#${id}`, async () => {
+        const rows = await read(detections,
+            { lane: 'card', columns: ['date', 'rh_mw'], where: { site_id: [String(id), String(id)] } });
+        return rows.map(r => ({ date: String(r.date).slice(0, 10), rh_mw: Number(r.rh_mw) || 0 }))
+            .sort((a, b) => a.date < b.date ? -1 : 1);
+    });
 }
 
 // the `year_quarter` keys with any detection in the viewport over [start, end]

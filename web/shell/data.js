@@ -71,6 +71,35 @@ const viaBuffer = async source => Array.isArray(source)
     ? Promise.all(source.map(viaBuffer))
     : (buffers.has(source) ? await buffers.get(source) : null) ?? source;
 
+// a card series repeats: reopening a site asks for rows this session already
+// parsed, and the objects behind a card are the ones past the prefetch cap, so
+// the ask costs a ranged read every time. hold the parsed rows instead, bounded,
+// dropping the least recently used when the bound is reached — rows are flat and
+// small, so they are costed at a flat estimate rather than walked. the promise
+// is what is held, so two callers asking at once share one read, and a read that
+// failed is not held at all. callers must treat the rows as read-only; nothing
+// here copies them.
+const MEMO_BUDGET = 30 << 20;
+const ROW_COST = 200; // bytes, roughly what a small flat row costs in v8
+const memo = new Map();
+let memoBytes = 0;
+export function memoised(key, run) {
+    const hit = memo.get(key);
+    if (hit) { memo.delete(key); memo.set(key, hit); return hit.rows; } // touched: newest last
+    const entry = { bytes: 0 };
+    entry.rows = run().then(rows => {
+        memoBytes += entry.bytes = rows.length * ROW_COST;
+        for (const [k, held] of memo) { // insertion order, so least recently used first
+            if (memoBytes <= MEMO_BUDGET) break;
+            memoBytes -= held.bytes;
+            memo.delete(k);
+        }
+        return rows;
+    }, err => { memo.delete(key); throw err; });
+    memo.set(key, entry);
+    return entry.rows;
+}
+
 const quote = value => {
     if (value instanceof Date) value = value.toISOString();
     if (typeof value === 'string') return `'${value.replaceAll("'", "''")}'`;

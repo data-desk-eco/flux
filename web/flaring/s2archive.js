@@ -9,7 +9,7 @@
 // `data-desk/coverage.geojson` gives the scanned AOI boxes the intro modal
 // draws; it is a named asset, not a table, so it stays named.
 
-import { read } from '../shell/data.js';
+import { read, memoised } from '../shell/data.js';
 import { objects } from '../shell/archive.js';
 import { quarterOf } from '../shell/util.js';
 
@@ -101,14 +101,18 @@ export async function fetchS2Detections({ id, cell }) {
     // the day this table partitions, a card with no cell names no object — and
     // read(undefined) is a worse way to say so. vnf.js guards the same way.
     if (!detections) return [];
-    const rows = await read(detections,
-        { lane: 'card',
-          columns: ['date', 'lat', 'lon', 'max_b12', 'pixels'],
-          where: { site_id: [String(id), String(id)], kind: ['flare', 'flare'],
-                   ...(cell ? { cell: [cell, cell] } : {}) } });
-    return rows.map(r => ({
-        date: String(r.date).slice(0, 10),
-        max_b12: Number(r.max_b12), pixels: Number(r.pixels),
-        raw_lon: Number(r.lon), raw_lat: Number(r.lat),
-    })).sort((a, b) => a.date < b.date ? -1 : 1);
+    // the object url carries provider and cell, so it and the site id are the
+    // whole key; reopening the same card is then free
+    return memoised(`${detections}#${id}`, async () => {
+        const rows = await read(detections,
+            { lane: 'card',
+              columns: ['date', 'lat', 'lon', 'max_b12', 'pixels'],
+              where: { site_id: [String(id), String(id)], kind: ['flare', 'flare'],
+                       ...(cell ? { cell: [cell, cell] } : {}) } });
+        return rows.map(r => ({
+            date: String(r.date).slice(0, 10),
+            max_b12: Number(r.max_b12), pixels: Number(r.pixels),
+            raw_lon: Number(r.lon), raw_lat: Number(r.lat),
+        })).sort((a, b) => a.date < b.date ? -1 : 1);
+    });
 }
