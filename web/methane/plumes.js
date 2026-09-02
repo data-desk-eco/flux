@@ -14,9 +14,13 @@ import { loadAttributions } from './attribution.js';
 
 // everything the map, key and detail panel read — the projection stays narrow
 // because every column rides into the geojson. `kind` earns its place twice: it
-// is what the key's rate bands and the detail card dispatch on.
+// is what the key's rate bands and the detail card dispatch on. observed_enh,
+// confidence and cluster_size are Nature Trace extension columns (a ppm·m
+// modeled enhancement, not a mass rate); a second provider omits them rather
+// than writes null.
 const PLUME_COLS = ['id', 'kind', 'provider', 'date', 'lat', 'lon', 'rate_kg_h',
-    'rate_std_kg_h', 'satellite', 'sector', 'link', 'overlay', 'bounds'];
+    'rate_std_kg_h', 'satellite', 'sector', 'link', 'overlay', 'bounds',
+    'observed_enh', 'confidence', 'cluster_size'];
 // `detections` holds flares as well as plumes, and a data-desk retrieval the
 // producer does not trust rides along with valid = false
 const PLUME_WHERE = { kind: ['plume', 'plume'], valid: [true, true] };
@@ -30,6 +34,10 @@ export const label = p => LABEL[p] ?? p;
 
 // null when the provider published no rate estimate
 export const rateT = p => p.rate_kg_h == null ? null : (Number(p.rate_kg_h) / 1000).toFixed(1);
+// the Nature Trace modeled methane enhancement, in ppm·m, when the provider
+// published no mass rate. kept apart from rateT so a ppm·m value is never read
+// as a t/hr rate.
+export const enhT = p => p.observed_enh == null ? null : Number(p.observed_enh).toFixed(0);
 
 // the private deploy bakes one plumes parquet (it is the only build carrying
 // ghgsat); the public one reads whatever the archive index names

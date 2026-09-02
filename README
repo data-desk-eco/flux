@@ -13,8 +13,10 @@ Three detection layers, all drawn at once, one quarter grid over all of them:
     CloudFerro archive, read through DuckDB-Wasm.
   - VNF: VIIRS Nightfire, from the eog tables in the same archive, which sees
     flares at night and measures their radiant heat.
-  - Methane: dated plume observations from Carbon Mapper, IMEO, SRON and Data
-    Desk, each carrying a measured release rate.
+  - Methane: dated plume observations from Carbon Mapper, IMEO, SRON, Nature
+    Trace and Data Desk. Most carry a measured release rate; Nature Trace
+    carries a modeled methane enhancement (ppm·m) and a model confidence, shown
+    in place of a rate so it is never read as a mass.
 
 Flux reads. It publishes nothing and detects nothing of its own: the archive it
 draws is built by the etl repo, and the methodology behind the Sentinel-2 tables
