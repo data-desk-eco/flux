@@ -531,7 +531,7 @@ mount({
                 // a cluster is a grouping, so its label is a count, not a value:
                 // the colour of the point it groups still encodes the rate, and a
                 // summed t/hr (or a ppm·m) would mash units and repeat the ramp.
-                'text-field': ['concat', ['to-string', ['get', 'point_count']], ' plumes'],
+                'text-field': ['to-string', ['get', 'point_count']],
                 // a cluster is what the reader clicks through, so its total is
                 // never dropped for a collision
                 'text-allow-overlap': true,
