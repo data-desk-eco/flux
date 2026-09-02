@@ -14,13 +14,15 @@ import { loadAttributions } from './attribution.js';
 
 // everything the map, key and detail panel read — the projection stays narrow
 // because every column rides into the geojson. `kind` earns its place twice: it
-// is what the key's rate bands and the detail card dispatch on. observed_enh,
-// confidence and cluster_size are Nature Trace extension columns (a ppm·m
-// modeled enhancement, not a mass rate); a second provider omits them rather
-// than writes null.
+// is what the key's rate bands and the detail card dispatch on.
 const PLUME_COLS = ['id', 'kind', 'provider', 'date', 'lat', 'lon', 'rate_kg_h',
-    'rate_std_kg_h', 'satellite', 'sector', 'link', 'overlay', 'bounds',
-    'observed_enh', 'confidence', 'cluster_size'];
+    'rate_std_kg_h', 'satellite', 'sector', 'link', 'overlay', 'bounds'];
+// Nature Trace extension columns (a ppm·m modeled enhancement, not a mass rate).
+// a second provider omits them rather than writes null, so they are only selected
+// over a union of all providers, never per provider — an object without them
+// would otherwise fail the SELECT. the display read unions to carry them; the
+// fallback, and the availability index, read base columns only.
+const PLUME_EXT_COLS = ['observed_enh', 'confidence', 'cluster_size'];
 // `detections` holds flares as well as plumes, and a data-desk retrieval the
 // producer does not trust rides along with valid = false
 const PLUME_WHERE = { kind: ['plume', 'plume'], valid: [true, true] };
@@ -44,16 +46,26 @@ export const enhT = p => p.observed_enh == null ? null : Number(p.observed_enh).
 let _private = false;
 export const initPlumes = isPrivate => { _private = isPrivate; };
 
-// one object per provider, named from the index and read independently:
-// allSettled, so a provider whose object is missing costs its own rows and
-// nothing else — and says so, rather than thinning the map in silence. eog is
-// not among them because the index says its detections are partitioned, not
-// because this file knows anything about eog.
+// the objects, named from the index. read as one unioned set (union_by_name)
+// so a provider-extension column is null where a provider lacks it, rather than
+// failing that provider's read — which would silently drop every other provider
+// from the map. eog is not among them because the index says its detections are
+// partitioned, not because this file knows anything about eog.
 const plumeObjects = () => _private ? Promise.resolve(['plumes'])
     : objects('detections').catch(err => (console.warn('archive index:', err), []));
 
-async function readAll(opts) {
-    const reads = await Promise.allSettled((await plumeObjects()).map(u => read(u, opts)));
+async function readAll(opts, { ext = false } = {}) {
+    const objs = await plumeObjects();
+    const columns = ext ? [...opts.columns, ...PLUME_EXT_COLS] : opts.columns;
+    // one unioned read: union_by_name fills a missing extension column with null.
+    // if it fails (a provider object is transiently absent), fall back to reading
+    // each object separately on base columns, so that provider's rows alone go.
+    try {
+        return await read(objs, { ...opts, columns });
+    } catch (err) {
+        console.warn('plume union read failed — reading per object:', err);
+    }
+    const reads = await Promise.allSettled(objs.map(u => read(u, { ...opts, columns: opts.columns })));
     for (const r of reads)
         if (r.status === 'rejected') console.warn('a detections source did not load:', r.reason);
     return reads.flatMap(r => r.status === 'fulfilled' ? r.value : []);
@@ -61,7 +73,7 @@ async function readAll(opts) {
 
 // the display read: one window, with ch4id's attributions stamped on
 export async function readPlumes(startDate, endDate) {
-    const rows = await readAll({ columns: PLUME_COLS, where: { ...PLUME_WHERE, date: [startDate, endDate] } });
+    const rows = await readAll({ columns: PLUME_COLS, where: { ...PLUME_WHERE, date: [startDate, endDate] } }, { ext: true });
     const attribs = await loadAttributions();
     for (const p of rows) if (attribs.has(canon(p.id))) p.attr = 1;
     return rows;
@@ -89,6 +101,9 @@ export async function availableQuartersPlumes([w, s, e, n], start, end) {
 // outside it needs its own read — one row, and the id predicate is a straight
 // equality the engine pushes down.
 export async function readPlume(id) {
-    const row = (await readAll({ columns: PLUME_COLS, where: { ...PLUME_WHERE, id: [id, id] } }))[0];
-    return row ? fc([row]).features[0] : null;
+    const row = (await readAll({ columns: PLUME_COLS, where: { ...PLUME_WHERE, id: [id, id] } }, { ext: true }))[0];
+    const feature = row ? fc([row]).features[0] : null;
+    // a deep-linked plume read the extension columns over the union, so its card
+    // carries the enhancement and confidence like the display read
+    return feature;
 }
