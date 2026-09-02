@@ -330,17 +330,6 @@ const keySections = () => [
                 || (p.rate_kg_h != null && p.rate_kg_h >= lo && (!hi || p.rate_kg_h < hi)),
         })),
     },
-    {
-        // Nature Trace carries a ppm·m modeled enhancement rather than a mass
-        // rate, so its rows fall out of t/hr bands. the model's own confidence
-        // is the way to separate its trustworthy finds; null rows carry no
-        // confidence and fall out of either toggle.
-        label: 'Methane confidence (ppm·m)',
-        rows: ['high', 'medium'].map(level => ({
-            swatch: { mark: 'quantitative', color: DD.grey }, label: level,
-            pred: p => !isPlume(p) || p.confidence === level,
-        })),
-    },
     // no infrastructure group, because there is no infrastructure layer: the
     // candidate markings belong to an open plume card and are drawn only around
     // the source the reader picked (candidates.js), so there is nothing for a
