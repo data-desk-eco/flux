@@ -35,7 +35,7 @@ import { initS2Archive, queryS2Archive, queryS2Flare, availableQuartersS2, cover
 import { initCard, cardTitle, cardHtml, onCardShow, onCardClose, refreshCard, reselectCurrentFeature } from './card/index.js';
 import { initNearby, RADIUS_M } from './nearby.js';
 import { setTerminals, archiveFeature, enrichVNFFeatures } from './flaring/clustering.js';
-import { initPlumes, isPlume, label, rateT, enhT, readPlumes, availableQuartersPlumes, readPlume } from './methane/plumes.js';
+import { initPlumes, isPlume, label, readPlumes, availableQuartersPlumes, readPlume } from './methane/plumes.js';
 import { addCandidateLayers } from './methane/candidates.js';
 import { LICENCE_LAYERS, addLicenceLayers } from './methane/licences.js';
 import { initProbabilityOverlay } from './methane/overlay.js';
@@ -490,14 +490,10 @@ mount({
             detections: { type: 'FeatureCollection', features: [] },
             vnf: { type: 'FeatureCollection', features: [] },
             // clusters only when far out — points take over from z5 (~UK-sized viewport)
-            // rate_sum sums real rates; a cluster whose plumes all lack a rate
-            // (nature-trace, a ppm·m enhancement) must not read as 0 t/hr, so
-            // rate_count lets the label fall back to the plume count.
-            plumes: { data: ctx.fc([]), cluster: true, clusterMaxZoom: 4, clusterRadius: 30,
-                      clusterProperties: {
-                          rate_sum: ['+', ['coalesce', ['get', 'rate_kg_h'], 0]],
-                          rate_count: ['+', ['case', ['==', ['typeof', ['get', 'rate_kg_h']], 'number'], 1, 0]],
-                      } },
+            // the cluster label is a plume count (point_count), so no aggregate
+            // cluster property is needed. no summed rate: colour encodes rate, and
+            // a summed t/hr would mash units with a nature-trace ppm·m cluster.
+            plumes: { data: ctx.fc([]), cluster: true, clusterMaxZoom: 4, clusterRadius: 30 },
         };
     },
 
@@ -523,28 +519,15 @@ mount({
             // methane plumes: the quantitative marking on viridis, by rate.
             // colour is still how much — it is a ramp of its own because gas
             // released and gas burned are not one quantity — and shape is what
-            // says which of the two this is.
+            // says which of the two this is. no value label: colour encodes how
+            // much, so the number would repeat it at every point (and a ppm·m
+            // alongside a t/hr is a unit mash). the detail card carries the value.
             id: 'plumes', type: 'symbol', source: 'plumes',
             filter: ['!', ['has', 'point_count']],
-            hover: p => {
-                const stat = rateT(p) ? `${rateT(p)} t/hr` : enhT(p) ? `~${enhT(p)} ppm·m` : 'rate n/a';
-                const conf = p.confidence ? ` · ${escapeHtml(p.confidence)}` : '';
-                return `<span class="dd-title">${stat}</span><br>`
-                    + `${escapeHtml(label(p.provider))}${conf}${p.date ? ' · ' + escapeHtml(formatDate(p.date)) : ''}`;
-            },
+            hover: p => `${escapeHtml(label(p.provider))}${p.confidence ? ` · ${escapeHtml(p.confidence)}` : ''}${p.date ? ' · ' + escapeHtml(formatDate(p.date)) : ''}`,
             layout: {
-                ...PIN, ...RATE_LABEL,
+                ...PIN,
                 'icon-image': plumeIcon,
-                // a rate-bearing plume is labelled in t/hr; a Nature Trace one (a
-                // ppm·m enhancement, no mass rate) is labelled in ppm·m rather than
-                // left silent, so it is not read as a missing number
-                'text-field': ['case',
-                    ['==', ['typeof', ['get', 'rate_kg_h']], 'number'],
-                    ['concat', ['number-format', ['/', ['get', 'rate_kg_h'], 1000], { 'max-fraction-digits': 1 }], ' t/hr'],
-                    ['!=', ['typeof', ['get', 'observed_enh']], 'null'],
-                    ['concat', ['number-format', ['get', 'observed_enh'], { 'max-fraction-digits': 0 }], ' ppm·m'],
-                    ''],
-                'text-optional': true,
             },
             paint: { 'text-color': DD.white },
         },
@@ -556,13 +539,10 @@ mount({
             layout: {
                 ...PIN, ...RATE_LABEL,
                 'icon-image': `quantitative-${DD.white}`,
-                // round before formatting: maplibre drops a 0 'max-fraction-digits'.
-                // a cluster whose plumes all lack a rate (nature-trace, a ppm·m
-                // enhancement) is labelled by plume count, not 0 t/hr.
-                'text-field': ['case',
-                    ['>', ['get', 'rate_count'], 0],
-                    ['concat', ['number-format', ['round', ['/', ['get', 'rate_sum'], 1000]], {}], ' t/hr'],
-                    ['concat', ['to-string', ['get', 'point_count']], ' plumes']],
+                // a cluster is a grouping, so its label is a count, not a value:
+                // the colour of the point it groups still encodes the rate, and a
+                // summed t/hr (or a ppm·m) would mash units and repeat the ramp.
+                'text-field': ['concat', ['to-string', ['get', 'point_count']], ' plumes'],
                 // a cluster is what the reader clicks through, so its total is
                 // never dropped for a collision
                 'text-allow-overlap': true,
