@@ -21,12 +21,17 @@ const PLUME_COLS = ['id', 'kind', 'provider', 'date', 'lat', 'lon', 'rate_kg_h',
 // a second provider omits them rather than writes null, so they are only selected
 // over a union of all providers, never per provider — an object without them
 // would otherwise fail the SELECT. the display read unions to carry them; the
-// fallback, and the availability index, read base columns only.
+// fallback reads base columns only, so it cannot grade confidence.
 const PLUME_EXT_COLS = ['observed_enh', 'confidence', 'cluster_size'];
 // `detections` holds flares as well as plumes, and a data-desk retrieval the
 // producer does not trust rides along with valid = false
 const PLUME_WHERE = { kind: ['plume', 'plume'], valid: [true, true] };
 export const isPlume = p => p.kind === 'plume';
+// Nature Trace grades every plume high or medium; only the high-confidence ones
+// are shown. a provider without the column (null over the union) is untouched.
+// applied after the read: the shell's `where` is ranges over non-null columns,
+// which would drop every other provider.
+const confident = p => p.confidence == null || p.confidence === 'high';
 
 // a label is editorial, so it is stated here. which providers exist is not: a
 // provider the archive adds lands on the map under its own name. provider is no
@@ -61,7 +66,7 @@ async function readAll(opts, { ext = false } = {}) {
     // if it fails (a provider object is transiently absent), fall back to reading
     // each object separately on base columns, so that provider's rows alone go.
     try {
-        return await read(objs, { ...opts, columns });
+        return (await read(objs, { ...opts, columns })).filter(confident);
     } catch (err) {
         console.warn('plume union read failed — reading per object:', err);
     }
@@ -87,7 +92,7 @@ export async function readPlumes(startDate, endDate) {
 // global answer greys nothing and the dot state stops meaning anything.
 let _index = null;
 const plumeIndex = (start, end) => _index ??=
-    readAll({ columns: ['date', 'lat', 'lon'], where: { ...PLUME_WHERE, date: [start, end] } })
+    readAll({ columns: ['date', 'lat', 'lon'], where: { ...PLUME_WHERE, date: [start, end] } }, { ext: true })
         .catch(err => (console.warn('plume availability:', err), []));
 
 export async function availableQuartersPlumes([w, s, e, n], start, end) {
