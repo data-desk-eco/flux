@@ -15,7 +15,6 @@ mkdir -p "$VENDOR/fonts"
 echo "maplibre-gl@5.1.0 ..."
 curl -sLo "$VENDOR/maplibre-gl.js"  "https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.js"
 curl -sLo "$VENDOR/maplibre-gl.css" "https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.css"
-curl -sLo "$VENDOR/h3-js.es.js" "https://unpkg.com/h3-js@4.2.1/dist/h3-js.es.js"
 
 # DuckDB reads Parquet and runs SQL in its worker. Cloudflare applies its normal
 # caching and Brotli compression to these standard asset names.

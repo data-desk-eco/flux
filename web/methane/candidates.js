@@ -15,7 +15,6 @@
 
 import { hoverPopup } from '../shell/map.js';
 import { objects } from '../shell/archive.js';
-import { latLngToCell } from '../vendor/h3-js.es.js';
 import { parquetInput } from '../shell/data.js';
 import { degLat, degLon, escapeHtml, fmtMetres, haversineM } from '../shell/util.js';
 import { MARK, PIN } from '../layers.js';
@@ -27,19 +26,10 @@ const normId = id => id.replace(/^OSM:(way|node|relation)\//, (_, t) => `OSM:${t
 
 let map, query;
 
-// infrastructure is partitioned on cell, the h3 resolution-1 index (~650 km
-// across). a query rect is far smaller than a cell, so the cells under its
-// corners, edges and centre are all it touches: one object per cell per provider
-const tables = ({ minX, minY, maxX, maxY }) => Promise.all([...new Set(
-    [minY, (minY + maxY) / 2, maxY].flatMap(y =>
-        [minX, (minX + maxX) / 2, maxX].map(x => latLngToCell(y, x, 1))))]
-    .map(key => objects('infrastructure', { key })))
-    .then(urls => [...new Set(urls.flat())]);
-
 // one query per object, swept independently, which keeps the property the glob
 // was for: a provider that has not published yet costs only its own rows
 async function fetchRect(rect) {
-    const settled = await Promise.allSettled((await tables(rect).catch(() => [])).map(table => query(`
+    const settled = await Promise.allSettled((await objects('infrastructure').catch(() => [])).map(table => query(`
         select * exclude (geometry, cell)
         from read_parquet(${parquetInput(table)})
         where lon between ${Number(rect.minX)} and ${Number(rect.maxX)}
