@@ -55,7 +55,7 @@
     <main>
         <header><h1>Attribution review</h1>
             <span id="count">loading…</span>
-            <span>blue plume · orange source · j/k move · c confirm · r refute · u unclear</span></header>
+            <span>blue ring plume · orange pin source · j/k move · c confirm · r refute · u unclear</span></header>
         <table><tbody id="rows"></tbody></table>
     </main>
     <div id="map"></div>
@@ -68,6 +68,8 @@ const CUTOVER = '2026-10-02 20:00:00';
 const BUCKET = 'https://s3.WAW3-2.cloudferro.com/data-desk-archive/';
 const API = 'api/decisions';
 const all = new URLSearchParams(location.search).has('all');
+const km = r => 111.2 * Math.hypot(r.lat - r.plat,
+    (r.lon - r.plon) * Math.cos(r.lat * Math.PI / 180));
 const esc = s => String(s ?? '').replace(/[&<>"]/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
@@ -90,8 +92,12 @@ const map = new maplibregl.Map({ container: 'map', zoom: 2, center: [0, 20],
         tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/'
             + 'World_Imagery/MapServer/tile/{z}/{y}/{x}'] } },
         layers: [{ id: 'sat', type: 'raster', source: 'sat' }] } });
-const pin = colour => new maplibregl.Marker({ color: colour });
-const [source, plume] = [pin('#FD7700'), pin('#3a7bd5')];
+// the plume is a ring rather than a pin, so it shows round the source pin
+// when a claim puts the source on the plume's own coordinate
+const ring = Object.assign(document.createElement('div'), { style:
+    'width:22px;height:22px;border:3px solid #3a7bd5;border-radius:50%' });
+const source = new maplibregl.Marker({ color: '#FD7700', anchor: 'bottom' });
+const plume = new maplibregl.Marker({ element: ring });
 
 const body = document.getElementById('rows');
 const left = () => body.querySelectorAll('tr:not(.done)').length;
@@ -103,7 +109,10 @@ body.innerHTML = queue.map((r, i) => `<tr data-i="${i}">
         ${esc(r.confidence)}</span>
         <small>${esc(r.operator)}${r.operator_id ? ` → ${esc(r.operator_name)}
             (${esc(r.operator_id)})` : ''}</small>
-        <small>${esc(r.id)} · ${esc(r.run)}</small></td>
+        <small>${esc(r.id)} · ${esc(r.run)}</small>
+        <small>${r.plat == null ? 'plume position unknown' : km(r) < 0.05
+            ? 'source on the plume coordinate'
+            : `source ${km(r).toFixed(1)} km from the plume`}</small></td>
     <td class="why">${esc(r.paragraph)}<div class="ev">${(r.evidence ?? [])
         .map(u => `<a href="${esc(u)}" target="_blank">${esc(u)}</a>`)
         .join('')}</div></td>
