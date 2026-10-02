@@ -13,13 +13,19 @@ let epoch = 0;
 // of the plume id -- this object and the detections it joins are replaced
 // separately, so the join cannot depend on the two agreeing on a namespace.
 // plumes.js reads the key set the same way, to mark attributed plumes.
+// a claim shows once a person confirms it at /review. claims from runs before
+// the review began were published by hand, which was the review then.
+const CUTOVER = '2026-10-02T20:00:00';
+const shown = r => r.verified === 'confirmed'
+    || r.verified == null && r.run_at < CUTOVER;
 let attribs = null;
 export function loadAttributions() {
     return attribs ??= (async () => {
         try {
             return new Map((await read('attributions', { columns: [
                 'id', 'source_label', 'attributed_ids', 'lat', 'lon', 'confidence',
-                'paragraph', 'evidence'] })).map(r => [canon(r.id), r]));
+                'paragraph', 'evidence', 'verified', 'run_at'] }))
+                .filter(shown).map(r => [canon(r.id), r]));
         } catch (err) {
             console.warn('attributions unavailable:', err);
             return new Map();

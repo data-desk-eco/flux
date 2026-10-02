@@ -1,0 +1,12 @@
+# the review api. `make review-deploy` from the repo root; the access gate
+# over /review is .github/workflows/review.yml
+name = "flux-review"
+main = "review.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+routes = [{ pattern = "flux.datadesk.eco/review/api/*", zone_name = "datadesk.eco" }]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "flux-review"
+database_id = "69e54c8e-9e23-4365-ba27-60058f6cde01"

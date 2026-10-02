@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- the attribution review queue: every published claim from a run since
+         the review began that no person has judged. behind cloudflare access;
+         a verdict goes to the review worker, and the jump host folds it into
+         the table's `verified` within the quarter hour. -->
+    <title>flux / review</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="../vendor/fonts/inter.css">
+    <link rel="stylesheet" href="../vendor/maplibre-gl.css">
+    <style>
+        :root { --fg: #1a1a1a; --mute: #6b6b6b; --line: #e3e3e3; --sel: #fff4e8;
+                --bg: #fff; --ok: #1f7a3a; --no: #b3261e; --hm: #8a6d00; }
+        @media (prefers-color-scheme: dark) {
+            :root { --fg: #eee; --mute: #9a9a9a; --line: #333; --sel: #3a2a18;
+                    --bg: #161616; } }
+        * { box-sizing: border-box; }
+        body { margin: 0; font: 13px/1.45 Inter, system-ui, sans-serif;
+               color: var(--fg); background: var(--bg); display: grid;
+               grid-template-columns: minmax(0, 1fr) 38vw; height: 100vh; }
+        main { overflow: auto; }
+        header { position: sticky; top: 0; background: var(--bg); z-index: 1;
+                 padding: 12px 16px; border-bottom: 1px solid var(--line);
+                 display: flex; gap: 16px; align-items: baseline; }
+        header h1 { font-size: 15px; margin: 0; }
+        header span { color: var(--mute); }
+        table { border-collapse: collapse; width: 100%; }
+        td { vertical-align: top; padding: 10px 12px;
+             border-bottom: 1px solid var(--line); }
+        tr { cursor: pointer; }
+        tr.sel { background: var(--sel); }
+        tr.done { opacity: .35; }
+        td.what { width: 26%; }
+        td.what b { display: block; font-size: 14px; }
+        td.what small, .ev a { color: var(--mute); display: block; }
+        td.why { white-space: pre-wrap; overflow-wrap: anywhere; }
+        .conf-high { color: var(--ok); } .conf-low { color: var(--no); }
+        .conf-medium { color: var(--hm); }
+        td.act { width: 150px; }
+        td.act button { display: block; width: 100%; margin: 0 0 4px;
+                        padding: 5px; font: inherit; cursor: pointer;
+                        border: 1px solid var(--line); background: none;
+                        color: inherit; border-radius: 4px; }
+        td.act textarea { width: 100%; font: inherit; color: inherit;
+                          background: none; border: 1px solid var(--line); }
+        #map { height: 100vh; }
+        @media (max-width: 760px) { body { grid-template-columns: 1fr; }
+            #map { height: 40vh; position: sticky; top: 0; order: -1; } }
+    </style>
+</head>
+<body>
+    <main>
+        <header><h1>Attribution review</h1>
+            <span id="count">loading…</span>
+            <span>blue plume · orange source · j/k move · c confirm · r refute · u unclear</span></header>
+        <table><tbody id="rows"></tbody></table>
+    </main>
+    <div id="map"></div>
+    <script src="../vendor/maplibre-gl.js"></script>
+    <script type="module">
+import { sql } from '../shell/data.js';
+
+// claims from runs before this were published by hand, which was the review
+const CUTOVER = '2026-10-02 20:00:00';
+const BUCKET = 'https://s3.WAW3-2.cloudferro.com/data-desk-archive/';
+const API = 'api/decisions';
+const all = new URLSearchParams(location.search).has('all');
+const esc = s => String(s ?? '').replace(/[&<>"]/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+const [rows, decided] = await Promise.all([sql(`
+    select a.*, strftime(a.run_at, '%Y-%m-%d %H:%M:%S') as run,
+           p.lat as plat, p.lon as plon
+    from read_parquet('${BUCKET}data-desk/attributions/data.parquet') a
+    left join (select id, lat, lon from read_parquet([${['carbon-mapper',
+        'imeo', 'sron', 'data-desk'].map(p => `'${BUCKET}${p}/detections/data.parquet'`)
+        }], union_by_name = true) where kind = 'plume') p using (id)
+    where a.verified is null ${all ? '' : `and a.run_at >= '${CUTOVER}'`}
+    order by a.run_at desc, a.confidence, a.id`),
+    fetch(API).then(r => r.json()).catch(() => [])]);
+const seen = new Set(decided.map(d => d.id + '|' + d.run_at));
+const queue = rows.filter(r => !seen.has(r.id + '|' + r.run));
+
+const map = new maplibregl.Map({ container: 'map', zoom: 2, center: [0, 20],
+    style: { version: 8, sources: { sat: { type: 'raster', tileSize: 256,
+        attribution: 'Esri World Imagery',
+        tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/'
+            + 'World_Imagery/MapServer/tile/{z}/{y}/{x}'] } },
+        layers: [{ id: 'sat', type: 'raster', source: 'sat' }] } });
+const pin = colour => new maplibregl.Marker({ color: colour });
+const [source, plume] = [pin('#FD7700'), pin('#3a7bd5')];
+
+const body = document.getElementById('rows');
+const left = () => body.querySelectorAll('tr:not(.done)').length;
+const count = () => document.getElementById('count').textContent =
+    `${left()} of ${queue.length} awaiting a verdict`;
+body.innerHTML = queue.map((r, i) => `<tr data-i="${i}">
+    <td class="what"><b>${esc(r.source_label)}</b>
+        ${esc(r.source_kind)} · <span class="conf-${r.confidence}">
+        ${esc(r.confidence)}</span>
+        <small>${esc(r.operator)}${r.operator_id ? ` → ${esc(r.operator_name)}
+            (${esc(r.operator_id)})` : ''}</small>
+        <small>${esc(r.id)} · ${esc(r.run)}</small></td>
+    <td class="why">${esc(r.paragraph)}<div class="ev">${(r.evidence ?? [])
+        .map(u => `<a href="${esc(u)}" target="_blank">${esc(u)}</a>`)
+        .join('')}</div></td>
+    <td class="act"><textarea rows="2" placeholder="notes"></textarea>
+        <button data-v="confirmed">Confirm</button>
+        <button data-v="refuted">Refute</button>
+        <button data-v="unclear">Unclear</button></td></tr>`).join('');
+count();
+
+let sel;
+function select(tr) {
+    if (!tr) return;
+    sel?.classList.remove('sel');
+    (sel = tr).classList.add('sel');
+    tr.scrollIntoView({ block: 'nearest' });
+    const r = queue[tr.dataset.i];
+    source.setLngLat([r.lon, r.lat]).addTo(map);
+    r.plat == null ? plume.remove() : plume.setLngLat([r.plon, r.plat]).addTo(map);
+    const b = new maplibregl.LngLatBounds([r.lon, r.lat], [r.lon, r.lat]);
+    if (r.plat != null) b.extend([r.plon, r.plat]);
+    map.fitBounds(b, { padding: 80, maxZoom: 16, duration: 400 });
+}
+async function decide(tr, verdict) {
+    const r = queue[tr.dataset.i];
+    const res = await fetch(API, { method: 'POST', body: JSON.stringify({
+        id: r.id, run_at: r.run, verdict,
+        notes: tr.querySelector('textarea').value.trim() }) });
+    if (!res.ok) return document.getElementById('count').textContent =
+        `not saved: ${await res.text()}`;
+    tr.classList.add('done');
+    count();
+    select(tr.nextElementSibling);
+}
+body.addEventListener('click', e => {
+    const tr = e.target.closest('tr');
+    e.target.dataset.v ? decide(tr, e.target.dataset.v) : select(tr);
+});
+addEventListener('keydown', e => {
+    if (e.target.tagName === 'TEXTAREA' || !sel) return;
+    const k = { j: 'nextElementSibling', k: 'previousElementSibling' }[e.key];
+    const v = { c: 'confirmed', r: 'refuted', u: 'unclear' }[e.key];
+    if (k) select(sel[k]);
+    if (v) decide(sel, v);
+});
+map.once('load', () => select(body.querySelector('tr')));
+    </script>
+</body>
+</html>

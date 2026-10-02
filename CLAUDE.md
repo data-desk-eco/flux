@@ -8,6 +8,9 @@ quarter greys only when no layer covers it.
 
 flux is the merge of burnoff (flaring) and firedamp (methane). it reads and
 draws, and does nothing else: no detection of its own, no publishing, no peers.
+the one exception is `/review`, behind cloudflare access: a person's verdict on
+each new attribution goes to `worker/review.js`, and the jump host folds it into
+the archive. the map shows a claim from a later run only once it is confirmed.
 `web/config.js` is the declarative config `mount()` takes, and everything
 flux-specific lives in the hook modules it wires in.
 

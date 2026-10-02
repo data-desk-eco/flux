@@ -1,4 +1,4 @@
-.PHONY: serve test dist deploy-private terminals vendor help
+.PHONY: serve test dist review-deploy deploy-private terminals vendor help
 
 # the plume etl (carbon mapper / imeo / sron / ghgsat) lives in ~/Tools/etl; the
 # public site reads one detections object per provider live, and only the
@@ -58,6 +58,12 @@ serve: vendor
 # discovering it in Actions
 dist:
 	@bash scripts/dist.sh $$(git rev-parse HEAD)
+
+# the review api: worker/review.js on flux.datadesk.eco/review/api/*, with its
+# d1 table of verdicts. the page is web/review/ and ships with the pages build
+review-deploy:
+	cd worker && npx wrangler d1 execute flux-review --remote --file schema.sql \
+	  && npx wrangler deploy
 
 # datadesk-only deploy (cloudflare pages behind access). bakes an etl-built
 # plumes.parquet — including local-only ghgsat and our own dd detections — so it
