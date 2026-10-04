@@ -16,75 +16,65 @@
     <link rel="stylesheet" href="../shell/shell.css">
     <link rel="stylesheet" href="../style.css">
     <style>
-        .rv-list { top: 0; left: 0; width: 290px; bottom: 0;
-                   display: flex; flex-direction: column; gap: 25px; }
-        .rv-rows { overflow-y: auto; margin: 0 -6px; flex: 1;
-                   display: flex; flex-direction: column; gap: 3px; }
-        .rv-rows .dd-row { cursor: pointer; gap: 11px; padding: 2px 6px;
-                           border-color: transparent; }
-        .rv-rows .dd-row:hover { background: var(--dd-ui-hover); }
-        .rv-rows .dd-row.dd-active { background: var(--dd-ui-active-background); }
-        .rv-rows .dd-row span:first-child { overflow: hidden;
-            text-overflow: ellipsis; white-space: nowrap; }
-        .rv-rows .done { color: var(--dd-ui-inactive); }
-        .rv-card { top: 0; right: 0; width: 340px;
-                   max-height: calc(100vh - 20px); overflow-y: auto;
-                   display: flex; flex-direction: column; gap: 25px; }
-        .rv-card:empty { display: none; }
-        .rv-card .info-stats div { gap: 11px; }
-        .rv-card .info-stats span:last-child { text-align: right; }
+        /* one column: the queue is the panel, and each claim is reviewed where
+           it sits in it. the claim at the top of the scroll is the map's */
+        .rv { top: 0; left: 0; bottom: 0; width: 400px; padding: 0;
+              display: flex; flex-direction: column; }
+        .rv > header { padding: 30px 30px 15px; }
+        .rv-list { flex: 1; overflow-y: auto; padding: 0 30px 50vh; }
+        .rv-item { padding: 25px 0; border-top: 1px solid var(--dd-ui-inactive);
+                   display: flex; flex-direction: column; gap: 15px;
+                   color: var(--dd-ui-text-secondary); }
+        .rv-item.dd-active { color: var(--dd-ui-text); cursor: default; }
+        .rv-item .dd-heading { justify-content: space-between; gap: 11px; }
         .rv-why { white-space: pre-wrap; overflow-wrap: anywhere; }
         .rv-ev { display: flex; flex-direction: column; gap: 3px;
                  overflow-wrap: anywhere; }
+        .info-stats div { gap: 11px; }
+        .info-stats span:last-child { text-align: right; }
         .rv-notes { width: calc(100% + 14px); margin: 0 -7px; padding: 4px 6px;
-                    background: none; color: var(--dd-ui-text); font: inherit;
+                    background: none; color: inherit; font: inherit;
                     border: 1px solid var(--dd-ui-border); resize: vertical;
                     outline: none; }
         .rv-act .dd-btn { padding: 4px 6px; }
-        .rv-act .dd-btn:disabled { color: var(--dd-ui-inactive); cursor: wait; }
-        .c-high { color: var(--dd-map-green); }
-        .c-medium { color: var(--dd-map-yellow); }
-        .c-low { color: var(--dd-map-red); }
-        .rv-ring { width: 22px; height: 22px; border-radius: 50%;
-                   border: 2px solid var(--dd-map-cyan); }
-        .rv-pin { width: 10px; height: 10px; border-radius: 50%;
-                  background: var(--dd-map-orange);
-                  box-shadow: 0 0 0 2px #000; }
+        .rv-item.done > :not(.dd-heading) { display: none; }
+        .rv-item.done { color: var(--dd-ui-inactive); }
         @media (max-width: 768px) {
-            .rv-list { bottom: auto; width: auto; right: 0; max-height: 30vh; }
-            .rv-card { top: auto; bottom: 0; left: 0; width: auto;
-                       max-height: 55vh; }
+            .rv { top: auto; right: 0; width: auto; height: 55vh; }
+            .rv > header { padding: 15px; }
+            .rv-list { padding: 0 15px 40vh; }
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <aside class="dd-panel dd-panel-l rv-list">
-        <div class="dd-head"><div class="dd-head-text">
+    <aside class="dd-panel rv">
+        <header class="dd-gap" style="gap:8px">
             <div class="dd-heading"><span class="dd-title">Attribution review</span></div>
-            <div class="dd-subtitle dd-secondary" id="count">Loading</div>
-        </div></div>
-        <div class="rv-rows custom-scroll" id="rows"></div>
-        <div class="dd-secondary">j / k move · c confirm · r refute · u unclear<br>
-            <span style="color:var(--dd-map-cyan)">○</span> plume ·
-            <span style="color:var(--dd-map-orange)">●</span> source</div>
+            <div class="dd-secondary" id="count">Loading</div>
+            <div class="dd-secondary">j and k move · c confirm · r refute · u unclear</div>
+        </header>
+        <div class="rv-list custom-scroll" id="list"></div>
     </aside>
-    <aside class="dd-panel dd-panel-l rv-card custom-scroll" id="card"></aside>
     <script src="../vendor/maplibre-gl.js"></script>
     <script type="module">
 import { sql } from '../shell/data.js';
+import { createMap, addSatellite, ensureMark } from '../shell/map.js';
+import { logo } from '../shell/ui.js';
+import { escapeHtml as esc } from '../shell/util.js';
+import { DD, MARK, MARKS, PIN, RATE_LABEL, DASH, plumeIcon } from '../layers.js';
 
 const BUCKET = 'https://s3.WAW3-2.cloudferro.com/data-desk-archive/';
 const API = 'api/decisions';
 const all = new URLSearchParams(location.search).has('all');
 const km = r => 111.2 * Math.hypot(r.lat - r.plat,
     (r.lon - r.plon) * Math.cos(r.lat * Math.PI / 180));
-const esc = s => String(s ?? '').replace(/[&<>"]/g,
-    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const $ = id => document.getElementById(id);
+document.body.insertAdjacentHTML('beforeend', logo);
 
 const [rows, decided] = await Promise.all([sql(`
-    select a.*, strftime(a.run_at, '%Y-%m-%d %H:%M:%S') as run,
+    select a.*, strftime(a.run_at, '%Y-%m-%d %H:%M') as run,
+           strftime(a.run_at, '%Y-%m-%d %H:%M:%S') as run_s,
            p.provider as pprov, p.satellite, p.date::varchar as pdate,
            p.rate_kg_h, p.lat as plat, p.lon as plon
     from read_parquet('${BUCKET}data-desk/attributions/data.parquet') a
@@ -92,45 +82,21 @@ const [rows, decided] = await Promise.all([sql(`
         'data-desk'].map(p => `'${BUCKET}${p}/detections/data.parquet'`)}],
         union_by_name = true) where kind = 'plume') p using (id)
     where a.verified is null ${all ? "or a.verified = 'grandfathered'" : ''}
-    order by a.run_at desc, a.confidence, a.id`),
+    order by a.run_at desc, p.date desc, a.id`),
     fetch(API).then(r => r.json()).catch(() => [])]);
 const seen = new Set(decided.map(d => d.id + '|' + d.run_at));
-const queue = rows.filter(r => !seen.has(r.id + '|' + r.run));
-
-const map = new maplibregl.Map({ container: 'map', zoom: 2, center: [0, 20],
-    attributionControl: false,
-    style: { version: 8, sources: { sat: { type: 'raster', tileSize: 256,
-        tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/'
-            + 'World_Imagery/MapServer/tile/{z}/{y}/{x}'] } },
-        layers: [{ id: 'sat', type: 'raster', source: 'sat' }] } });
-const mark = cls => new maplibregl.Marker({ element: Object.assign(
-    document.createElement('div'), { className: cls }) });
-const plume = mark('rv-ring'), source = mark('rv-pin');
-
-const list = $('rows'), card = $('card');
-const count = () => $('count').textContent = queue.length
-    ? `${list.querySelectorAll('.dd-row:not(.done)').length} of `
-      + `${queue.length} awaiting a verdict`
-    : 'Nothing awaits a verdict';
-list.innerHTML = queue.map((r, i) => `<div class="dd-row" data-i="${i}">
-    <span>${esc(r.source_label)}</span>
-    <span class="c-${r.confidence}">${esc(r.confidence)}</span></div>`)
-    .join('');
-count();
+const queue = rows.filter(r => !seen.has(r.id + '|' + r.run_s));
 
 const stat = (k, v) => v ? `<div><span class="dd-secondary">${k}</span>
     <span>${v}</span></div>` : '';
-const where = r => r.plat == null ? 'unknown' : km(r) < 0.05
-    ? 'on the plume' : `${km(r).toFixed(2)} km from the plume`;
-function show(r) {
-    card.innerHTML = `<div class="dd-gap" style="gap:11px">
-        <div class="dd-heading"><span class="dd-title">
-            ${esc(r.source_label)}</span></div>
-        <div class="dd-secondary">${esc(r.id)}</div></div>
+const where = r => r.plat == null ? 'Unknown' : km(r) < 0.05
+    ? 'On the plume' : `${km(r).toFixed(2)} km from the plume`;
+const list = $('list');
+list.innerHTML = queue.map((r, i) => `<article class="rv-item" data-i="${i}">
+    <div class="dd-heading"><span>${esc(r.source_label)}</span>
+        <span class="dd-secondary">${esc(r.confidence)}</span></div>
     <div class="info-stats">
         ${stat('Kind', esc(r.source_kind))}
-        ${stat('Confidence', `<span class="c-${r.confidence}">
-            ${esc(r.confidence)}</span>`)}
         ${stat('Operator', esc(r.operator))}
         ${stat('Register', r.operator_id && `${esc(r.operator_name)}
             (${esc(r.operator_id)})`)}
@@ -139,63 +105,112 @@ function show(r) {
         ${stat('Rate', r.rate_kg_h && `${Math.round(r.rate_kg_h)
             .toLocaleString()} kg/h`)}
         ${stat('Source', where(r))}
-        ${stat('Run', esc(r.run))}</div>
+        ${stat('Run', esc(r.run))}
+        <div class="dd-secondary">${esc(r.id)}</div></div>
     <div class="rv-why">${esc(r.paragraph)}</div>
     ${r.evidence?.length ? `<div class="rv-ev">${r.evidence.map(u =>
         `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>`)
         .join('')}</div>` : ''}
-    <div class="dd-gap" style="gap:11px">
-        <textarea class="rv-notes" rows="3" placeholder="Notes"></textarea>
-        <div class="dd-btn-pair rv-act">
-            <button class="dd-btn" data-v="confirmed">Confirm</button>
-            <button class="dd-btn" data-v="refuted">Refute</button>
-            <button class="dd-btn" data-v="unclear">Unclear</button></div>
-    </div>`;
-}
+    <textarea class="rv-notes" rows="2" placeholder="Notes"></textarea>
+    <div class="dd-btn-pair rv-act">
+        <button class="dd-btn" data-v="confirmed">Confirm</button>
+        <button class="dd-btn" data-v="refuted">Refute</button>
+        <button class="dd-btn" data-v="unclear">Unclear</button></div>
+</article>`).join('');
+const open = () => list.querySelectorAll('.rv-item:not(.done)');
+const count = () => $('count').textContent = queue.length
+    ? `${open().length} of ${queue.length} claims await a verdict`
+    : 'No claims await a verdict';
+count();
+
+// the plume in the quantitative marking on the main map's ramp, the claimed
+// source in its attributed diamond, and a fine dash between: the link is
+// the claim, not a measurement
+const map = createMap({ center: [0, 20], zoom: 2 });
+const empty = { type: 'FeatureCollection', features: [] };
+const pt = (lon, lat, p) => ({ type: 'Feature', properties: p,
+    geometry: { type: 'Point', coordinates: [lon, lat] } });
+await new Promise(r => map.once('load', r));
+addSatellite(map);
+// the panel covers the left of the map, so the camera centres on the rest
+map.setPadding(innerWidth > 768 ? { left: 410 } : { bottom: innerHeight * .55 });
+MARKS.forEach(id => ensureMark(map, id));
+map.addSource('rv', { type: 'geojson', data: empty });
+map.addLayer({ id: 'rv-link', type: 'line', source: 'rv',
+    filter: ['==', '$type', 'LineString'],
+    paint: { 'line-color': DD.white, 'line-width': 1, 'line-dasharray': DASH } });
+map.addLayer({ id: 'rv-source', type: 'symbol', source: 'rv',
+    filter: ['==', 'kind', 'source'], layout: { ...PIN, ...RATE_LABEL,
+        'icon-image': MARK.attributed, 'text-allow-overlap': true,
+        // below the plume's label, which takes the dd up-and-right
+        'text-anchor': 'top-left', 'text-offset': [0.7, 0.7], 'text-field': ['get', 'label'] },
+    paint: { 'text-color': DD.white } });
+map.addLayer({ id: 'rv-plume', type: 'symbol', source: 'rv',
+    filter: ['==', 'kind', 'plume'], layout: { ...PIN, ...RATE_LABEL,
+        'icon-image': plumeIcon, 'text-allow-overlap': true, 'text-field': ['get', 'label'] },
+    paint: { 'text-color': DD.white } });
 
 let sel;
-function select(row) {
-    if (!row) return card.innerHTML = '';
+function select(el, scroll) {
+    if (!el || el === sel) return;
     sel?.classList.remove('dd-active');
-    (sel = row).classList.add('dd-active');
-    row.scrollIntoView({ block: 'nearest' });
-    const r = queue[row.dataset.i];
-    show(r);
-    source.setLngLat([r.lon, r.lat]).addTo(map);
-    r.plat == null ? plume.remove()
-        : plume.setLngLat([r.plon, r.plat]).addTo(map);
+    (sel = el).classList.add('dd-active');
+    if (scroll) list.scrollTo({ top: el.offsetTop - list.offsetTop,
+                                behavior: 'smooth' });
+    const r = queue[el.dataset.i], f = [pt(r.lon, r.lat,
+        { kind: 'source', label: r.source_kind })];
+    // the source drawn first, so a plume on its coordinate shows on top
+    if (r.plat != null) f.push(pt(r.plon, r.plat, { kind: 'plume',
+        rate_kg_h: r.rate_kg_h, label: r.rate_kg_h
+            ? `${Math.round(r.rate_kg_h).toLocaleString()} kg/h` : 'plume' }),
+        { type: 'Feature', properties: {}, geometry: { type: 'LineString',
+            coordinates: [[r.plon, r.plat], [r.lon, r.lat]] } });
+    map.getSource('rv').setData({ type: 'FeatureCollection', features: f });
     const b = new maplibregl.LngLatBounds([r.lon, r.lat], [r.lon, r.lat]);
     if (r.plat != null) b.extend([r.plon, r.plat]);
-    map.fitBounds(b, { duration: 400, maxZoom: 16, padding:
-        innerWidth > 768 ? { top: 80, bottom: 80, left: 390, right: 440 }
-            : 40 });
+    // the globe's fitBounds overshoots maxZoom, so the zoom is clamped here:
+    // past 15 esri's imagery runs out at many sites
+    const c = map.cameraForBounds(b, { padding: 120 });
+    map.easeTo({ center: c.center, zoom: Math.min(c.zoom, 15), duration: 600 });
 }
 async function decide(verdict) {
-    const row = sel, r = queue[row.dataset.i];
-    card.querySelectorAll('button').forEach(b => b.disabled = true);
+    const el = sel, r = queue[el.dataset.i];
+    const btns = el.querySelectorAll('button');
+    btns.forEach(b => b.disabled = true);
     const res = await fetch(API, { method: 'POST', body: JSON.stringify({
-        id: r.id, run_at: r.run, verdict,
-        notes: card.querySelector('textarea').value.trim() }) })
+        id: r.id, run_at: r.run_s, verdict,
+        notes: el.querySelector('textarea').value.trim() }) })
         .catch(e => ({ ok: false, text: () => e.message }));
-    if (!res.ok) {
-        card.querySelectorAll('button').forEach(b => b.disabled = false);
-        return $('count').textContent = `Not saved: ${await res.text()}`;
-    }
-    row.classList.add('done');
+    btns.forEach(b => b.disabled = false);
+    if (!res.ok) return $('count').textContent =
+        `Not saved: ${await res.text()}`;
+    el.classList.add('done');
+    el.querySelector('.dd-heading .dd-secondary').textContent = verdict;
     count();
-    select(list.querySelector(`.dd-row:not(.done)`));
+    const next = [...open()].find(n => +n.dataset.i > +el.dataset.i)
+        ?? open()[0];
+    select(next, true);
 }
-list.addEventListener('click', e => select(e.target.closest('.dd-row')));
-card.addEventListener('click', e => e.target.dataset.v
-    && !e.target.disabled && decide(e.target.dataset.v));
+
+// scrolling picks the claim nearest the top of the list
+list.addEventListener('scroll', () => {
+    const top = list.getBoundingClientRect().top + 40;
+    select([...list.children].findLast(n =>
+        n.getBoundingClientRect().top <= top) ?? list.firstElementChild);
+}, { passive: true });
+list.addEventListener('click', e => {
+    const el = e.target.closest('.rv-item');
+    if (e.target.dataset.v) return select(el), decide(e.target.dataset.v);
+    if (!e.target.closest('a, textarea')) select(el, true);
+});
 addEventListener('keydown', e => {
     if (e.target.tagName === 'TEXTAREA' || !sel) return;
     const k = { j: 'nextElementSibling', k: 'previousElementSibling' }[e.key];
     const v = { c: 'confirmed', r: 'refuted', u: 'unclear' }[e.key];
-    if (k) select(sel[k] ?? sel);
+    if (k) select(sel[k], true);
     if (v) decide(v);
 });
-map.once('load', () => select(list.querySelector('.dd-row')));
+select(list.firstElementChild);
     </script>
 </body>
 </html>

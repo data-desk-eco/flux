@@ -14,7 +14,7 @@ const sliderGroup = s => `
         <div class="dd-slider-row"><input type="range" class="dd-slider" min="${s.min}" max="${s.max}" step="${s.step}" value="${s.value}"><span class="fx-slider-val"></span></div>
     </div>`;
 
-const logo = `<a class="dd-logo" href="https://research.datadesk.eco/" target="_blank" rel="noopener"><svg viewBox="0 0 734.66 733.34"><path fill="currentColor" d="${LOGO_PATH}"/></svg></a>`;
+export const logo = `<a class="dd-logo" href="https://research.datadesk.eco/" target="_blank" rel="noopener"><svg viewBox="0 0 734.66 733.34"><path fill="currentColor" d="${LOGO_PATH}"/></svg></a>`;
 
 export function buildShell(config) {
     const title = `<span id="main-title">${escapeHtml(config.title)}</span>`;
