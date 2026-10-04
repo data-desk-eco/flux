@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- the attribution review queue: every published claim no person has
          judged (`verified` null; the claims from before 2026-10-04 are
-         `grandfathered`, and ?all brings them back). behind cloudflare
-         access; a verdict goes to the review worker, and the jump host folds
-         it into the table's `verified` within the quarter hour. -->
+         `grandfathered`, and ?all brings them back), and every verdict given
+         here, which can be changed or reopened. behind cloudflare access; a
+         verdict goes to the review worker, and the jump host folds it into
+         the table's `verified` within the quarter hour. -->
     <title>flux / review</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2240%22 fill=%22%23FD7700%22/%3E%3C/svg%3E">
     <link rel="stylesheet" href="../vendor/fonts/inter.css">
@@ -37,6 +38,9 @@
                     border: 1px solid var(--dd-ui-border); resize: vertical;
                     outline: none; }
         .rv-act .dd-btn { padding: 4px 6px; }
+        .rv-act .dd-btn.dd-active { background: var(--dd-ui-active-background);
+                                    color: var(--dd-ui-active-text); }
+        .rv-tabs { display: flex; gap: 11px; }
         .rv-item.done > :not(.dd-heading) { display: none; }
         .rv-item.done { color: var(--dd-ui-inactive); }
         @media (max-width: 768px) {
@@ -51,8 +55,7 @@
     <aside class="dd-panel rv">
         <header class="dd-gap" style="gap:8px">
             <div class="dd-heading"><span class="dd-title">Attribution review</span></div>
-            <div class="dd-secondary" id="count">Loading</div>
-            <div class="dd-secondary">j and k move · c confirm · r refute · u unclear</div>
+            <div class="rv-tabs" id="tabs">Loading</div>
         </header>
         <div class="rv-list custom-scroll" id="list"></div>
     </aside>
@@ -81,22 +84,38 @@ const [rows, decided] = await Promise.all([sql(`
     left join (select * from read_parquet([${['carbon-mapper', 'imeo', 'sron',
         'data-desk'].map(p => `'${BUCKET}${p}/detections/data.parquet'`)}],
         union_by_name = true) where kind = 'plume') p using (id)
-    where a.verified is null ${all ? "or a.verified = 'grandfathered'" : ''}
+    ${all ? '' : "where a.verified is distinct from 'grandfathered'"}
     order by a.run_at desc, p.date desc, a.id`),
     fetch(API).then(r => r.json()).catch(() => [])]);
-const seen = new Set(decided.map(d => d.id + '|' + d.run_at));
-const queue = rows.filter(r => !seen.has(r.id + '|' + r.run_s));
+
+// a verdict given here is the claim's state at once: the table catches up
+// within the quarter hour. `open` is a verdict taken back
+const key = r => r.id + '|' + r.run_s;
+const dec = new Map(decided.map(d => [d.id + '|' + d.run_at, d]));
+const state = r => {
+    const d = dec.get(key(r));
+    const v = d ? d.verdict : r.verified;
+    return v === 'open' || v === 'grandfathered' ? null : v;
+};
+const TABS = {
+    open: { label: 'To review', rows: () => rows.filter(r => !state(r)) },
+    done: { label: 'Reviewed', rows: () => rows
+        .filter(r => dec.get(key(r)) && state(r))
+        .sort((a, b) => dec.get(key(b)).at.localeCompare(dec.get(key(a)).at)) },
+};
+const VERB = { confirmed: 'Confirm', refuted: 'Refute', unclear: 'Unclear' };
 
 const stat = (k, v) => v ? `<div><span class="dd-secondary">${k}</span>
     <span>${v}</span></div>` : '';
 const where = r => r.plat == null ? 'Unknown' : km(r) < 0.05
     ? 'On the plume' : `${km(r).toFixed(2)} km from the plume`;
-const list = $('list');
-list.innerHTML = queue.map((r, i) => `<article class="rv-item" data-i="${i}">
-    <div class="dd-heading"><span>${esc(r.source_label)}</span>
-        <span class="dd-secondary">${esc(r.confidence)}</span></div>
+function inner(r) {
+    const v = state(r), d = dec.get(key(r));
+    return `<div class="dd-heading"><span>${esc(r.source_label)}</span>
+        <span class="dd-secondary">${esc(v ?? r.confidence)}</span></div>
     <div class="info-stats">
         ${stat('Kind', esc(r.source_kind))}
+        ${stat('Confidence', v && esc(r.confidence))}
         ${stat('Operator', esc(r.operator))}
         ${stat('Register', r.operator_id && `${esc(r.operator_name)}
             (${esc(r.operator_id)})`)}
@@ -106,22 +125,38 @@ list.innerHTML = queue.map((r, i) => `<article class="rv-item" data-i="${i}">
             .toLocaleString()} kg/h`)}
         ${stat('Source', where(r))}
         ${stat('Run', esc(r.run))}
+        ${stat('Verdict', v && d && `${esc(v)}, ${esc(d.by)},
+            ${esc(d.at.slice(0, 16).replace('T', ' '))}`)}
         <div class="dd-secondary">${esc(r.id)}</div></div>
     <div class="rv-why">${esc(r.paragraph)}</div>
     ${r.evidence?.length ? `<div class="rv-ev">${r.evidence.map(u =>
         `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>`)
         .join('')}</div>` : ''}
-    <textarea class="rv-notes" rows="2" placeholder="Notes"></textarea>
-    <div class="dd-btn-pair rv-act">
-        <button class="dd-btn" data-v="confirmed">Confirm</button>
-        <button class="dd-btn" data-v="refuted">Refute</button>
-        <button class="dd-btn" data-v="unclear">Unclear</button></div>
-</article>`).join('');
-const open = () => list.querySelectorAll('.rv-item:not(.done)');
-const count = () => $('count').textContent = queue.length
-    ? `${open().length} of ${queue.length} claims await a verdict`
-    : 'No claims await a verdict';
-count();
+    <textarea class="rv-notes" rows="2" placeholder="Notes">${
+        esc(d?.notes ?? '')}</textarea>
+    <div class="dd-btn-pair rv-act">${Object.entries(VERB).map(([k, l]) =>
+        `<button class="dd-btn${v === k ? ' dd-active' : ''}" data-v="${k}">${l}
+        </button>`).join('')}${v ? '<button class="dd-btn" data-v="open">'
+        + 'Reopen</button>' : ''}</div>`;
+}
+
+const list = $('list');
+let tab = 'open', shown = [], sel;
+function tabs() {
+    $('tabs').innerHTML = Object.entries(TABS).map(([k, t]) =>
+        `<button class="fx-opt${k === tab ? ' active' : ''}" data-tab="${k}">
+        ${t.label} ${t.rows().length}</button>`).join('');
+}
+function render(t) {
+    tab = t, sel = null, shown = TABS[t].rows();
+    list.innerHTML = shown.map((r, i) =>
+        `<article class="rv-item" data-i="${i}">${inner(r)}</article>`).join('')
+        || `<p class="dd-secondary" style="padding-top:25px">${t === 'open'
+            ? 'No claims await a verdict.' : 'No verdicts yet.'}</p>`;
+    list.scrollTop = 0;
+    tabs();
+    select(list.querySelector('.rv-item'));
+}
 
 // the plume in the quantitative marking on the main map's ramp, the claimed
 // source in its attributed diamond, and a fine dash between: the link is
@@ -143,23 +178,25 @@ map.addLayer({ id: 'rv-source', type: 'symbol', source: 'rv',
     filter: ['==', 'kind', 'source'], layout: { ...PIN, ...RATE_LABEL,
         'icon-image': MARK.attributed, 'text-allow-overlap': true,
         // below the plume's label, which takes the dd up-and-right
-        'text-anchor': 'top-left', 'text-offset': [0.7, 0.7], 'text-field': ['get', 'label'] },
+        'text-anchor': 'top-left', 'text-offset': [0.7, 0.7],
+        'text-field': ['get', 'label'] },
     paint: { 'text-color': DD.white } });
 map.addLayer({ id: 'rv-plume', type: 'symbol', source: 'rv',
     filter: ['==', 'kind', 'plume'], layout: { ...PIN, ...RATE_LABEL,
-        'icon-image': plumeIcon, 'text-allow-overlap': true, 'text-field': ['get', 'label'] },
+        'icon-image': plumeIcon, 'text-allow-overlap': true,
+        'text-field': ['get', 'label'] },
     paint: { 'text-color': DD.white } });
 
-let sel;
 function select(el, scroll) {
-    if (!el || el === sel) return;
+    if (!el) return map.getSource('rv').setData(empty);
+    if (el === sel) return;
     sel?.classList.remove('dd-active');
     (sel = el).classList.add('dd-active');
     if (scroll) list.scrollTo({ top: el.offsetTop - list.offsetTop,
                                 behavior: 'smooth' });
-    const r = queue[el.dataset.i], f = [pt(r.lon, r.lat,
-        { kind: 'source', label: r.source_kind })];
+    const r = shown[el.dataset.i];
     // the source drawn first, so a plume on its coordinate shows on top
+    const f = [pt(r.lon, r.lat, { kind: 'source', label: r.source_kind })];
     if (r.plat != null) f.push(pt(r.plon, r.plat, { kind: 'plume',
         rate_kg_h: r.rate_kg_h, label: r.rate_kg_h
             ? `${Math.round(r.rate_kg_h).toLocaleString()} kg/h` : 'plume' }),
@@ -173,44 +210,56 @@ function select(el, scroll) {
     const c = map.cameraForBounds(b, { padding: 120 });
     map.easeTo({ center: c.center, zoom: Math.min(c.zoom, 15), duration: 600 });
 }
+
+// a verdict collapses the claim where it sits, so the list does not move
+// under the reader; it changes tab on the next render. a collapsed claim
+// opens again on a click, to change or reopen it
 async function decide(verdict) {
-    const el = sel, r = queue[el.dataset.i];
+    const el = sel, r = shown[el.dataset.i];
+    if (verdict === 'open' && !state(r)) return;
     const btns = el.querySelectorAll('button');
     btns.forEach(b => b.disabled = true);
+    const notes = el.querySelector('textarea').value.trim();
     const res = await fetch(API, { method: 'POST', body: JSON.stringify({
-        id: r.id, run_at: r.run_s, verdict,
-        notes: el.querySelector('textarea').value.trim() }) })
+        id: r.id, run_at: r.run_s, verdict, notes }) })
         .catch(e => ({ ok: false, text: () => e.message }));
     btns.forEach(b => b.disabled = false);
-    if (!res.ok) return $('count').textContent =
-        `Not saved: ${await res.text()}`;
+    if (!res.ok) return $('tabs').insertAdjacentHTML('beforeend',
+        `<span style="color:var(--dd-map-red)">Not saved: ${
+            esc(await res.text())}</span>`);
+    dec.set(key(r), { id: r.id, run_at: r.run_s, verdict, notes: notes || null,
+        by: dec.get(key(r))?.by ?? 'you', at: new Date().toISOString() });
+    el.innerHTML = inner(r);
+    tabs();
+    // reopened in the queue, a claim stays open where it is to be judged again
+    if (verdict === 'open' && tab === 'open') return;
+    if (verdict === 'open') el.querySelector('.dd-heading .dd-secondary')
+        .textContent = 'reopened';
     el.classList.add('done');
-    el.querySelector('.dd-heading .dd-secondary').textContent = verdict;
-    count();
-    const next = [...open()].find(n => +n.dataset.i > +el.dataset.i)
-        ?? open()[0];
-    select(next, true);
+    const items = [...list.querySelectorAll('.rv-item:not(.done)')];
+    select(items.find(n => +n.dataset.i > +el.dataset.i) ?? items[0], true);
 }
 
 // scrolling picks the claim nearest the top of the list
 list.addEventListener('scroll', () => {
     const top = list.getBoundingClientRect().top + 40;
-    select([...list.children].findLast(n =>
-        n.getBoundingClientRect().top <= top) ?? list.firstElementChild);
+    select([...list.querySelectorAll('.rv-item')].findLast(n =>
+        n.getBoundingClientRect().top <= top)
+        ?? list.querySelector('.rv-item'));
 }, { passive: true });
 list.addEventListener('click', e => {
     const el = e.target.closest('.rv-item');
+    if (!el) return;
     if (e.target.dataset.v) return select(el), decide(e.target.dataset.v);
+    if (el.classList.contains('done')) {
+        el.classList.remove('done');
+        return select(el);
+    }
     if (!e.target.closest('a, textarea')) select(el, true);
 });
-addEventListener('keydown', e => {
-    if (e.target.tagName === 'TEXTAREA' || !sel) return;
-    const k = { j: 'nextElementSibling', k: 'previousElementSibling' }[e.key];
-    const v = { c: 'confirmed', r: 'refuted', u: 'unclear' }[e.key];
-    if (k) select(sel[k], true);
-    if (v) decide(v);
-});
-select(list.firstElementChild);
+$('tabs').addEventListener('click', e =>
+    e.target.dataset.tab && render(e.target.dataset.tab));
+render('open');
     </script>
 </body>
 </html>

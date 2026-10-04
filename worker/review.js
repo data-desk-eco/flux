@@ -5,7 +5,8 @@
 // path rule cannot open it. reads are open: a verdict is public within the
 // quarter hour anyway, and the host reads with no credential at all.
 const TEAM = 'https://datadesk.cloudflareaccess.com'
-const VERDICTS = ['confirmed', 'refuted', 'unclear']
+// `open` takes a verdict back: the claim awaits review again
+const VERDICTS = ['confirmed', 'refuted', 'unclear', 'open']
 const b64 = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')),
   c => c.charCodeAt(0))
 const json = s => JSON.parse(new TextDecoder().decode(b64(s)))
