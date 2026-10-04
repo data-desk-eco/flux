@@ -13,11 +13,9 @@ let epoch = 0;
 // of the plume id -- this object and the detections it joins are replaced
 // separately, so the join cannot depend on the two agreeing on a namespace.
 // plumes.js reads the key set the same way, to mark attributed plumes.
-// a claim shows once a person confirms it at /review. claims from runs before
-// the review began were published by hand, which was the review then.
-const CUTOVER = '2026-10-02T20:00:00';
-const shown = r => r.verified === 'confirmed'
-    || r.verified == null && r.run_at < CUTOVER;
+// a claim shows once a person confirms it at /review; the claims made before
+// review began on 2026-10-04 are `grandfathered` and show as they are.
+const shown = r => ['confirmed', 'grandfathered'].includes(r.verified);
 let attribs = null;
 export function loadAttributions() {
     return attribs ??= (async () => {

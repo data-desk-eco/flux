@@ -3,68 +3,77 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- the attribution review queue: every published claim from a run since
-         the review began that no person has judged. behind cloudflare access;
-         a verdict goes to the review worker, and the jump host folds it into
-         the table's `verified` within the quarter hour. -->
+    <!-- the attribution review queue: every published claim no person has
+         judged (`verified` null; the claims from before 2026-10-04 are
+         `grandfathered`, and ?all brings them back). behind cloudflare
+         access; a verdict goes to the review worker, and the jump host folds
+         it into the table's `verified` within the quarter hour. -->
     <title>flux / review</title>
-    <link rel="icon" href="data:,">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2240%22 fill=%22%23FD7700%22/%3E%3C/svg%3E">
     <link rel="stylesheet" href="../vendor/fonts/inter.css">
     <link rel="stylesheet" href="../vendor/maplibre-gl.css">
+    <link rel="stylesheet" href="../vendor/dd/map.css">
+    <link rel="stylesheet" href="../shell/shell.css">
+    <link rel="stylesheet" href="../style.css">
     <style>
-        :root { --fg: #1a1a1a; --mute: #6b6b6b; --line: #e3e3e3; --sel: #fff4e8;
-                --bg: #fff; --ok: #1f7a3a; --no: #b3261e; --hm: #8a6d00; }
-        @media (prefers-color-scheme: dark) {
-            :root { --fg: #eee; --mute: #9a9a9a; --line: #333; --sel: #3a2a18;
-                    --bg: #161616; } }
-        * { box-sizing: border-box; }
-        body { margin: 0; font: 13px/1.45 Inter, system-ui, sans-serif;
-               color: var(--fg); background: var(--bg); display: grid;
-               grid-template-columns: minmax(0, 1fr) 38vw; height: 100vh; }
-        main { overflow: auto; }
-        header { position: sticky; top: 0; background: var(--bg); z-index: 1;
-                 padding: 12px 16px; border-bottom: 1px solid var(--line);
-                 display: flex; gap: 16px; align-items: baseline; }
-        header h1 { font-size: 15px; margin: 0; }
-        header span { color: var(--mute); }
-        table { border-collapse: collapse; width: 100%; }
-        td { vertical-align: top; padding: 10px 12px;
-             border-bottom: 1px solid var(--line); }
-        tr { cursor: pointer; }
-        tr.sel { background: var(--sel); }
-        tr.done { opacity: .35; }
-        td.what { width: 26%; }
-        td.what b { display: block; font-size: 14px; }
-        td.what small, .ev a { color: var(--mute); display: block; }
-        td.why { white-space: pre-wrap; overflow-wrap: anywhere; }
-        .conf-high { color: var(--ok); } .conf-low { color: var(--no); }
-        .conf-medium { color: var(--hm); }
-        td.act { width: 150px; }
-        td.act button { display: block; width: 100%; margin: 0 0 4px;
-                        padding: 5px; font: inherit; cursor: pointer;
-                        border: 1px solid var(--line); background: none;
-                        color: inherit; border-radius: 4px; }
-        td.act textarea { width: 100%; font: inherit; color: inherit;
-                          background: none; border: 1px solid var(--line); }
-        #map { height: 100vh; }
-        @media (max-width: 760px) { body { grid-template-columns: 1fr; }
-            #map { height: 40vh; position: sticky; top: 0; order: -1; } }
+        .rv-list { top: 0; left: 0; width: 290px; bottom: 0;
+                   display: flex; flex-direction: column; gap: 25px; }
+        .rv-rows { overflow-y: auto; margin: 0 -6px; flex: 1;
+                   display: flex; flex-direction: column; gap: 3px; }
+        .rv-rows .dd-row { cursor: pointer; gap: 11px; padding: 2px 6px;
+                           border-color: transparent; }
+        .rv-rows .dd-row:hover { background: var(--dd-ui-hover); }
+        .rv-rows .dd-row.dd-active { background: var(--dd-ui-active-background); }
+        .rv-rows .dd-row span:first-child { overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap; }
+        .rv-rows .done { color: var(--dd-ui-inactive); }
+        .rv-card { top: 0; right: 0; width: 340px;
+                   max-height: calc(100vh - 20px); overflow-y: auto;
+                   display: flex; flex-direction: column; gap: 25px; }
+        .rv-card:empty { display: none; }
+        .rv-card .info-stats div { gap: 11px; }
+        .rv-card .info-stats span:last-child { text-align: right; }
+        .rv-why { white-space: pre-wrap; overflow-wrap: anywhere; }
+        .rv-ev { display: flex; flex-direction: column; gap: 3px;
+                 overflow-wrap: anywhere; }
+        .rv-notes { width: calc(100% + 14px); margin: 0 -7px; padding: 4px 6px;
+                    background: none; color: var(--dd-ui-text); font: inherit;
+                    border: 1px solid var(--dd-ui-border); resize: vertical;
+                    outline: none; }
+        .rv-act .dd-btn { padding: 4px 6px; }
+        .rv-act .dd-btn:disabled { color: var(--dd-ui-inactive); cursor: wait; }
+        .c-high { color: var(--dd-map-green); }
+        .c-medium { color: var(--dd-map-yellow); }
+        .c-low { color: var(--dd-map-red); }
+        .rv-ring { width: 22px; height: 22px; border-radius: 50%;
+                   border: 2px solid var(--dd-map-cyan); }
+        .rv-pin { width: 10px; height: 10px; border-radius: 50%;
+                  background: var(--dd-map-orange);
+                  box-shadow: 0 0 0 2px #000; }
+        @media (max-width: 768px) {
+            .rv-list { bottom: auto; width: auto; right: 0; max-height: 30vh; }
+            .rv-card { top: auto; bottom: 0; left: 0; width: auto;
+                       max-height: 55vh; }
+        }
     </style>
 </head>
 <body>
-    <main>
-        <header><h1>Attribution review</h1>
-            <span id="count">loading…</span>
-            <span>blue ring plume · orange pin source · j/k move · c confirm · r refute · u unclear</span></header>
-        <table><tbody id="rows"></tbody></table>
-    </main>
     <div id="map"></div>
+    <aside class="dd-panel dd-panel-l rv-list">
+        <div class="dd-head"><div class="dd-head-text">
+            <div class="dd-heading"><span class="dd-title">Attribution review</span></div>
+            <div class="dd-subtitle dd-secondary" id="count">Loading</div>
+        </div></div>
+        <div class="rv-rows custom-scroll" id="rows"></div>
+        <div class="dd-secondary">j / k move · c confirm · r refute · u unclear<br>
+            <span style="color:var(--dd-map-cyan)">○</span> plume ·
+            <span style="color:var(--dd-map-orange)">●</span> source</div>
+    </aside>
+    <aside class="dd-panel dd-panel-l rv-card custom-scroll" id="card"></aside>
     <script src="../vendor/maplibre-gl.js"></script>
     <script type="module">
 import { sql } from '../shell/data.js';
 
-// claims from runs before this were published by hand, which was the review
-const CUTOVER = '2026-10-02 20:00:00';
 const BUCKET = 'https://s3.WAW3-2.cloudferro.com/data-desk-archive/';
 const API = 'api/decisions';
 const all = new URLSearchParams(location.search).has('all');
@@ -72,92 +81,121 @@ const km = r => 111.2 * Math.hypot(r.lat - r.plat,
     (r.lon - r.plon) * Math.cos(r.lat * Math.PI / 180));
 const esc = s => String(s ?? '').replace(/[&<>"]/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const $ = id => document.getElementById(id);
 
 const [rows, decided] = await Promise.all([sql(`
     select a.*, strftime(a.run_at, '%Y-%m-%d %H:%M:%S') as run,
-           p.lat as plat, p.lon as plon
+           p.provider as pprov, p.satellite, p.date::varchar as pdate,
+           p.rate_kg_h, p.lat as plat, p.lon as plon
     from read_parquet('${BUCKET}data-desk/attributions/data.parquet') a
-    left join (select id, lat, lon from read_parquet([${['carbon-mapper',
-        'imeo', 'sron', 'data-desk'].map(p => `'${BUCKET}${p}/detections/data.parquet'`)
-        }], union_by_name = true) where kind = 'plume') p using (id)
-    where a.verified is null ${all ? '' : `and a.run_at >= '${CUTOVER}'`}
+    left join (select * from read_parquet([${['carbon-mapper', 'imeo', 'sron',
+        'data-desk'].map(p => `'${BUCKET}${p}/detections/data.parquet'`)}],
+        union_by_name = true) where kind = 'plume') p using (id)
+    where a.verified is null ${all ? "or a.verified = 'grandfathered'" : ''}
     order by a.run_at desc, a.confidence, a.id`),
     fetch(API).then(r => r.json()).catch(() => [])]);
 const seen = new Set(decided.map(d => d.id + '|' + d.run_at));
 const queue = rows.filter(r => !seen.has(r.id + '|' + r.run));
 
 const map = new maplibregl.Map({ container: 'map', zoom: 2, center: [0, 20],
+    attributionControl: false,
     style: { version: 8, sources: { sat: { type: 'raster', tileSize: 256,
-        attribution: 'Esri World Imagery',
         tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/'
             + 'World_Imagery/MapServer/tile/{z}/{y}/{x}'] } },
         layers: [{ id: 'sat', type: 'raster', source: 'sat' }] } });
-// the plume is a ring rather than a pin, so it shows round the source pin
-// when a claim puts the source on the plume's own coordinate
-const ring = Object.assign(document.createElement('div'), { style:
-    'width:22px;height:22px;border:3px solid #3a7bd5;border-radius:50%' });
-const source = new maplibregl.Marker({ color: '#FD7700', anchor: 'bottom' });
-const plume = new maplibregl.Marker({ element: ring });
+const mark = cls => new maplibregl.Marker({ element: Object.assign(
+    document.createElement('div'), { className: cls }) });
+const plume = mark('rv-ring'), source = mark('rv-pin');
 
-const body = document.getElementById('rows');
-const left = () => body.querySelectorAll('tr:not(.done)').length;
-const count = () => document.getElementById('count').textContent =
-    `${left()} of ${queue.length} awaiting a verdict`;
-body.innerHTML = queue.map((r, i) => `<tr data-i="${i}">
-    <td class="what"><b>${esc(r.source_label)}</b>
-        ${esc(r.source_kind)} · <span class="conf-${r.confidence}">
-        ${esc(r.confidence)}</span>
-        <small>${esc(r.operator)}${r.operator_id ? ` → ${esc(r.operator_name)}
-            (${esc(r.operator_id)})` : ''}</small>
-        <small>${esc(r.id)} · ${esc(r.run)}</small>
-        <small>${r.plat == null ? 'plume position unknown' : km(r) < 0.05
-            ? 'source on the plume coordinate'
-            : `source ${km(r).toFixed(1)} km from the plume`}</small></td>
-    <td class="why">${esc(r.paragraph)}<div class="ev">${(r.evidence ?? [])
-        .map(u => `<a href="${esc(u)}" target="_blank">${esc(u)}</a>`)
-        .join('')}</div></td>
-    <td class="act"><textarea rows="2" placeholder="notes"></textarea>
-        <button data-v="confirmed">Confirm</button>
-        <button data-v="refuted">Refute</button>
-        <button data-v="unclear">Unclear</button></td></tr>`).join('');
+const list = $('rows'), card = $('card');
+const count = () => $('count').textContent = queue.length
+    ? `${list.querySelectorAll('.dd-row:not(.done)').length} of `
+      + `${queue.length} awaiting a verdict`
+    : 'Nothing awaits a verdict';
+list.innerHTML = queue.map((r, i) => `<div class="dd-row" data-i="${i}">
+    <span>${esc(r.source_label)}</span>
+    <span class="c-${r.confidence}">${esc(r.confidence)}</span></div>`)
+    .join('');
 count();
 
+const stat = (k, v) => v ? `<div><span class="dd-secondary">${k}</span>
+    <span>${v}</span></div>` : '';
+const where = r => r.plat == null ? 'unknown' : km(r) < 0.05
+    ? 'on the plume' : `${km(r).toFixed(2)} km from the plume`;
+function show(r) {
+    card.innerHTML = `<div class="dd-gap" style="gap:11px">
+        <div class="dd-heading"><span class="dd-title">
+            ${esc(r.source_label)}</span></div>
+        <div class="dd-secondary">${esc(r.id)}</div></div>
+    <div class="info-stats">
+        ${stat('Kind', esc(r.source_kind))}
+        ${stat('Confidence', `<span class="c-${r.confidence}">
+            ${esc(r.confidence)}</span>`)}
+        ${stat('Operator', esc(r.operator))}
+        ${stat('Register', r.operator_id && `${esc(r.operator_name)}
+            (${esc(r.operator_id)})`)}
+        ${stat('Plume', [r.pprov, r.satellite, r.pdate].filter(Boolean)
+            .map(esc).join(' · '))}
+        ${stat('Rate', r.rate_kg_h && `${Math.round(r.rate_kg_h)
+            .toLocaleString()} kg/h`)}
+        ${stat('Source', where(r))}
+        ${stat('Run', esc(r.run))}</div>
+    <div class="rv-why">${esc(r.paragraph)}</div>
+    ${r.evidence?.length ? `<div class="rv-ev">${r.evidence.map(u =>
+        `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>`)
+        .join('')}</div>` : ''}
+    <div class="dd-gap" style="gap:11px">
+        <textarea class="rv-notes" rows="3" placeholder="Notes"></textarea>
+        <div class="dd-btn-pair rv-act">
+            <button class="dd-btn" data-v="confirmed">Confirm</button>
+            <button class="dd-btn" data-v="refuted">Refute</button>
+            <button class="dd-btn" data-v="unclear">Unclear</button></div>
+    </div>`;
+}
+
 let sel;
-function select(tr) {
-    if (!tr) return;
-    sel?.classList.remove('sel');
-    (sel = tr).classList.add('sel');
-    tr.scrollIntoView({ block: 'nearest' });
-    const r = queue[tr.dataset.i];
+function select(row) {
+    if (!row) return card.innerHTML = '';
+    sel?.classList.remove('dd-active');
+    (sel = row).classList.add('dd-active');
+    row.scrollIntoView({ block: 'nearest' });
+    const r = queue[row.dataset.i];
+    show(r);
     source.setLngLat([r.lon, r.lat]).addTo(map);
-    r.plat == null ? plume.remove() : plume.setLngLat([r.plon, r.plat]).addTo(map);
+    r.plat == null ? plume.remove()
+        : plume.setLngLat([r.plon, r.plat]).addTo(map);
     const b = new maplibregl.LngLatBounds([r.lon, r.lat], [r.lon, r.lat]);
     if (r.plat != null) b.extend([r.plon, r.plat]);
-    map.fitBounds(b, { padding: 80, maxZoom: 16, duration: 400 });
+    map.fitBounds(b, { duration: 400, maxZoom: 16, padding:
+        innerWidth > 768 ? { top: 80, bottom: 80, left: 390, right: 440 }
+            : 40 });
 }
-async function decide(tr, verdict) {
-    const r = queue[tr.dataset.i];
+async function decide(verdict) {
+    const row = sel, r = queue[row.dataset.i];
+    card.querySelectorAll('button').forEach(b => b.disabled = true);
     const res = await fetch(API, { method: 'POST', body: JSON.stringify({
         id: r.id, run_at: r.run, verdict,
-        notes: tr.querySelector('textarea').value.trim() }) });
-    if (!res.ok) return document.getElementById('count').textContent =
-        `not saved: ${await res.text()}`;
-    tr.classList.add('done');
+        notes: card.querySelector('textarea').value.trim() }) })
+        .catch(e => ({ ok: false, text: () => e.message }));
+    if (!res.ok) {
+        card.querySelectorAll('button').forEach(b => b.disabled = false);
+        return $('count').textContent = `Not saved: ${await res.text()}`;
+    }
+    row.classList.add('done');
     count();
-    select(tr.nextElementSibling);
+    select(list.querySelector(`.dd-row:not(.done)`));
 }
-body.addEventListener('click', e => {
-    const tr = e.target.closest('tr');
-    e.target.dataset.v ? decide(tr, e.target.dataset.v) : select(tr);
-});
+list.addEventListener('click', e => select(e.target.closest('.dd-row')));
+card.addEventListener('click', e => e.target.dataset.v
+    && !e.target.disabled && decide(e.target.dataset.v));
 addEventListener('keydown', e => {
     if (e.target.tagName === 'TEXTAREA' || !sel) return;
     const k = { j: 'nextElementSibling', k: 'previousElementSibling' }[e.key];
     const v = { c: 'confirmed', r: 'refuted', u: 'unclear' }[e.key];
-    if (k) select(sel[k]);
-    if (v) decide(sel, v);
+    if (k) select(sel[k] ?? sel);
+    if (v) decide(v);
 });
-map.once('load', () => select(body.querySelector('tr')));
+map.once('load', () => select(list.querySelector('.dd-row')));
     </script>
 </body>
 </html>
