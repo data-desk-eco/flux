@@ -42,6 +42,15 @@
                                     color: var(--dd-ui-active-text); }
         .rv-tabs { display: flex; gap: 11px; }
         .rv-item.done > :not(.dd-heading) { display: none; }
+        /* the agent's transcript, read when opened: its own scroll, so the
+           list's does not move */
+        .rv-tx summary { cursor: pointer; }
+        .rv-tx-body { max-height: 60vh; overflow-y: auto; margin-top: 15px;
+                      display: flex; flex-direction: column; gap: 11px;
+                      white-space: pre-wrap; overflow-wrap: anywhere; }
+        .rv-tx-body .dd-heading { margin-top: 15px; }
+        .rv-tx-out, .rv-tx-think { color: var(--dd-ui-text-secondary); }
+        .rv-tx-results a { display: block; }
         .rv-item.done { color: var(--dd-ui-inactive); }
         @media (max-width: 768px) {
             .rv { top: auto; right: 0; width: auto; height: 55vh; }
@@ -135,12 +144,47 @@ function inner(r) {
     ${r.evidence?.length ? `<div class="rv-ev">${r.evidence.map((u, i) =>
         `<a href="${esc(u)}" title="${esc(u)}" target="_blank"
             rel="noopener">[${i + 1}]</a>`).join('')}</div>` : ''}
+    <details class="rv-tx"><summary>Transcript</summary>
+        <div class="rv-tx-body custom-scroll">Loading</div></details>
     <textarea class="rv-notes" rows="2" placeholder="Notes">${
         esc(d?.notes ?? '')}</textarea>
     <div class="dd-btn-pair rv-act">${Object.entries(VERB).map(([k, l]) =>
         `<button class="dd-btn${v === k ? ' dd-active' : ''}" data-v="${k}">${l}
         </button>`).join('')}${v ? '<button class="dd-btn" data-v="open">'
         + 'Reopen</button>' : ''}</div>`;
+}
+
+// what the agent did, published per plume beside the table by the run
+const JOB = { plume_source: 'Finding the source',
+              claim_operator: 'Matching the operator' };
+const KIND = { think: 'Reasoning', say: 'Wrote', search: 'Searched',
+               results: 'Found', run: 'Ran', out: 'Output',
+               answer: 'Answered', error: 'Error' };
+function transcript(events) {
+    let head;
+    return events.map(e => {
+        const h = (JOB[e.job] ?? e.job)
+            + (e.attempt > 1 ? `, attempt ${e.attempt}` : '');
+        const text = e.kind === 'results' ? e.text.split('\n').map(l => {
+            const [title, url] = l.split('\t');
+            return `<a href="${esc(url)}" target="_blank" rel="noopener">${
+                esc(title || url)}</a>`;
+        }).join('') : esc(e.text);
+        return (h === head ? '' : `<div class="dd-heading">${esc(head = h)}</div>`)
+            + `<div class="rv-tx-${e.kind}"><span class="dd-secondary">${
+                KIND[e.kind] ?? e.kind}</span>\n${text}</div>`;
+    }).join('');
+}
+async function openTranscript(d) {
+    if (!d.open || d.dataset.read) return;
+    d.dataset.read = 1;
+    const r = shown[d.closest('.rv-item').dataset.i];
+    const body = d.querySelector('.rv-tx-body');
+    const res = await fetch(`${BUCKET}data-desk/transcripts/${
+        encodeURIComponent(r.id)}.json`).catch(() => null);
+    body.innerHTML = res?.ok ? transcript(await res.json())
+        : res?.status === 404 || res?.status === 403
+            ? 'No transcript for this claim.' : 'The transcript did not load.';
 }
 
 const list = $('list');
@@ -258,8 +302,11 @@ list.addEventListener('click', e => {
         el.classList.remove('done');
         return select(el);
     }
-    if (!e.target.closest('a, textarea')) select(el, true);
+    if (!e.target.closest('a, textarea, details')) select(el, true);
 });
+// toggle does not bubble, so the list listens for it on the way down
+list.addEventListener('toggle', e => e.target.matches?.('.rv-tx')
+    && openTranscript(e.target), true);
 $('tabs').addEventListener('click', e =>
     e.target.dataset.tab && render(e.target.dataset.tab));
 render('open');
