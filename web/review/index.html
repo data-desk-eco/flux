@@ -29,10 +29,10 @@
         .rv-item.dd-active { color: var(--dd-ui-text); cursor: default; }
         .rv-item .dd-heading { justify-content: space-between; gap: 11px; }
         .rv-why { white-space: pre-wrap; overflow-wrap: anywhere; }
-        .rv-ev { display: flex; flex-direction: column; gap: 3px;
-                 overflow-wrap: anywhere; }
+        .rv-ev { display: flex; flex-wrap: wrap; gap: 6px; }
         .info-stats div { gap: 11px; }
-        .info-stats span:last-child { text-align: right; }
+        .info-stats span:last-child { text-align: right;
+                                      overflow-wrap: anywhere; }
         .rv-notes { width: calc(100% + 14px); margin: 0 -7px; padding: 4px 6px;
                     background: none; color: inherit; font: inherit;
                     border: 1px solid var(--dd-ui-border); resize: vertical;
@@ -124,14 +124,17 @@ function inner(r) {
         ${stat('Rate', r.rate_kg_h && `${Math.round(r.rate_kg_h)
             .toLocaleString()} kg/h`)}
         ${stat('Source', where(r))}
+        ${stat('Features', r.attributed_ids?.length && esc(r.attributed_ids
+            .slice(0, 3).join(', ')) + (r.attributed_ids.length > 3
+            ? ` and ${r.attributed_ids.length - 3} more` : ''))}
         ${stat('Run', esc(r.run))}
         ${stat('Verdict', v && d && `${esc(v)}, ${esc(d.by)},
             ${esc(d.at.slice(0, 16).replace('T', ' '))}`)}
         <div class="dd-secondary">${esc(r.id)}</div></div>
     <div class="rv-why">${esc(r.paragraph)}</div>
-    ${r.evidence?.length ? `<div class="rv-ev">${r.evidence.map(u =>
-        `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>`)
-        .join('')}</div>` : ''}
+    ${r.evidence?.length ? `<div class="rv-ev">${r.evidence.map((u, i) =>
+        `<a href="${esc(u)}" title="${esc(u)}" target="_blank"
+            rel="noopener">[${i + 1}]</a>`).join('')}</div>` : ''}
     <textarea class="rv-notes" rows="2" placeholder="Notes">${
         esc(d?.notes ?? '')}</textarea>
     <div class="dd-btn-pair rv-act">${Object.entries(VERB).map(([k, l]) =>
