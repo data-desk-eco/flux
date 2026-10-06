@@ -93,6 +93,11 @@
     .intensity-chart, .panel-actions { display: none; }
 }
 
-/* the dots sit centred under their quarter labels, not at the column's edge */
+/* the dots sit centred under their quarter labels, and the columns shrink to
+   them so Q1 starts at the box's left edge, with the years at its right */
+.dd-dot-grid {
+    grid-template-columns: repeat(5, max-content);
+    justify-content: space-between;
+}
 .dd-dot-grid > * { justify-self: center }
 .dd-dot-grid .dd-dot-btn { margin-left: 0 }
