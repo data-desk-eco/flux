@@ -9,9 +9,11 @@ import { objects } from '../shell/archive.js';
 import { DD } from '../layers.js';
 
 const ID = 'plume-mask';   // the source, and the stem of its two layers
-let map, archive, epoch = 0;
+let map, archive, under, epoch = 0;
 
-export const initMask = (m, a) => { map = m; archive = a; };
+// `below` is the layer the mask sits under: the plumes on the main map
+export const initMask = (m, a, below = 'plumes') => {
+    map = m; archive = a.replace(/\/+$/, ''); under = below; };
 
 export function clearMask() {
     epoch++;
@@ -33,7 +35,7 @@ export async function showMask(p) {
             read(o, { where })))).flatMap(r => r.value ?? []);
         if (!row || now !== epoch) return;
         map.addSource(ID, { type: 'geojson', data: JSON.parse(row.mask) });
-        const below = map.getLayer('plumes') ? 'plumes' : undefined;
+        const below = map.getLayer(under) ? under : undefined;
         if (row.image && row.corners) {
             map.addSource(`${ID}-image`, { type: 'image',
                 url: `${archive}/${row.image}`, coordinates: JSON.parse(row.corners) });

@@ -73,6 +73,7 @@
 import { sql } from '../shell/data.js';
 import { initArchive } from '../shell/archive.js';
 import { addCandidateLayers, selectPlume } from '../methane/candidates.js';
+import { initMask, showMask, clearMask } from '../methane/mask.js';
 import { createMap, addSatellite, ensureMark } from '../shell/map.js';
 import { logo } from '../shell/ui.js';
 import { escapeHtml as esc } from '../shell/util.js';
@@ -227,6 +228,7 @@ map.addSource('rv', { type: 'geojson', data: empty });
 addCandidateLayers(map, sql, null);
 for (const l of ['candidates', 'candidates-hit'])
     map.setFilter(l, ['!', ['get', 'hl']]);
+initMask(map, BUCKET, 'candidates-hit');
 map.addLayer({ id: 'rv-link', type: 'line', source: 'rv',
     filter: ['==', '$type', 'LineString'],
     paint: { 'line-color': DD.white, 'line-width': 1, 'line-dasharray': DASH } });
@@ -259,6 +261,8 @@ function select(el, scroll) {
         { type: 'Feature', properties: {}, geometry: { type: 'LineString',
             coordinates: [[r.plon, r.plat], [r.lon, r.lat]] } });
     map.getSource('rv').setData({ type: 'FeatureCollection', features: f });
+    r.plat != null ? showMask({ id: r.id, lat: r.plat, lon: r.plon })
+        : clearMask();
     if (r.plat != null) selectPlume(r.plon, r.plat,
         /tropomi|viirs|goes|s3/i.test(r.satellite || '') ? 10 : 3, r);
     const b = new maplibregl.LngLatBounds([r.lon, r.lat], [r.lon, r.lat]);
