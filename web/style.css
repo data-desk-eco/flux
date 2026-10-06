@@ -92,3 +92,7 @@
 @media (max-width: 768px) {
     .intensity-chart, .panel-actions { display: none; }
 }
+
+/* the dots sit centred under their quarter labels, not at the column's edge */
+.dd-dot-grid > * { justify-self: center }
+.dd-dot-grid .dd-dot-btn { margin-left: 0 }
