@@ -15,7 +15,7 @@ let epoch = 0;
 // plumes.js reads the key set the same way, to mark attributed plumes.
 // a claim shows once a person confirms it at /review; the claims made before
 // review began on 2026-10-04 are `grandfathered` and show as they are.
-const shown = r => ['confirmed', 'grandfathered'].includes(r.verified);
+export const shown = r => ['confirmed', 'grandfathered'].includes(r.verified);
 let attribs = null;
 export function loadAttributions() {
     return attribs ??= (async () => {

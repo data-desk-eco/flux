@@ -40,6 +40,7 @@ import { addCandidateLayers } from './methane/candidates.js';
 import { LICENCE_LAYERS, addLicenceLayers } from './methane/licences.js';
 import { initProbabilityOverlay } from './methane/overlay.js';
 import { initMask } from './methane/mask.js';
+import { shown } from './methane/attribution.js';
 
 // legacy deep links: #vnf/123 -> #vnf=123 (the shell's hash params), which the
 // site resolver then reads whichever family the id belongs to
@@ -597,8 +598,9 @@ mount({
         {
             label: 'Attributions', filter: false,
             rows: async ({ read }) => (await read('attributions',
-                { columns: ['id', 'source_label', 'source_kind', 'operator', 'confidence', 'lat', 'lon'] }))
-                .sort((a, b) => String(a.source_label).localeCompare(String(b.source_label))),
+                { columns: ['id', 'source_label', 'source_kind', 'operator',
+                    'confidence', 'lat', 'lon', 'verified'] }))
+                .filter(shown).sort((a, b) => String(a.source_label).localeCompare(String(b.source_label))),
             cols: ['id', 'source_label', 'source_kind', 'operator', 'confidence', 'lat', 'lon'],
         },
     ],
