@@ -72,7 +72,8 @@ web/
     flare.js         S2 site body       vnf.js   VNF look body
     plume.js         methane plume body
   flaring/
-    render.js        the MODE tables: the scale and floor each instrument reads on
+    render.js        the MODE tables: the scale each instrument reads on, and
+                     the S2 floor
     clustering.js    terminal grid, sumQuarters, the feature builders
     s2archive.js     data-desk/flares + detections, and the coverage geojson
     vnf.js           eog/flares + eog/detections
@@ -141,9 +142,9 @@ sank the whole archive below the slider's default. do not fold them into one.
 
 **intensity is the key's, not a slider's.** two families draw at once and B12
 reflectance and radiant heat are not one scale, so there is no slider that can
-carry both: `MODE[x].floor` is the published quality gate (a constant, on the
-site's *average*), and the key's rows filter above it, on the *maximum*, at
-exactly the breaks `flareIcon` steps at — `flareBands` in `layers.js` is where
+carry both: `MODE.s2.floor` is the published quality gate (a constant, on the
+site's *average*; VNF has none), and the key's rows filter above it, on the
+*maximum*, at exactly the breaks `flareIcon` steps at — `flareBands` in `layers.js` is where
 the two are kept in step. a row a feature is no statement about passes it
 (`p.kind !== kind || …`), which is what lets one key filter a map of several
 sources; the key reads a feature every row admits as outside the section, so
@@ -186,9 +187,9 @@ in `config.js` lets a cluster the table gives no intensity for through rather
 than vanishing: the shared flares schema has no site-level b12, and
 `undefined >= 0.85` is false for every row.
 
-**a link that names one flare has already chosen it.** `resolveSite` enriches at
-floor `0`, the literal, not `MODE.vnf.floor` — under the 3 MW default every dim
-flare resolved to nothing at all.
+**VNF has no intensity floor.** a 3 MW floor on the site's average hid every
+dim flare — most onshore gas plants, and the LNG trains at Darwin and Ichthys,
+whose flaring is rare and dim between upsets. persistence is VNF's only gate.
 
 **`flareIcon` coalesces a missing value to `stops[0]`** (`layers.js`): a site
 the producer gives no value for flattens the ramp rather than hiding the site. a

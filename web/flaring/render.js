@@ -41,13 +41,12 @@ export const MODE = {
         unit: 'MW',
         prop: 'max_rh',
         col2: 'RH', col3: 'MCM/d',
-        // stops[0] is the floor, so the key's bottom band names the dimmest
-        // flare the map draws rather than a number nothing can be under
+        // no floor: the bottom band is everything under stops[1], down to the
+        // dimmest look. a 3 MW floor on the average hid the LNG trains, whose
+        // flaring is rare and mostly dim between upsets
         stops: [3, 7, 20],
         log: true,
         chartRange: [0.5, 50],
-        // 3 MW on the site's average radiant heat, the old slider default
-        floor: 3,
         yVal: d => d.rh_mw || 0,
         formatVal: d => d.rh_mw >= 999 ? '-' : (d.rh_mw?.toFixed(1) || '-'),
         formatCount: d => d.rh_mw >= 999 ? '-' : (d.rh_mw != null ? (d.rh_mw * RH_TO_MCM).toFixed(2) : '-'),

@@ -92,9 +92,9 @@ const GRID_START = `${new Date().getFullYear() - 3}-01-01`;
 const GRID_END = `${new Date().getFullYear()}-12-31`;
 
 // the persistence gate is display-only (a layer filter, no re-cluster). the
-// intensity gate that used to sit beside it is now MODE[x].floor, a constant:
-// with both families drawn there is no one scale for one slider to carry, and
-// the key's colour bands filter above the floor on each family's own units.
+// intensity gate that used to sit beside it is gone: with both families drawn
+// there is no one scale for one slider to carry, so the key's colour bands
+// filter on each family's own units, above S2's quality floor and VNF's none.
 let PERSISTENCE_MIN = 0.25;
 
 let CTX;                                    // the shell's ctx (set in sources)
@@ -173,7 +173,7 @@ async function refreshVNF() {
     if (!range) return;
     try {
         const fc = await queryVNF(viewportBbox(CTX.map), range.startDate, range.endDate);
-        setVNF(enrichVNFFeatures(fc.features, MODE.vnf.floor));
+        setVNF(enrichVNFFeatures(fc.features));
         // an open card holds the previous window's aggregates, so reconcile it
         // against the re-query — otherwise a card keeps a persistence for
         // quarters that are no longer selected, and the '—' a window with no
@@ -364,10 +364,7 @@ async function resolveSite(id) {
     const range = CTX.quarters.range();
     if (!vnfReady() || !range) return null;
     const fc = await queryVNFFlare(id, range.startDate, range.endDate);
-    // floor 0, not MODE.vnf.floor: the floor is a browsing threshold, and a
-    // link that names one flare has already chosen it. under the 3 MW default
-    // every dim flare — most onshore gas plants — resolved to nothing at all.
-    return enrichVNFFeatures(fc.features.slice(0, 1), 0)[0] ?? null;
+    return enrichVNFFeatures(fc.features.slice(0, 1))[0] ?? null;
 }
 
 // #plume=<id>, off the loaded features where they hold it — matched on the

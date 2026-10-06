@@ -43,11 +43,11 @@ export const flareIcon = cfg => {
 // reason flareIcon coalesces: a site the producer gives no value for reads as
 // the foot of the ramp, which is where the map draws it.
 export const flareBands = cfg => {
-    const [lo, mid, hi] = cfg.stops, v = p => p[cfg.prop];
+    const [, mid, hi] = cfg.stops, v = p => p[cfg.prop];
     return [
         [`${hi}+`, RAMP[2], p => v(p) >= hi],
         [`${mid}`, RAMP[1], p => v(p) >= mid && v(p) < hi],
-        [`${lo}`, RAMP[0], p => !(v(p) >= mid)],
+        [`<${mid}`, RAMP[0], p => !(v(p) >= mid)],
     ];
 };
 

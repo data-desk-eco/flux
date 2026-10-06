@@ -100,7 +100,7 @@ describe('enrichVNFFeatures', () => {
                       detection_dates: 30, observations: 60, passes: 80,
                       coverage: 0.95, ...o },
     });
-    const one = (o, minRh = 0) => enrichVNFFeatures([look(o)], minRh);
+    const one = o => enrichVNFFeatures([look(o)]);
 
     it('divides clear nights lit by clear nights read', () => {
         assert.equal(one()[0].properties.persistence, 0.5);
@@ -116,8 +116,7 @@ describe('enrichVNFFeatures', () => {
         assert.equal(one({ observations: 0 })[0].properties.persistence, null);
     });
 
-    it('drops a site under the intensity floor, and keeps it at floor 0', () => {
-        assert.equal(one({ avg_rh: 1 }, 3).length, 0);
-        assert.equal(one({ avg_rh: 1 }, 0).length, 1);
+    it('keeps a dim site: there is no intensity floor', () => {
+        assert.equal(one({ avg_rh: 1 }).length, 1);
     });
 });

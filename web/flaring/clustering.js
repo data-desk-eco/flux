@@ -155,16 +155,13 @@ export function archiveFeature(c, qKeys = new Set()) {
     };
 }
 
-// filter and name vnf site features; minRh is the intensity floor, on the
-// site's average radiant heat (MODE.vnf.floor, or 0 for a link that has already
-// named one flare)
-export function enrichVNFFeatures(features, minRh) {
+// name vnf site features. there is no intensity floor: a dim, intermittent
+// flare (an LNG train's upset flaring, most onshore gas plants) is still one
+export function enrichVNFFeatures(features) {
     const result = [];
     for (const feat of features) {
         const p = feat.properties;
         const [lon, lat] = feat.geometry.coordinates;
-
-        if (minRh > 0 && p.avg_rh < minRh) continue;
 
         const terminal = findNearestTerminal(lat, lon);
         // `detail` is what type and category used to be, joined by the producer
