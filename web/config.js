@@ -629,7 +629,7 @@ mount({
         initCard({ map: ctx.map, archive: ARCHIVE, quarterKeys: () => ctx.quarters.keys() });
         initNearby(ctx.map, nearbyGroups);
         initProbabilityOverlay(ctx.map);
-        initMask(ctx.map);
+        initMask(ctx.map, ARCHIVE);
         addCandidateLayers(ctx.map, ctx.sql);
 
         // the intro modal's one live part: the archive's coverage, drawn as

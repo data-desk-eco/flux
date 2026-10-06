@@ -1,20 +1,22 @@
 // the open plume's mask: the outline its provider drew round it, from that
-// provider's `masks` table, read for the one plume when its card opens. a
-// provider with no masks table, or a plume with no row, draws nothing.
+// provider's `masks` table, read for the one plume when its card opens. where
+// the row names an `image` (carbon mapper's png, in its own concentration
+// colours) it is draped at its `corners` under the outline in place of the
+// fill. a provider with no masks table, or a plume with no row, draws nothing.
 
 import { read } from '../shell/data.js';
 import { objects } from '../shell/archive.js';
 import { DD } from '../layers.js';
 
 const ID = 'plume-mask';   // the source, and the stem of its two layers
-let map, epoch = 0;
+let map, archive, epoch = 0;
 
-export const initMask = value => { map = value; };
+export const initMask = (m, a) => { map = m; archive = a; };
 
 export function clearMask() {
     epoch++;
-    for (const l of [`${ID}-fill`, `${ID}-line`]) if (map?.getLayer(l)) map.removeLayer(l);
-    if (map?.getSource(ID)) map.removeSource(ID);
+    for (const l of [`${ID}-image`, `${ID}-fill`, `${ID}-line`]) if (map?.getLayer(l)) map.removeLayer(l);
+    for (const s of [ID, `${ID}-image`]) if (map?.getSource(s)) map.removeSource(s);
 }
 
 // id alone would scan every row group; the position is what prunes them, and
@@ -28,11 +30,16 @@ export async function showMask(p) {
         const where = { id: [p.id, p.id], lat: [+p.lat, +p.lat], lon: [+p.lon, +p.lon] };
         // one read per provider, so one missing object costs only its own masks
         const [row] = (await Promise.allSettled(objs.map(o =>
-            read(o, { columns: ['mask'], where })))).flatMap(r => r.value ?? []);
+            read(o, { where })))).flatMap(r => r.value ?? []);
         if (!row || now !== epoch) return;
         map.addSource(ID, { type: 'geojson', data: JSON.parse(row.mask) });
         const below = map.getLayer('plumes') ? 'plumes' : undefined;
-        map.addLayer({ id: `${ID}-fill`, type: 'fill', source: ID,
+        if (row.image && row.corners) {
+            map.addSource(`${ID}-image`, { type: 'image',
+                url: `${archive}/${row.image}`, coordinates: JSON.parse(row.corners) });
+            map.addLayer({ id: `${ID}-image`, type: 'raster', source: `${ID}-image`,
+                paint: { 'raster-fade-duration': 0, 'raster-resampling': 'nearest' } }, below);
+        } else map.addLayer({ id: `${ID}-fill`, type: 'fill', source: ID,
             paint: { 'fill-color': DD.white, 'fill-opacity': 0.2 } }, below);
         map.addLayer({ id: `${ID}-line`, type: 'line', source: ID,
             paint: { 'line-color': DD.white, 'line-width': 1, 'line-opacity': 0.8 } }, below);
