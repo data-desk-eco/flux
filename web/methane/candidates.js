@@ -89,14 +89,14 @@ export function clearSelection() {
 
 // ── display ──
 
-export function addCandidateLayers(m, sql) {
+export function addCandidateLayers(m, sql, before = 'plumes') {
     map = m; query = sql;
     map.addSource('candidates', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
     // invisible fat twin of the markings: the hover/touch target
     map.addLayer({
         id: 'candidates-hit', type: 'circle', source: 'candidates',
         paint: { 'circle-radius': 12, 'circle-opacity': 0, 'circle-stroke-width': 0 },
-    }, 'plumes');
+    }, before);
     map.addLayer({
         id: 'candidates', type: 'symbol', source: 'candidates',
         layout: {
@@ -105,7 +105,7 @@ export function addCandidateLayers(m, sql) {
             // the attributed one is told apart by shape and size, not by a tint
             'icon-size': ['case', ['get', 'hl'], 1.4, 0.9],
         },
-    }, 'plumes');
+    }, before);
 
     hoverPopup(map, 'candidates-hit', p => {
         const kind = (p.kind || '').replace(/_/g, ' ');

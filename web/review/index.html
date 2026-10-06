@@ -71,6 +71,8 @@
     <script src="../vendor/maplibre-gl.js"></script>
     <script type="module">
 import { sql } from '../shell/data.js';
+import { initArchive } from '../shell/archive.js';
+import { addCandidateLayers, selectPlume } from '../methane/candidates.js';
 import { createMap, addSatellite, ensureMark } from '../shell/map.js';
 import { logo } from '../shell/ui.js';
 import { escapeHtml as esc } from '../shell/util.js';
@@ -78,6 +80,7 @@ import { DD, MARK, MARKS, PIN, RATE_LABEL, DASH, plumeIcon } from '../layers.js'
 
 const BUCKET = 'https://s3.WAW3-2.cloudferro.com/data-desk-archive/';
 const API = 'api/decisions';
+initArchive(BUCKET);
 const all = new URLSearchParams(location.search).has('all');
 const km = r => 111.2 * Math.hypot(r.lat - r.plat,
     (r.lon - r.plon) * Math.cos(r.lat * Math.PI / 180));
@@ -218,6 +221,12 @@ addSatellite(map);
 map.setPadding(innerWidth > 768 ? { left: 410 } : { bottom: innerHeight * .55 });
 MARKS.forEach(id => ensureMark(map, id));
 map.addSource('rv', { type: 'geojson', data: empty });
+// the other structures around the plume, under the claim: the sources the
+// reviewer might have picked instead. the claimed one is drawn below as the
+// claim's own diamond, so it is left out here
+addCandidateLayers(map, sql, null);
+for (const l of ['candidates', 'candidates-hit'])
+    map.setFilter(l, ['!', ['get', 'hl']]);
 map.addLayer({ id: 'rv-link', type: 'line', source: 'rv',
     filter: ['==', '$type', 'LineString'],
     paint: { 'line-color': DD.white, 'line-width': 1, 'line-dasharray': DASH } });
@@ -250,6 +259,8 @@ function select(el, scroll) {
         { type: 'Feature', properties: {}, geometry: { type: 'LineString',
             coordinates: [[r.plon, r.plat], [r.lon, r.lat]] } });
     map.getSource('rv').setData({ type: 'FeatureCollection', features: f });
+    if (r.plat != null) selectPlume(r.plon, r.plat,
+        /tropomi|viirs|goes|s3/i.test(r.satellite || '') ? 10 : 3, r);
     const b = new maplibregl.LngLatBounds([r.lon, r.lat], [r.lon, r.lat]);
     if (r.plat != null) b.extend([r.plon, r.plat]);
     // the globe's fitBounds overshoots maxZoom, so the zoom is clamped here:
