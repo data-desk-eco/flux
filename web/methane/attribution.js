@@ -5,74 +5,62 @@ import { read } from '../shell/data.js';
 import { canon, escapeHtml } from '../shell/util.js';
 import { selectPlume } from './candidates.js';
 
-let epoch = 0;
-
-// full table into a Map at boot: ~2k records, keyed by the canonical spelling
-// of the plume id -- this object and the detections it joins are replaced
-// separately, so the join cannot depend on the two agreeing on a namespace.
-// plumes.js reads the key set the same way, to mark attributed plumes.
-// a claim shows once a person confirms it at /review; the claims made before
-// review began on 2026-10-04 are `grandfathered` and show as they are.
+// a claim shows once a person confirms it at /review; those made before
+// review began on 2026-10-04 are grandfathered
 export const shown = r => ['confirmed', 'grandfathered'].includes(r.verified);
+
+// ~2k records, keyed by the canonical id: this object and the detections it
+// joins are replaced separately, so the join cannot rely on one namespace
 let attribs = null;
-export function loadAttributions() {
-    return attribs ??= (async () => {
-        try {
-            return new Map((await read('attributions', { columns: [
-                'id', 'source_label', 'attributed_ids', 'lat', 'lon', 'confidence',
-                'paragraph', 'evidence', 'verified', 'run_at'] }))
-                .filter(shown).map(r => [canon(r.id), r]));
-        } catch (err) {
-            console.warn('attributions unavailable:', err);
-            return new Map();
-        }
-    })();
-}
+export const loadAttributions = () => attribs ??= read('attributions', {
+    columns: ['id', 'source_label', 'attributed_ids', 'lat', 'lon',
+              'confidence', 'paragraph', 'evidence', 'verified', 'run_at'],
+}).then(rows => new Map(rows.filter(shown).map(r => [canon(r.id), r])))
+  .catch(err => (console.warn('attributions unavailable:', err), new Map()));
 
-// ── attribution rendering ──
+const OSM = { w: 'way', n: 'node', r: 'relation' };
+const out = (href, title, text) => `<a href="${escapeHtml(href)}"`
+    + ` target="_blank" rel="noopener" title="${escapeHtml(title)}">`
+    + `${text}</a>`;
 
-// attributed source labels link out: osm ids (short w/n/r or long form) to
-// osm.org, anything else flies to the feature (candidates.js delegation)
+// an osm id links to osm.org; anything else flies to the candidate
+// (candidates.js handles data-fly)
 function labelHtml(rec) {
     const safe = escapeHtml(rec.source_label || '');
     const id = rec.attributed_ids?.[0];
     if (!id) return safe;
-    const idSafe = escapeHtml(rec.attributed_ids.join(' '));
+    const ids = rec.attributed_ids.join(' ');
     const osm = id.match(/^OSM:(?:(w|n|r)|(way|node|relation)\/)(\d+)$/);
-    if (osm) {
-        const type = osm[2] || { w: 'way', n: 'node', r: 'relation' }[osm[1]];
-        return `<a href="https://www.openstreetmap.org/${type}/${osm[3]}" target="_blank" rel="noopener" title="${idSafe}">${safe}</a>`;
-    }
-    return `<a href="#" data-fly="${escapeHtml(id)}" title="${idSafe}">${safe}</a>`;
+    if (osm) return out(`https://www.openstreetmap.org/${osm[2]
+        || OSM[osm[1]]}/${osm[3]}`, ids, safe);
+    return `<a href="#" data-fly="${escapeHtml(id)}"`
+        + ` title="${escapeHtml(ids)}">${safe}</a>`;
 }
 
 function recordHtml(rec) {
-    const evidence = rec.evidence?.length
-        ? `<div class="plume-evidence">${rec.evidence.map((u, i) =>
-            `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" title="${escapeHtml(u)}">[${i + 1}]</a>`).join(' ')}</div>`
+    const evidence = rec.evidence?.length ? `<div class="plume-evidence">${
+        rec.evidence.map((u, i) => out(u, u, `[${i + 1}]`)).join(' ')}</div>`
         : '';
-    return `
-        <div class="plume-attrib">${labelHtml(rec)}
-            ${rec.confidence ? `<span class="dd-secondary">(confidence: ${escapeHtml(rec.confidence)})</span>` : ''}</div>
-        ${rec.paragraph ? `<p class="plume-para">${escapeHtml(rec.paragraph)}</p>` : ''}
-        ${evidence}`;
+    const confidence = rec.confidence ? `<span class="dd-secondary">`
+        + `(confidence: ${escapeHtml(rec.confidence)})</span>` : '';
+    const para = rec.paragraph
+        ? `<p class="plume-para">${escapeHtml(rec.paragraph)}</p>` : '';
+    return `<div class="plume-attrib">${labelHtml(rec)} ${confidence}</div>
+        ${para}${evidence}`;
 }
 
-// ── detail-panel enrich hook ──
-
-export function enrich(p) {
-    const e = ++epoch;
-    const lat = Number(p.lat), lon = Number(p.lon);
-    (async () => {
-        const rec = (await loadAttributions()).get(canon(p.id)) || null;
-        if (epoch !== e) return;
-        const el = document.getElementById('analysis');
-        if (el) {
-            el.innerHTML = rec ? recordHtml(rec) : 'No source attribution yet.';
-            el.classList.toggle('dd-secondary', !rec);
-        }
-        // candidate sources around the plume; coarse sensors get a wider radius
-        const radiusKm = /tropomi|viirs|goes|s3/i.test(p.satellite || '') ? 10 : 3;
-        selectPlume(lon, lat, radiusKm, rec);
-    })();
+// the card's enrich hook, behind an epoch so a card left before its read
+// lands is not written to. coarse sensors get a wider candidate radius
+let epoch = 0;
+export async function enrich(p) {
+    const now = ++epoch;
+    const rec = (await loadAttributions()).get(canon(p.id)) || null;
+    if (now !== epoch) return;
+    const el = document.getElementById('analysis');
+    if (el) {
+        el.innerHTML = rec ? recordHtml(rec) : 'No source attribution yet.';
+        el.classList.toggle('dd-secondary', !rec);
+    }
+    const coarse = /tropomi|viirs|goes|s3/i.test(p.satellite || '');
+    selectPlume(Number(p.lon), Number(p.lat), coarse ? 10 : 3, rec);
 }

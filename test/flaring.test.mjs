@@ -1,6 +1,5 @@
-// the rules a rate is computed under, held in place. everything here is pure —
-// clustering.js takes no dom and no app state — and every case below is one a
-// production incident is written against in CLAUDE.md.
+// the rules a rate is computed under, held in place. clustering.js is pure,
+// and every case below is one a CLAUDE.md incident is written against.
 //
 //   node --test test/
 
@@ -20,6 +19,7 @@ const Q = (quarter, o = {}) => ({
     detections: 20, detections_clear: 10, rh_sum: 100, rh_max: 5, ...o,
 });
 const all = () => true;
+const thin = { clear: 4, detections_clear: 2 };
 
 describe('sumQuarters', () => {
     it('sums the kept quarters and counts them', () => {
@@ -31,7 +31,8 @@ describe('sumQuarters', () => {
     });
 
     it('keeps only the quarters the window admits', () => {
-        const t = sumQuarters([Q('2026-01-01'), Q('2025-01-01')], q => q.startsWith('2026'));
+        const t = sumQuarters([Q('2026-01-01'), Q('2025-01-01')],
+            q => q.startsWith('2026'));
         assert.equal(t.n, 1);
         assert.equal(t.clear, 40);
     });
@@ -39,7 +40,8 @@ describe('sumQuarters', () => {
     // summing a null as zero turns "we never counted the passes" into "no pass
     // was ever made", which a caller then reads as a measurement
     it('returns null for a field any kept quarter is missing', () => {
-        const t = sumQuarters([Q('2026-01-01'), Q('2026-04-01', { clear: null })], all);
+        const t = sumQuarters(
+            [Q('2026-01-01'), Q('2026-04-01', { clear: null })], all);
         assert.equal(t.clear, null);
         assert.equal(t.detections, 40);
     });
@@ -50,8 +52,9 @@ describe('sumQuarters', () => {
 });
 
 describe('archiveFeature', () => {
-    const site = (quarters, o = {}) => archiveFeature(
-        { id: 'a1', cell: '81013ffffffffff', lat: 25, lon: 52, quarters, ...o }, KEYS).properties;
+    const site = (quarters, o = {}) => archiveFeature({ id: 'a1',
+        cell: '81013ffffffffff', lat: 25, lon: 52, quarters, ...o },
+        KEYS).properties;
 
     // the only numerator that pairs with `clear` is `detections_clear`
     it('divides clear-sky detections by clear-sky looks', () => {
@@ -63,7 +66,7 @@ describe('archiveFeature', () => {
 
     // below MIN_LOOKS a rate is noise: report the count and no rate
     it('publishes no rate under the looks floor', () => {
-        const p = site([Q('2026-01-01', { clear: 4, detections_clear: 2 })]);
+        const p = site([Q('2026-01-01', thin)]);
         assert.equal(p.detection_count, 2);
         assert.equal(p.persistence, null);
     });
@@ -71,13 +74,15 @@ describe('archiveFeature', () => {
     // s2 can write several blobs for one site on one day, so the numerator
     // counts rows where the denominator counts days
     it('clamps a rate the grain can push over 1', () => {
-        assert.equal(site([Q('2026-01-01', { detections_clear: 400 })]).persistence, 1);
+        const p = site([Q('2026-01-01', { detections_clear: 400 })]);
+        assert.equal(p.persistence, 1);
     });
 
     // no cloud mask: every pass is the denominator, and the card says the
     // cloud-free count is unknown rather than claiming one
     it('falls back to every look where no clear count is published', () => {
-        const p = site([Q('2026-01-01', { clear: null, detections_clear: null })]);
+        const p = site(
+            [Q('2026-01-01', { clear: null, detections_clear: null })]);
         assert.equal(p.detection_count, 20);
         assert.equal(p.observations, null);
         assert.equal(p.persistence, 20 / 80);
@@ -87,9 +92,9 @@ describe('archiveFeature', () => {
     // site nothing has ever rated unrated — 0 would hide it behind the slider
     it('ranks on the window, then the published rate, then not at all', () => {
         assert.equal(site([Q('2026-01-01')], { persistence: 0.9 }).rank, 0.25);
-        assert.equal(site([Q('2026-01-01', { clear: 4, detections_clear: 2 })],
-            { persistence: 0.9 }).rank, 0.9);
-        assert.equal(site([Q('2026-01-01', { clear: 4, detections_clear: 2 })]).rank, null);
+        assert.equal(site([Q('2026-01-01', thin)], { persistence: 0.9 }).rank,
+            0.9);
+        assert.equal(site([Q('2026-01-01', thin)]).rank, null);
     });
 });
 
@@ -106,8 +111,8 @@ describe('enrichVNFFeatures', () => {
         assert.equal(one()[0].properties.persistence, 0.5);
     });
 
-    // never seen is not unlit: under the coverage floor, or with no clear night
-    // at all, vnf publishes no rate — and the layer filter then drops the site
+    // never seen is not unlit: under the coverage floor, or with no clear
+    // night at all, vnf publishes no rate, and the layer filter drops it
     it('publishes no rate under the coverage floor', () => {
         assert.equal(one({ coverage: 0.5 })[0].properties.persistence, null);
     });

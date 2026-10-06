@@ -6,18 +6,15 @@ Nightfire looks (VNF), a layer each and both drawn at once; methane plumes are
 the third layer. one quarter grid sets the date window for all three, and a
 quarter greys only when no layer covers it.
 
-flux is the merge of burnoff (flaring) and firedamp (methane). it reads and
-draws, and does nothing else: no detection of its own, no publishing, no peers.
-the one exception is `/review`, behind cloudflare access: a person's verdict on
-each new attribution goes to `worker/review.js`, and the jump host folds it into
-the archive. the map shows a claim from a later run only once it is confirmed.
-`web/config.js` is the declarative config `mount()` takes, and everything
-flux-specific lives in the hook modules it wires in.
+flux reads parquet off the Data Desk archive with DuckDB and draws it, and does
+nothing else: no detection, no publishing, no live third-party api. the one
+exception is `/review`, behind cloudflare access: a person's verdict on each
+new attribution goes to `worker/review.js`, and the jump host folds it into the
+archive. the map shows a claim from a later run only once it is confirmed.
 
-`web/shell/` is the map shell — panels, key, quarter picker, sliders, detail
-card, data drawer, permalinks, the duckdb layer and the archive index. it was
-the cartograph library until 2026-08-17, vendored into three maps; the other two
-forward here now, so it lives in this tree as first-party code. change it here,
+`web/config.js` is the declaration `mount()` takes; everything flux-specific
+lives in the hook modules it wires in. `web/shell/` is the map shell,
+first-party since 2026-08-17 (it was the cartograph library): change it here,
 and delete what only a second consumer would have wanted.
 
 zero npm dependencies. MapLibre GL and DuckDB-Wasm lite are vendored; everything
@@ -26,26 +23,28 @@ else is browser built-ins.
 ## the three families
 
 **S2 flaring.** `flaring/s2archive.js` reads `data-desk/flares` (one row per
-cluster, the site's quarterly history nested in a `quarters` list) through the
-shell's DuckDB layer, once, and answers every viewport from those rows.
-`data-desk/detections` holds the per-date series, read per cluster on card open.
-the methodology that builds both is s2-flares, and it runs in the etl repo — the
-in-browser detector, its wasm core and the WebRTC mesh that shared its work were
-removed on 2026-08-17. flux is a viewer.
+cluster, its quarterly history nested in `quarters`) once and answers every
+viewport, and the intro map's `coverage()`, from those rows.
+`data-desk/detections` holds the per-date series, read per cluster on card
+open. the methodology is s2-flares, run in the etl; flux is a viewer.
 
 **VNF flaring.** `flaring/vnf.js` reads `eog/flares` for the viewport and
-`eog/detections` per site on card open. every row in detections is a positive
-detection; the looks that found nothing are `eog/observations`, which this app
-does not read (see invariants).
+`eog/detections` per site on card open. every detections row is a positive
+detection; the looks that found nothing are `eog/observations`, which flux does
+not read (see invariants).
 
-**methane.** `methane/plumes.js` reads every provider's plume detections for the
-ticked window — one object per provider, named by the archive index, read
-independently so a missing one costs its own rows. `methane/attribution.js`
-stamps ch4id's attributions on, `methane/candidates.js` reads the
-`infrastructure` tables around an open plume card and nowhere else — there is
-no standing infrastructure layer and no key group for one — `methane/overlay.js`
-drapes a Data Desk probability surface, `methane/mask.js` reads the open plume's
-outline from its provider's `masks` table, one row per card, and
+both are named after the export LNG terminal they sit on, where one is within
+7.5 km: `flaring/terminals.js` reads them off `gem/infrastructure` on the card
+lane, and a site drawn before they land is renamed on the next refresh.
+
+**methane.** `methane/plumes.js` reads every provider's plume detections for
+the ticked window, the wind at the plume among them (`wind_ms`,
+`wind_from_deg`, extension columns the etl takes from each producer's own
+wind; sron has none). `methane/attribution.js` stamps ch4id's attributions on,
+`methane/candidates.js` reads the `infrastructure` tables around an open plume
+card and nowhere else (there is no standing infrastructure layer),
+`methane/overlay.js` drapes a Data Desk probability surface, `methane/mask.js`
+reads the open plume's outline from its provider's `masks`, and
 `methane/licences.js` draws MapStand acreage in the private build only.
 
 no module names an archive object. `<meta name="data-bucket">` gives the bucket
@@ -56,43 +55,33 @@ so a table that starts partitioning does not break a reader.
 
 ```
 web/
-  config.js          the whole app declaration + orchestration: the key's three
-                     groups, viewport queries, the quarter grid's availability,
-                     the table's tabs, deep-link resolve, the "also here" groups
-  layers.js          marking / ramp / colour policy for every layer, the key's
-                     bands, and the shared layout blocks (PIN, RATE_LABEL).
-                     shape categorises, colour is measurement: the intensity
-                     ramp for flaring, viridis for methane, grey for a plume
-                     with no rate
-  nearby.js          the "also here" row: what the other layers hold at an open
-                     card's place, from collections the session already has
+  config.js          the declaration: sources, layers, the one refresh path,
+                     quarter availability, the table's tabs, deep links
+  layers.js          marking / ramp / colour policy and the key's bands.
+                     shape categorises, colour is measurement
+  key.js             the key: a group of bands per family
+  nearby.js          the "also here" row and its groups, from what the
+                     session already holds
   card/              one header, one body per feature kind
-    index.js         the registry, the shared series card (stats, intensity
-                     chart, dated rows), the map overlays, reselectCurrentFeature
-    flare.js         S2 site body       vnf.js   VNF look body
-    plume.js         methane plume body
+    index.js         the registry, the shared series card,
+                     reselectCurrentFeature
+    overlays.js      the open card's map overlays
+    chart.js         the intensity chart
+    flare.js vnf.js plume.js   the bodies
   flaring/
-    render.js        the MODE tables: the scale each instrument reads on, and
-                     the S2 floor
-    clustering.js    terminal grid, sumQuarters, the feature builders
-    s2archive.js     data-desk/flares + detections, and the coverage geojson
+    render.js        MODE: the scale each instrument reads on, the S2 floor
+    clustering.js    sumQuarters, the feature builders, the terminal lookup
+    terminals.js     gem's export lng terminals
+    s2archive.js     data-desk/flares + detections, coverage()
     vnf.js           eog/flares + eog/detections
-  methane/
-    plumes.js        the plume reader: display read, availability index,
-                     permalink read, and the provider label / rate helpers
-    attribution.js   ch4id's attribution contract + the wind enrich hook
-    candidates.js    infrastructure candidates around an open plume card only
-    licences.js      MapStand licence acreage (private build)
-    overlay.js       the MARS-S2L probability surface over the basemap
-    mask.js          the open plume's outline, from its provider's `masks`
-    sweep.js         the viewport sweep licence acreage runs
-  shell/             the map shell: app.js mount, map.js basemap, ui.js panels
-                     and key, detail.js card, table.js drawer, quarters.js grid,
-                     data.js duckdb, archive.js index, util.js, shell.css
+  methane/           plumes.js reader, attribution.js, candidates.js,
+                     licences.js, overlay.js, mask.js
+  shell/             app.js mount, map.js, ui.js, detail.js, table.js,
+                     quarters.js, data.js duckdb, archive.js index, util.js
+  review/            the /review page: index.html and review.js
   vendor/            dd design system, duckdb, maplibre, fonts
-  index.html         ~25 lines: meta config + includes
-  style.css          flux UI on top of shell.css
-scripts/vendor.sh    the third-party half of web/vendor
+worker/              the review api and its d1 schema
+scripts/             vendor.sh, dist.sh, serve.py
 test/                the rate rules, in node:test
 ```
 
@@ -113,148 +102,121 @@ no `npm install`, and no build step. examine DOM logic in the browser
 these were arrived at through production incidents. several are one refactor
 away from being broken silently, and they compile and run either way.
 
-**persistence is a ratio, so guard both halves.** numerator and denominator must
-cover the same looks, or it is not a rate. `clear` is the cloud-free look count
-persistence divides by; `observations` is every look an instrument took. the only
-numerator that pairs with `clear` is `detections_clear`. never divide
-`detections` by `clear` — that pairing broke `lng-flaring`, and reading
-`observations` where `clear` belongs compiles, runs, and silently redefines
-persistence.
+**persistence is a ratio, so guard both halves.** numerator and denominator
+must cover the same looks. `clear` is the cloud-free look count persistence
+divides by; `observations` is every look. the only numerator that pairs with
+`clear` is `detections_clear`. never divide `detections` by `clear` — that
+broke `lng-flaring` — and reading `observations` where `clear` belongs
+silently redefines persistence.
 
-**one reducer.** both modes go through `sumQuarters` in
-`web/flaring/clustering.js`, so no caller can redefine persistence without
-changing how it reads. it returns null, not 0, for any field absent from any
-quarter in the window: summing that as zero turns "we never counted the passes"
-into "no pass was ever made". keep it the single path if the feature builders
-move again.
+**one reducer.** both families go through `sumQuarters` in
+`flaring/clustering.js`. it returns null, not 0, for any field absent from any
+quarter in the window: summing that as zero turns "we never counted the
+passes" into "no pass was ever made". keep it the single path.
 
-**do not wire through the published `persistence` column** for the card's rate.
-the app deliberately recomputes over exactly the ticked quarters; the published
-value would look right and make the quarter picker stop affecting the number. its
-legitimate use is as the gate's `rank` fallback (`clustering.js`), which is a
-different question.
+**do not wire through the published `persistence` column** for the card's
+rate: the app recomputes over exactly the ticked quarters, and the published
+value would stop the quarter picker affecting the number. its use is as the
+gate's `rank` fallback (`clustering.js`), a different question.
 
-**the two null branches stay split.** in S2 a null persistence means unrated and
-passes the gate; in VNF a null is a finding — no clear night — and the flare is
+**the two null branches stay split.** in S2 a null persistence is unrated and
+passes the gate; in VNF it is a finding — no clear night — and the flare is
 dropped. the split is the last argument of `persistenceFilter` (`config.js`),
-passed `1` where the layer is added for S2 and `0` for VNF. coalescing S2 to 0
-sank the whole archive below the slider's default. do not fold them into one.
+`1` for S2 and `0` for VNF. coalescing S2 to 0 sank the whole archive below
+the slider's default.
 
-**intensity is the key's, not a slider's.** two families draw at once and B12
-reflectance and radiant heat are not one scale, so there is no slider that can
-carry both: `MODE.s2.floor` is the published quality gate (a constant, on the
-site's *average*; VNF has none), and the key's rows filter above it, on the
-*maximum*, at exactly the breaks `flareIcon` steps at — `flareBands` in `layers.js` is where
-the two are kept in step. a row a feature is no statement about passes it
-(`p.kind !== kind || …`), which is what lets one key filter a map of several
-sources; the key reads a feature every row admits as outside the section, so
-switching a group off entirely drops that family and nothing else.
+**intensity is the key's, not a slider's.** B12 reflectance and radiant heat
+are not one scale. `MODE.s2.floor` is the published quality gate (a constant,
+on the site's *average*; VNF has none), and the key's rows filter above it, on
+the *maximum*, at exactly the breaks `flareIcon` steps at — `flareBands` in
+`layers.js` keeps the two in step. a row passes a feature it is no statement
+about (`p.kind !== kind || …`, `key.js`), so switching a group off drops that
+family and nothing else.
 
 **floors:** `MIN_LOOKS = 10` for S2, `COVERAGE_MIN = 0.8` for VNF, both in
 `clustering.js`. below them, publish no rate; the card shows an em dash.
 
-**`reselectCurrentFeature()` is load-bearing.** every dot carries the numbers for
-the ticked quarters alone, and an open card holds a copy rather than a reference.
-all three refresh paths end in it — `refreshS2Archive`, `refreshVNF` and
-`refreshPlumes` in `config.js`. a fourth must too. it also refills the "also
-here" slot, which is the card's one part that reads the *other* layers: when
-only they moved the card's own re-render is a no-op (detail.js compares
-properties, and rightly — a rebuild would drop the reader's selected date).
+**`reselectCurrentFeature()` is load-bearing.** every dot carries the numbers
+for the ticked quarters alone, and an open card holds a copy. every layer
+refreshes through the one `refresh(id)` in `config.js`, which ends in it; a
+new layer goes in `READS` and gets that for free. it also refills the "also
+here" slot, the card's one part that reads the *other* layers: when only they
+moved, the card's own re-render is a no-op (detail.js compares properties,
+rightly — a rebuild would drop the reader's selected date).
 
 **units and types.** MCM/d is `rh_mw × 0.0315` (JZ-RH, Zhizhin et al. 2025);
 `RH_TO_MCM` in `flaring/render.js` is the only place it is spelled. EOG's own
-`flow_mcm` is carried but must never be displayed — the legacy power law
-overestimates dim flares and underestimates bright ones. identifiers are VARCHAR
-in every table; never coerce with `Number()` (`card/index.js` compares
-`String(id) === String(id)`, and never on coordinates: an 11 m coordinate match
-handed two close sites each other's card).
+`flow_mcm` must never be displayed — the legacy power law overestimates dim
+flares and underestimates bright ones. identifiers are VARCHAR in every table;
+never coerce with `Number()` (`card/index.js` compares `String(id)`), and never
+match on coordinates: an 11 m match handed two close sites each other's card.
 
-**no H3 in the browser.** nothing computes a cell; it only ever passes one on,
-which is what lets a card name one object without a bucket listing — so plumb
-`cell` through any new feature builder (`clustering.js` → `s2archive.js`,
-`vnf.js`).
+**no H3 in the browser.** nothing computes a cell; it only passes one on, which
+lets a card name one object without a bucket listing — so plumb `cell` through
+any new feature builder.
 
 **flux does not read `eog/observations`, deliberately.** the quarters list
-already carries the looks, windowed the same way as the numerator. a second read
-is a second place to get the pairing wrong.
+already carries the looks, windowed the same way as the numerator. a second
+read is a second place to get the pairing wrong.
 
 **at dense complexes:** sum radiant heat across detection points rather than
-averaging, always check `n_sats`, and read a day with files but no detections as
-cloud, not as zero activity. (`docs/ras-laffan-monitoring.md`.)
+averaging, always check `n_sats`, and read a day with files but no detections
+as cloud, not as zero activity (`docs/ras-laffan-monitoring.md`).
 
-**the negation in the S2 intensity gate is deliberate.** `!(c.avg_b12 < MODE.s2.floor)`
-in `config.js` lets a cluster the table gives no intensity for through rather
-than vanishing: the shared flares schema has no site-level b12, and
-`undefined >= 0.85` is false for every row.
+**the negation in the S2 intensity gate is deliberate.**
+`!(c.avg_b12 < MODE.s2.floor)` (`config.js`, `nearby.js`) lets a cluster the
+table gives no intensity for through: `undefined >= 0.85` is false for every
+row.
 
-**VNF has no intensity floor.** a 3 MW floor on the site's average hid every
-dim flare — most onshore gas plants, and the LNG trains at Darwin and Ichthys,
-whose flaring is rare and dim between upsets. persistence is VNF's only gate.
+**VNF has no intensity floor.** a 3 MW floor on the average hid every dim
+flare — most onshore gas plants, and the LNG trains at Darwin and Ichthys.
+persistence is VNF's only gate.
 
 **`flareIcon` coalesces a missing value to `stops[0]`** (`layers.js`): a site
-the producer gives no value for flattens the ramp rather than hiding the site. a
-plume is the other way round: no rate is not a low rate, so it is drawn in grey,
-off the ramp and out of the key's bands — and a band selection leaves it out, as
-it leaves out any rate outside the band.
+with no value flattens the ramp rather than vanishing. a plume is the other way
+round: no rate is not a low rate, so it is grey, off the ramp and out of every
+band.
 
-**two ramps, because they answer different questions.** flaring reads on the dd
-intensity ramp (red → orange → white) and methane on viridis, the same ramp the
-plume rasters `methane/overlay.js` drapes are rendered in. one ramp across both
-invited the reading that a bright plume and a bright flare were the same
-quantity. colour never means provider, and never means category — that is
-shape's job.
+**two ramps, because they answer different questions.** flaring reads on the
+dd intensity ramp (red → orange → white), methane on viridis, the ramp the
+plume rasters are rendered in. colour never means provider or category — that
+is shape's job.
 
-**a lane is a connection, and the engine serialises each one.** the engine reads
-remote parquet by range and yields to the event loop while those ranges are in
-flight, so two statements started together run interleaved. it now holds a queue
-and a range stage per connection (duckdb-wasm-lite lite.2), which is what the
-app-level `serial` queue used to stand in for: on one connection statements run
-one after another and each caller gets its own rows, and on a connection each
-they overlap without touching each other's staged ranges. so `sql()` and `read()`
-take a `lane`, `connect(lane)` holds one connection per lane, and `.query()` is
-still called in exactly one place. the map is the default lane and a card open is
-`lane: 'card'`, because a card reads the objects too big to prefetch: sharing one
-lane made a pan wait for the card, measured at 6.1 s against 1.3 s. a lane is
-only ever a parallelism choice — flux issues no `CREATE`, so no statement depends
-on another's connection state, and a registered buffer is the database's and
-visible on every lane. add a lane when work must not wait behind other work; do
-not add one per provider, which just spends connections on a fan-out that is
-already one statement each.
+**a lane is a connection, and the engine serialises each one.** statements on
+one connection run one after another; on different connections they overlap
+without touching each other's staged ranges. `sql()` and `read()` take a
+`lane`, and `.query()` is called in exactly one place. the map is the default
+lane and card opens (and the terminal read) are `lane: 'card'`: sharing one
+made a pan wait for a card, 6.1 s against 1.3 s. flux issues no `CREATE`, so a
+lane is only a parallelism choice. add one when work must not wait behind
+other work, never one per provider.
 
-**two read tiers, and size picks the tier.** every object small enough to hold
-is fetched whole at page parse — plain parallel GETs racing the engine download,
-registered as engine buffers (`prefetchData`, `web/shell/data.js`) — and every
-statement over it then runs at memory speed. what is past the 8 MB cap
-(`data-desk/detections`, the partitioned `eog/detections`) stays on remote range
-reads, which is also every prefetch's fallback: an object that grows past the
-cap, a failed fetch, or a server that will not say its size demote themselves to
-the url and cost what they cost, rather than breaking. what the ranged tier
-repeats is held instead of re-read: a card series goes through `memoised()`,
-keyed by object url and site id, bounded at 30 MB of estimated rows and evicting
-least recently used, so reopening a card is free where it cost a round trip. the
-rows it hands back are shared — read them, do not write them. do not put the first
-paint behind a ranged read again — the serial cascade of small remote
-statements is exactly what took the first points from ~2 s to ~5 s
+**two read tiers, and size picks the tier.** every object under the 8 MB cap is
+fetched whole at page parse, racing the engine download, and registered as an
+engine buffer (`prefetchData`, `shell/data.js`). what is past it stays on
+ranged reads, which is also every prefetch's fallback. a card series goes
+through `memoised()` (30 MB, least recently used): the rows are shared — read
+them, do not write them. do not put the first paint behind a ranged read again
 (`docs/cold-load.md`).
 
 **the engine is ~7 MB over the wire, and the first load after a deploy pays for
-it.** pages caches for ten minutes, so the first visitor to reach a cold edge
-pulls the whole wasm through it — one such load took over two minutes to mount,
-where every warm load settles in about eight seconds. it is the deploy that is
-cold, not the map; do not read one slow first load as a regression.
+it.** one cold-edge load took over two minutes to mount where a warm one takes
+about eight seconds. it is the deploy that is cold, not the map.
 
 ## the tables
 
-the ETL that publishes what this map reads lives in `~/Tools/etl`; see
-`sql/tables/` for the definitions and their `*.checks.sql`, which state exactly
-what a reader may rely on.
+the etl that publishes everything this map reads lives in `~/data-desk/etl`;
+`sql/tables/` there holds the definitions and their `*.checks.sql`, which state
+exactly what a reader may rely on.
 
 - `data-desk/flares`, `data-desk/detections` — S2 clusters and their per-date
   series. flares carries `quarters`: `quarter, days, observations, clear,
   detections, detections_clear, rh_sum, rh_max`.
 - `eog/flares`, `eog/detections` — VNF sites and their nightly detections, the
   same `quarters` struct. `eog/observations` exists and is not read here.
-- `<provider>/detections` — methane plumes, `kind = 'plume'`, with `valid` false
-  on a retrieval the producer does not trust.
-- `<provider>/infrastructure` — candidate sources, Hilbert-clustered on lon/lat.
+- `<provider>/detections` — methane plumes, `kind = 'plume'`, with `valid`
+  false on a retrieval the producer does not trust, and `wind_ms`,
+  `wind_from_deg` where the producer gives a wind.
+- `<provider>/infrastructure` — candidate sources, Hilbert-clustered on
+  lon/lat; gem's `lng_terminal` rows name the flares.
 - `data-desk/attributions` — ch4id's plume → source contract.

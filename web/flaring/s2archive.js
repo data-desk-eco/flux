@@ -1,11 +1,7 @@
-// the s2 archive reader — the data desk sentinel-2 flare tables, read straight
-// from the CloudFerro public parquet archive. `data-desk/flares` is one row per
-// cluster and `data-desk/detections` the per-date series behind it, read per
-// cluster on card open. neither is named here: the archive index says which
-// object each is, and whether it is partitioned. both are one object today, and
-// the archive partitions a table past 250 MB on `cell` — an H3 index a reader
-// calculates from a position rather than discovers by listing — so passing the
-// cluster's cell is what keeps this reader correct on the day either splits.
+// the s2 archive reader. data-desk/flares is one row per cluster, read whole
+// once and held; data-desk/detections is the per-date series, read per
+// cluster on card open. the index names both objects, and passing a cluster's
+// `cell` keeps this reader correct the day either partitions on it.
 
 import { read, memoised } from '../shell/data.js';
 import { objects } from '../shell/archive.js';
@@ -14,6 +10,18 @@ import { quarterOf } from '../shell/util.js';
 let _flares = null, _rows = null;
 const inBox = ([w, s, e, n], c) =>
     c.lon >= w && c.lon <= e && c.lat >= s && c.lat <= n;
+
+// the table is one object, read once and held: every viewport is then served
+// from memory. a table partitioned past 250 MB would name no object here, and
+// that has to be the loud kind of broken rather than a blank map.
+const flares = () => _flares ??= objects('flares', { provider: 'data-desk' })
+    .then(([u]) => {
+        if (!u) throw new Error('data-desk/flares names no object: it has '
+            + 'partitioned, and this reader must address it by cell');
+        return read(u);
+    })
+    .then(rows => (_rows = rows))
+    .catch(err => { _flares = null; throw err; });
 
 // start the whole-table read at page parse, so it downloads while maplibre
 // loads its style and tiles rather than on the first viewport
@@ -48,39 +56,29 @@ export async function queryS2Flare(id) {
     return (await flares()).find(c => String(c.id) === String(id)) ?? null;
 }
 
-// the `year_quarter` keys with any detection in the viewport, over all dates
+// the quarter keys with any detection in the viewport, over all dates
 export async function availableQuartersS2(bbox) {
     const qs = new Set();
-    for (const c of await flares())
-        if (inBox(bbox, c))
-            // the quarters list carries the count the nested date list used to
-            // be counted from, so this no longer walks every detection
-            for (const q of c.quarters ?? []) if (q.detections > 0) qs.add(quarterOf(q.quarter));
+    for (const c of await flares()) if (inBox(bbox, c))
+        for (const q of c.quarters ?? [])
+            if (q.detections > 0) qs.add(quarterOf(q.quarter));
     return qs;
 }
 
-// the per-date history for one cluster (card open). the flares row carries a
-// detection count, not a list, so the dates come from data-desk/detections — one
-// object today, filtered to this site. rows there are written in
-// (cell, site_id, date) order, so passing the cluster's own `cell` alongside its
-// id prunes row groups off the footer instead of scanning the table; the same
-// cell addresses the object if the table ever partitions, and the index says
-// which of the two it is. `kind` is in the predicate because this provider
-// writes its methane plumes to the same table.
+// one cluster's per-date history. rows are in (cell, site_id, date) order, so
+// the cell and id prune row groups off the footer; `kind` because plumes
+// share the table. memoised on object and id: reopening a card is free
 export async function fetchS2Detections({ id, cell }) {
     if (!id) return [];
-    const [detections] = await objects('detections', { provider: 'data-desk', key: cell });
-    // the day this table partitions, a card with no cell names no object — and
-    // read(undefined) is a worse way to say so. vnf.js guards the same way.
-    if (!detections) return [];
-    // the object url carries provider and cell, so it and the site id are the
-    // whole key; reopening the same card is then free
+    const [detections] =
+        await objects('detections', { provider: 'data-desk', key: cell });
+    if (!detections) return [];   // partitioned, and no cell to address it by
+    const sid = String(id);
     return memoised(`${detections}#${id}`, async () => {
-        const rows = await read(detections,
-            { lane: 'card',
-              columns: ['date', 'lat', 'lon', 'max_b12', 'pixels'],
-              where: { site_id: [String(id), String(id)], kind: ['flare', 'flare'],
-                       ...(cell ? { cell: [cell, cell] } : {}) } });
+        const rows = await read(detections, { lane: 'card',
+            columns: ['date', 'lat', 'lon', 'max_b12', 'pixels'],
+            where: { site_id: [sid, sid], kind: ['flare', 'flare'],
+                     ...(cell ? { cell: [cell, cell] } : {}) } });
         return rows.map(r => ({
             date: String(r.date).slice(0, 10),
             max_b12: Number(r.max_b12), pixels: Number(r.pixels),

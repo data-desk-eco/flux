@@ -40,9 +40,10 @@ export default {
       { status: 403 })
     const { id, run_at, verdict, notes } = await req.json()
     if (!id || !run_at || !VERDICTS.includes(verdict))
-      return new Response('id, run_at and a verdict are needed', { status: 400 })
-    await env.DB.prepare('insert or replace into decision values (?, ?, ?, ?, ?,'
-      + " strftime('%Y-%m-%dT%H:%M:%SZ'))")
+      return new Response('id, run_at and a verdict are needed',
+        { status: 400 })
+    await env.DB.prepare('insert or replace into decision values'
+      + " (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ'))")
       .bind(id, run_at, verdict, notes || null, by).run()
     return new Response(null, { status: 204 })
   }

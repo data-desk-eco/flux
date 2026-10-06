@@ -1,52 +1,41 @@
-// the detail card: one header, one body per feature kind.
-//
-// the shell renders the header — title, coordinates, overlap nav — and calls
-// the hooks below; everything under it comes from the body the feature's `kind`
-// selects: an s2 flare site, a vnf flare or a methane plume. what the three
-// share lives here — the "also here" row, the information rows, the intensity
-// chart, the dated row list, the imagery overlays, and the selection
-// bookkeeping that survives a re-cluster.
-//
-// dispatch is on the feature, so a card opened from "also here" is the kind it
-// names — the two flaring families draw at once and each owns its own source.
+// the detail card: the shell renders the header and calls these hooks; the
+// body is the one the feature's `kind` selects (an s2 site, a vnf flare or a
+// plume). the flaring bodies share the series card here: information rows,
+// chart, dated rows. dispatch is on the feature, so a card opened from "also
+// here" is the kind it names.
 
 import { showDetail, refreshDetail, closeDetail } from '../shell/detail.js';
-import { dimSatellite } from '../shell/map.js';
-import { dateInQuarters, degLat, degLon, formatDate } from '../shell/util.js';
-import { rampRGB, scaleT, chartNorm } from '../flaring/render.js';
+import { dateInQuarters, formatDate } from '../shell/util.js';
 import { nearbyHtml, wireNearby } from '../nearby.js';
+import { renderChart } from './chart.js';
+import { initOverlays, greyCircles, clearOverlays } from './overlays.js';
 import flare from './flare.js';
 import vnf from './vnf.js';
 import plume from './plume.js';
 
-// the registry. the two flaring feature builders stamp their kind and a plume
-// row carries `kind` from the detections table, so nothing here infers one.
 const BODIES = { flare, vnf, plume };
 const bodyOf = p => BODIES[p.kind] ?? BODIES.flare;
 
-// injected by initCard: the map, the archive base url (the plume body links
-// into it for a provider's own record) and the active quarter-keys getter
 export let map = null;
 let quarterKeys = () => new Set();
 
-export let current = null;          // the open feature's properties
-export let currentDets = [];        // the series the card lists (csv reads it)
+export let current = null;        // the open feature's properties
+export let currentDets = [];      // the series the card lists (csv reads it)
 export let selectedDetection = null;
 let shownBody = null;
-let _skipAuto = false;              // suppress auto imagery load on a re-render
+let skipAuto = false;             // a re-render keeps the selected date
 
 export function initCard(deps) {
     ({ map, quarterKeys } = deps);
+    initOverlays(map);
     for (const b of Object.values(BODIES)) b.init?.(deps);
 
-    // j/k / arrows step the dated rows. escape is the shell's, and no card
-    // carries a close control (ruling 2026-07-08).
+    // j/k and the arrows step the dated rows; escape is the shell's
+    const STEP = { ArrowDown: 1, j: 1, ArrowUp: -1, k: -1 };
     document.addEventListener('keydown', e => {
-        if (!document.getElementById('detail').classList.contains('visible')) return;
-        let dir = 0;
-        if (e.key === 'ArrowDown' || e.key === 'j') dir = 1;
-        else if (e.key === 'ArrowUp' || e.key === 'k') dir = -1;
-        if (!dir) return;
+        const dir = STEP[e.key];
+        if (!dir || !document.getElementById('detail')
+            .classList.contains('visible')) return;
         e.preventDefault();
         const items = [...document.querySelectorAll('.event-item')];
         if (!items.length) return;
@@ -59,26 +48,25 @@ export function initCard(deps) {
 }
 
 export const coords = p => [Number(p.lon), Number(p.lat)];
-const featureOf = p => ({ type: 'Feature', geometry: { type: 'Point', coordinates: coords(p) }, properties: p });
+const featureOf = p => ({ type: 'Feature', properties: p,
+    geometry: { type: 'Point', coordinates: coords(p) } });
 
-// "Near <terminal>" where one is close enough to name the site (clustering.js)
-export const siteTitle = (p, fallback) => ({
-    text: (p.terminal ? `Near ${String(p.name).replace(/\s*Terminal\b/gi, '').trim()}` : p.name)
-        || fallback,
-});
+// "Near <terminal>" where one is close enough to name the site
+const near = name =>
+    `Near ${String(name).replace(/\s*Terminal\b/gi, '').trim()}`;
+export const siteTitle = (p, fallback) =>
+    ({ text: (p.terminal ? near(p.name) : p.name) || fallback });
 
 // ── detail hooks ──
 
 export const cardTitle = p => bodyOf(p).title(p);
-// the "also here" row goes in a slot of its own because it is the one part of
-// the card that reads other layers: they re-read on their own schedule, and the
-// card cannot re-render itself for them (detail.js makes an unchanged feature a
-// no-op, and rightly — a re-render would drop the reader's selected date). so
-// the slot is refilled in place instead. empty it collapses, or the card's 38px
-// section gap would open under a row that is not there.
+// "also here" has a slot of its own, refilled in place: it is the one part
+// that reads other layers, and re-rendering the card for them would drop the
+// reader's selected date
 export function cardHtml(p) {
     const b = bodyOf(p);
-    return `<div id="nearby-slot">${nearbyHtml(p)}</div>` + (b.html ?? seriesHtml)(p, b);
+    return `<div id="nearby-slot">${nearbyHtml(p)}</div>`
+        + (b.html ?? seriesHtml)(p, b);
 }
 
 function refreshNearbyRow() {
@@ -90,10 +78,8 @@ function refreshNearbyRow() {
 
 export function onCardShow(p, el) {
     const b = bodyOf(p);
-    // a selection that crosses families never fires onClose, so the outgoing
-    // body takes its own map state down — the flare card's imagery and grey
-    // circles, the plume card's candidates and probability overlay — while a
-    // re-render of the same kind leaves both alone
+    // a selection that crosses families never fires onClose, so the
+    // outgoing body takes its own map state down here
     if (shownBody && shownBody !== b) closeBody(shownBody);
     shownBody = b;
     current = p;
@@ -103,7 +89,7 @@ export function onCardShow(p, el) {
     document.activeElement?.blur();
 }
 
-const closeBody = b => (b.close ?? seriesClose)();
+const closeBody = b => (b.close ?? clearOverlays)();
 
 export function onCardClose() {
     if (shownBody) closeBody(shownBody);
@@ -113,60 +99,50 @@ export function onCardClose() {
     selectedDetection = null;
 }
 
-// ── selection maintenance across re-renders ──
+// ── selection across re-renders ──
 
-// a re-render must not pull the reader's selected date back to the first row
-const rerender = fn => { _skipAuto = true; fn(); _skipAuto = false; };
+const rerender = fn => { skipAuto = true; fn(); skipAuto = false; };
 const reopen = p => rerender(() => showDetail(featureOf(p), true));
 
-// re-filter the open card to the current quarter window (map reconciles async).
-// the properties don't move, only the window they're read through, so this is
-// the forced re-render — showDetail alone would see an unchanged card
+// re-filter the open card to a new quarter window: forced, since the
+// properties have not moved and showDetail would see an unchanged card
 export function refreshCard() {
     if (current) rerender(refreshDetail);
 }
 
-// re-open the card on the rebuilt feature after a re-cluster or a re-read
-// (geojson sources keep the last data set on `_data`), or close it. every
-// refresh path ends here: a dot carries the numbers for the ticked quarters
-// alone and an open card holds a copy, not a reference.
+// load-bearing: every refresh path ends here. a dot carries the numbers for
+// the ticked quarters alone and an open card holds a copy, so re-open it on
+// the rebuilt feature, or close it if it was filtered out of a viewport that
+// reaches it (a #site= card the first viewport never read stays open).
 export function reselectCurrentFeature() {
     if (!current || !shownBody) return;
     const features = map.getSource(shownBody.source)?._data?.features || [];
-    // on the identifier, not on coordinates: an 11 m coordinate match handed two
-    // close sites each other's card. ids are VARCHAR in every table, so compare
-    // as strings and never coerce with Number()
-    const match = features.find(f => String(f.properties.id) === String(current.id));
-    // the row second: reopen rebuilds it when the feature moved, and does
-    // nothing at all when only another layer did
+    // on the id as a string: an 11 m coordinate match once swapped two
+    // sites' cards, and ids are VARCHAR everywhere
+    const match = features
+        .find(f => String(f.properties.id) === String(current.id));
     if (match) { reopen(match.properties); refreshNearbyRow(); }
-    // absent from a viewport that does not reach it is not the same as filtered
-    // out of one that does, and only the second is grounds for closing. a
-    // #site= link opens a card the initial viewport never read and then flies
-    // to it; the refresh in between used to close the card it had just opened.
     else if (map.getBounds().contains(coords(current))) closeDetail();
 }
 
-// ── the flaring body: information rows, chart, dated rows, action pair ──
+// ── the series card: information rows, chart, dated rows, actions ──
 
+const pct = v => `${Math.round(v * 100)}%`;
+
+// the feature carries the window's numbers, so nothing here recomputes a
+// rate. "(clear)" only where a cloud mask says which passes were clear
 function seriesHtml(p, b) {
     const cfg = b.cfg;
-    // both archive tables publish the window's numbers on the feature — the
-    // looks they published for the ticked quarters, and the detections in
-    // exactly those looks — so nothing here recomputes a rate.
-    const cfLabel = p.passes && p.observations != null
-        ? `Cloud-free (${Math.round(p.observations / p.passes * 100)}%)` : 'Cloud-free obs.';
-    // the count is the passes we could see the site and it was lit — fewer than
-    // the dates listed below, which include cloudy ones — over the passes an
-    // instrument flew and we read the sky. the four read as one chain.
     const stats = [
-        // "(clear)" only where a cloud mask says which passes were clear:
-        // without one the count and the rate below it run over every pass
-        [p.observations == null ? 'Detections' : 'Detections (clear)', p.detection_count],
-        ['Persistence', p.persistence != null ? `${Math.round(p.persistence * 100)}%` : '—'],
+        [p.observations == null ? 'Detections' : 'Detections (clear)',
+            p.detection_count],
+        ['Persistence', p.persistence != null ? pct(p.persistence) : '—'],
         [b.passLabel, p.passes ?? '—'],
-        [cfLabel, p.observations ?? '—'],
-    ].map(([k, v]) => `<div><span class="dd-secondary">${k}</span><span>${v}</span></div>`).join('');
+        [p.passes && p.observations != null
+            ? `Cloud-free (${pct(p.observations / p.passes)})`
+            : 'Cloud-free obs.', p.observations ?? '—'],
+    ].map(([k, v]) => `<div><span class="dd-secondary">${k}</span>`
+        + `<span>${v}</span></div>`).join('');
     return `
         <div class="info-stats">${stats}</div>
         <div class="intensity-chart" id="intensity-chart"></div>
@@ -178,35 +154,30 @@ function seriesHtml(p, b) {
             </div>
             <div class="events-list custom-scroll" id="events-list"></div>
         </div>
-        ${b.actions ? `<div class="dd-btn-pair panel-actions">${b.actions}</div>` : ''}`;
+        ${b.actions ? `<div class="dd-btn-pair panel-actions">
+            ${b.actions}</div>` : ''}`;
 }
 
 function seriesShow(p, el, b) {
     greyCircles(true);
-    // the card shows only detections in the selected quarter window. a feature
-    // carries no list of dates — the series is fetched per site, here, so the
-    // big detections parquet (and its footer) loads lazily behind the card. a
-    // failed fetch says so; it used to sit on 'Loading…' for good.
+    // the series is read per site on open, then windowed to the ticked
+    // quarters; a failed read lists nothing rather than loading for good
     const qKeys = quarterKeys();
-    el.querySelector('#events-list').innerHTML = '<div class="events-empty">Loading…</div>';
+    el.querySelector('#events-list').innerHTML =
+        '<div class="events-empty">Loading…</div>';
     b.fetch(p)
         .then(dets => dets.filter(d => dateInQuarters(d.date, qKeys)))
-        .catch(err => { console.error('detection series error:', err); return []; })
+        .catch(err => (console.error('detection series:', err), []))
         .then(dets => { if (current === p) renderEvents(el, dets, b); });
     b.wire?.(el);
-}
-
-function seriesClose() {
-    clearFootprint();
-    dimSatellite(map, false);
-    greyCircles(false);
 }
 
 function renderEvents(el, detections, b) {
     currentDets = detections;
     const list = el.querySelector('#events-list');
     list.innerHTML = '';
-    const sorted = [...detections].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const sorted = [...detections]
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
     const dateToItem = new Map();
     let firstItem = null;
 
@@ -216,15 +187,18 @@ function renderEvents(el, detections, b) {
         item.dataset.date = det.date;
         item.innerHTML = `
             <span class="event-date">${formatDate(det.date)}</span>
-            <span class="event-meta event-meta-val">${b.cfg.formatVal(det)}</span>
-            <span class="event-meta event-meta-count">${b.cfg.formatCount(det)}</span>`;
+            <span class="event-meta event-meta-val">${
+                b.cfg.formatVal(det)}</span>
+            <span class="event-meta event-meta-count">${
+                b.cfg.formatCount(det)}</span>`;
         item.onclick = () => selectDetection(det, item, b);
         list.appendChild(item);
         dateToItem.set(det.date, { det, item });
         firstItem ??= { det, item };
     }
 
-    renderIntensityChart(el, detections, b.cfg, det => {
+    const chart = el.querySelector('#intensity-chart');
+    renderChart(chart, detections, b.cfg, det => {
         const entry = dateToItem.get(det.date);
         if (entry) {
             selectDetection(entry.det, entry.item, b);
@@ -232,113 +206,24 @@ function renderEvents(el, detections, b) {
         }
     });
 
-    const MAX_VISIBLE_ROWS = window.innerWidth <= 768 ? 4 : 10;
+    const rows = window.innerWidth <= 768 ? 4 : 10;
     const items = list.querySelectorAll('.event-item');
-    if (items.length > 0) {
-        list.style.maxHeight = (items[0].offsetHeight * Math.min(items.length, MAX_VISIBLE_ROWS)) + 'px';
+    if (items.length) {
+        list.style.maxHeight =
+            `${items[0].offsetHeight * Math.min(items.length, rows)}px`;
     } else {
-        el.querySelector('#intensity-chart').innerHTML = '';
+        chart.innerHTML = '';
         list.innerHTML = '<div class="events-empty">No detections</div>';
     }
 
-    if (firstItem && !_skipAuto) selectDetection(firstItem.det, firstItem.item, b);
+    if (firstItem && !skipAuto)
+        selectDetection(firstItem.det, firstItem.item, b);
 }
 
 function selectDetection(det, item, b) {
-    document.querySelectorAll('.event-item').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.event-item')
+        .forEach(el => el.classList.remove('active'));
     item.classList.add('active');
     selectedDetection = det;
     b.select(det);
-}
-
-// ── intensity chart ──
-
-function renderIntensityChart(el, detections, cfg, onSelectDate) {
-    const container = el.querySelector('#intensity-chart');
-    if (!detections?.length) { container.innerHTML = ''; return; }
-
-    const sorted = [...detections].sort((a, b) => new Date(a.date) - new Date(b.date));
-    const margin = { top: 8, right: 8, bottom: 16, left: 8 };
-    const width = 268, height = 50;
-    const innerW = width - margin.left - margin.right;
-    const innerH = height - margin.top - margin.bottom;
-
-    const dates = sorted.map(d => new Date(d.date));
-    const minDate = Math.min(...dates);
-    const maxDate = Math.max(...dates);
-    const dateRange = maxDate - minDate || 1;
-
-    let svg = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">`;
-    svg += `<line x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}" stroke="#808080" stroke-width="1"/>`;
-
-    const firstYear = new Date(minDate).getFullYear();
-    const lastYear = new Date(maxDate).getFullYear();
-    for (let y = firstYear + 1; y <= lastYear; y++) {
-        const jan1 = new Date(y, 0, 1).getTime();
-        const x = margin.left + ((jan1 - minDate) / dateRange) * innerW;
-        svg += `<line x1="${x}" y1="${margin.top}" x2="${x}" y2="${height - margin.bottom}" stroke="#4D4D4D" stroke-width="0.5"/>`;
-        svg += `<text x="${x}" y="${height - 2}" fill="#808080" font-size="8" text-anchor="middle">${y}</text>`;
-    }
-
-    sorted.forEach((det, i) => {
-        const date = new Date(det.date);
-        const x = margin.left + ((date - minDate) / dateRange) * innerW;
-        const val = cfg.yVal(det);
-        if (cfg.sentinel && val >= cfg.sentinel) return;
-        const t = Math.max(0, Math.min(1, chartNorm(cfg, val)));
-        const y = margin.top + innerH - t * innerH;
-        svg += `<circle class="chart-dot" cx="${x}" cy="${y}" r="2.5" fill="#FFFFFF" data-idx="${i}"/>`;
-    });
-
-    container.innerHTML = svg + '</svg>';
-    container.querySelectorAll('.chart-dot').forEach(dot => {
-        dot.addEventListener('click', e => onSelectDate(sorted[parseInt(e.target.dataset.idx)]));
-    });
-}
-
-// ── map overlays shared by the flaring bodies ──
-
-// both flaring layers, because imagery under one of them is imagery under the
-// other: they draw the same place from two instruments
-function greyCircles(grey) {
-    for (const id of ['detections', 'vnf'])
-        if (map.getLayer(id)) map.setPaintProperty(id, 'icon-opacity', grey ? 0.35 : 1);
-}
-
-const FOOTPRINT = 'detection-footprint';   // the layer id and its image source
-
-// tear down the footprint overlay (idempotent)
-export function clearFootprint() {
-    if (map.getLayer(FOOTPRINT)) map.removeLayer(FOOTPRINT);
-    if (map.getSource(FOOTPRINT)) map.removeSource(FOOTPRINT);
-}
-
-// a radial-gradient halo at a detection's own point, coloured and sized by
-// intensity: neither flaring family publishes a scene, so this is what a
-// selected date draws. each passes its own quantity — radiant heat and B12
-// reflectance are not comparable, only their places on the ramp are. it goes in
-// under 'detections', so both families' markings stay above it.
-export function heatFootprint({ lon, lat, val, radiusM, cfg }) {
-    clearFootprint();
-    if (!(val > 0)) return;
-
-    const size = 128;
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = size;
-    const ctx = canvas.getContext('2d');
-    const [r, g, b] = rampRGB(scaleT(cfg, val));
-    const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-    for (const [stop, alpha] of [[0, 0.85], [0.3, 0.5], [0.7, 0.15], [1, 0]])
-        grad.addColorStop(stop, `rgba(${r},${g},${b},${alpha})`);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, size, size);
-
-    const dLat = degLat(radiusM), dLon = degLon(radiusM, lat);
-    map.addSource(FOOTPRINT, { type: 'image', url: canvas.toDataURL(),
-        coordinates: [[lon - dLon, lat + dLat], [lon + dLon, lat + dLat],
-                      [lon + dLon, lat - dLat], [lon - dLon, lat - dLat]] });
-    map.addLayer({ id: FOOTPRINT, type: 'raster', source: FOOTPRINT,
-        paint: { 'raster-opacity': 1 } }, 'detections');
-    greyCircles(true);
-    dimSatellite(map, true);
 }

@@ -2,8 +2,7 @@
 
 Measured 2026-08-18 against the live archive, in headless Chromium, with the
 vendor assets served locally. The link to `s3.WAW3-2.cloudferro.com` has a
-~35 ms round trip. The sibling record for card opens is
-`vnf-card-latency.md`.
+~35 ms round trip.
 
 ## What we measured
 
@@ -85,8 +84,7 @@ object either way.
    full-object requests, so they cache normally once the header exists.
    `public, max-age=300` matches what `index.json` already gets. Today only
    heuristic caching applies, and it expires in minutes on a fresh upload.
-2. **A proxied hostname in front of the bucket** (`vnf-card-latency.md` §3,
-   still not done). HTTP/2 multiplexes the ranged tier, the edge caches the
+2. **A proxied hostname in front of the bucket** (still not done). HTTP/2 multiplexes the ranged tier, the edge caches the
    prefetched objects, and every object is now under the 512 MB cache
    ceiling.
 3. **An order contract for `data-desk/detections`.** The plume read prunes 26

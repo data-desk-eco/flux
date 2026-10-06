@@ -1,93 +1,103 @@
-// the data table drawer: a mid-right handle drags open a tabbed table of raw
-// rows — viewport-filtered when rows carry lat/lon, substring-searched, sortable
-// by column, capped with an in-view count. clicking a row flies to it and opens
-// its card (or the tab's own pick hook).
+// the data table drawer: a handle on the right edge drags open a tabbed table
+// of rows, filtered to the viewport, searchable, sortable and capped. a row
+// click flies to it and opens its card.
 //
 // config.table: [{
 //   label,                        tab text
-//   rows: ctx => rows | Promise,  row objects; a promise is resolved once, a
-//                                 sync return re-read on every render
-//   cols: [names],                column subset/order (default: keys of row 0)
-//   lat, lon: 'lat', 'lon',       coord columns (viewport filter + fly)
-//   pick: (row, ctx) => {},       row click; default opens detail by idProp
-//   filter: false,                opt out of the key's filter pipeline, which
-//                                 every tab follows by default — for a tab
-//                                 whose rows are not feature properties
+//   rows: ctx => rows | Promise,  a promise is a read, held; a plain return
+//                                 is a projection of moving state, re-run
+//   cols: [names],                default: the keys of row 0
+//   filter: false,                opt out of the key's filters, for rows
+//                                 that are not feature properties
 // }]
 
-import { escapeHtml, tableRows } from './util.js';
+import { escapeHtml } from './util.js';
 import { viewportBbox } from './map.js';
 import { showDetail } from './detail.js';
 
-const MIN = 300;
-const fmt = v => typeof v === 'number' && !Number.isInteger(v) ? +v.toFixed(3) : v;
+const MIN = 300, CAP = 500;
+const fmt = v => typeof v === 'number' && !Number.isInteger(v)
+    ? +v.toFixed(3) : v;
+const inView = ([w, s, e, n]) => r => r.lat == null
+    || (r.lat >= s && r.lat <= n && r.lon >= w && r.lon <= e);
+// nulls last, whichever way the sort runs
+const by = (col, dir) => ({ [col]: x }, { [col]: y }) =>
+    x == null ? 1 : y == null ? -1 : (x < y ? -1 : x > y ? 1 : 0) * dir;
 
 export function initTable(ctx) {
     const tabs = ctx.config.table, cache = [];
-    let width = 0, active = 0, sortCol = null, sortDir = 1, q = '', selected = null, shown = [];
+    let width = 0, active = 0, sortCol = null, sortDir = 1, q = '';
+    let selected = null, shown = [];
 
+    const tabHtml = (t, i) => `<button class="fx-opt${i ? '' : ' active'}"`
+        + ` data-tab="${i}">${escapeHtml(t.label)}</button>`;
     document.body.insertAdjacentHTML('beforeend', `
         <div class="fx-drawer">
             <div class="fx-drawer-head">
-                <div class="dd-toggle">${tabs.map((t, i) =>
-                    `<button class="fx-opt${i ? '' : ' active'}" data-tab="${i}">${escapeHtml(t.label)}</button>`
-                ).join('<span class="dd-toggle-divider"></span>')}</div>
-                <input type="search" class="fx-search fx-drawer-q" placeholder="Search" spellcheck="false">
+                <div class="dd-toggle">${tabs.map(tabHtml)
+                    .join('<span class="dd-toggle-divider"></span>')}</div>
+                <input type="search" class="fx-search fx-drawer-q"
+                    placeholder="Search" spellcheck="false">
             </div>
-            <div class="fx-drawer-wrap custom-scroll"><table class="fx-table"></table></div>
+            <div class="fx-drawer-wrap custom-scroll">
+                <table class="fx-table"></table></div>
             <div class="fx-drawer-foot dd-secondary"></div>
         </div>
         <div class="fx-drawer-handle"><span>Data table</span></div>`);
-    const [drawer, handle] = document.querySelectorAll('.fx-drawer, .fx-drawer-handle');
+    const [drawer, handle] =
+        document.querySelectorAll('.fx-drawer, .fx-drawer-handle');
     const el = sel => drawer.querySelector(sel);
 
-    // the drag is the only thing that sets the width — a re-render never
-    // resizes the drawer to its rows, so a search that matches nothing leaves
-    // it exactly where the user put it.
-    // map keeps full width; padding shifts its logical centre, the detail
-    // panel slides over
+    // only the drag sets the width, never the rows. the map keeps its width
+    // and is padded; the detail panel slides over
     const setWidth = w => {
         width = w;
         drawer.style.width = w + 'px';
-        drawer.style.borderLeftWidth = w ? '1px' : '0';   // no 1px sliver when shut
+        drawer.style.borderLeftWidth = w ? '1px' : '0';
         handle.style.right = w + 'px';
         ctx.map.setPadding({ right: w });
-        document.getElementById('detail')?.style.setProperty('right', w ? w + 'px' : '');
-        // search box only once there's room for it beside the tabs (which
-        // keep their natural width — the css never stretches or shrinks them).
-        // visibility, not display: it stays in layout so the head never
-        // changes height as the drawer crosses the threshold
-        el('.fx-drawer-q').style.visibility = w < el('.dd-toggle').offsetWidth + 200 ? 'hidden' : '';
+        document.getElementById('detail')
+            ?.style.setProperty('right', w ? w + 'px' : '');
+        // search only once there is room beside the tabs. visibility, not
+        // display, so the head never changes height
+        el('.fx-drawer-q').style.visibility =
+            w < el('.dd-toggle').offsetWidth + 200 ? 'hidden' : '';
     };
 
     async function render() {
         if (width < MIN) return;
         const t = tabs[active];
-        // an async rows() is a read: fetched once. a sync one is a projection of
-        // state the app keeps moving — a source it re-sets on the window — so it
-        // runs every render and the table follows.
         const src = cache[active] ?? t.rows(ctx);
         if (src instanceof Promise) cache[active] = src;
         let all = await src;
-        if (t.filter !== false && ctx.preds?.length) all = all.filter(r => ctx.preds.every(p => p(r)));
+        if (t.filter !== false && ctx.preds?.length)
+            all = all.filter(r => ctx.preds.every(p => p(r)));
         const cols = t.cols || Object.keys(all[0] || {});
-        const { rows, total } = tableRows(all, {
-            cols, q, sortCol, sortDir, lat: t.lat, lon: t.lon, bounds: viewportBbox(ctx.map) });
-        shown = rows;
-        el('.fx-table').innerHTML = rows.length ? `
-            <thead><tr>${cols.map(c => `<th data-col="${escapeHtml(c)}">${escapeHtml(c)}${
-                sortCol === c ? (sortDir > 0 ? ' ↑' : ' ↓') : ''}</th>`).join('')}</tr></thead>
-            <tbody>${rows.map((r, i) => `<tr data-i="${i}"${r === selected ? ' class="selected"' : ''}>${
-                cols.map(c => `<td>${r[c] == null ? '' : escapeHtml(fmt(r[c]))}</td>`).join('')}</tr>`).join('')}</tbody>`
-            : '<tbody><tr><td class="fx-drawer-empty dd-secondary">No rows in view</td></tr></tbody>';
-        el('.fx-drawer-foot').textContent =
-            (total > rows.length ? `${rows.length.toLocaleString()} of ` : '') + `${total.toLocaleString()} in view`;
+        const hits = all.filter(inView(viewportBbox(ctx.map))).filter(r => !q
+            || cols.some(c => String(r[c] ?? '').toLowerCase().includes(q)));
+        if (sortCol) hits.sort(by(sortCol, sortDir));
+        const rows = shown = hits.slice(0, CAP);
+        const th = c => `<th data-col="${escapeHtml(c)}">${escapeHtml(c)}`
+            + `${sortCol === c ? (sortDir > 0 ? ' ↑' : ' ↓') : ''}</th>`;
+        const tr = (r, i) => `<tr data-i="${i}"`
+            + `${r === selected ? ' class="selected"' : ''}>` + cols.map(c =>
+                `<td>${r[c] == null ? '' : escapeHtml(fmt(r[c]))}</td>`)
+                .join('') + '</tr>';
+        el('.fx-table').innerHTML = rows.length
+            ? `<thead><tr>${cols.map(th).join('')}</tr></thead>`
+                + `<tbody>${rows.map(tr).join('')}</tbody>`
+            : '<tbody><tr><td class="fx-drawer-empty dd-secondary">'
+                + 'No rows in view</td></tr></tbody>';
+        el('.fx-drawer-foot').textContent = (hits.length > rows.length
+            ? `${rows.length.toLocaleString()} of ` : '')
+            + `${hits.length.toLocaleString()} in view`;
     }
 
-    // default row pick: match a source feature on the detail id and open it
+    // open the source feature carrying the row's id
     const pick = r => {
         const idp = ctx.config.detail?.idProp || 'id';
-        const f = Object.values(ctx.sources).flatMap(s => s.features).find(f => f.properties[idp] === r[idp]);
+        const f = Object.values(ctx.sources).flatMap(s => s.features)
+            .find(f => f.properties[idp] === r[idp]);
         if (f) showDetail(f);
     };
 
@@ -97,18 +107,20 @@ export function initTable(ctx) {
         const tr = e.target.closest('tr[data-i]');
         if (tab) {
             active = +tab.dataset.tab;
-            sortCol = null; selected = null;
-            drawer.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b === tab));
+            sortCol = selected = null;
+            drawer.querySelectorAll('[data-tab]')
+                .forEach(b => b.classList.toggle('active', b === tab));
         } else if (th) {
             sortDir = sortCol === th.dataset.col ? -sortDir : 1;
             sortCol = th.dataset.col;
         } else if (tr) {
-            const t = tabs[active], r = shown[+tr.dataset.i];
-            selected = r;
-            const lat = Number(r[t.lat || 'lat']), lon = Number(r[t.lon || 'lon']);
-            if (isFinite(lat) && isFinite(lon))
-                ctx.map.flyTo({ center: [lon, lat], zoom: Math.max(ctx.map.getZoom(), ctx.config.detail?.flyZoom ?? 15) });
-            (t.pick || pick)(r, ctx);
+            const r = selected = shown[+tr.dataset.i];
+            const lat = Number(r.lat), lon = Number(r.lon);
+            if (isFinite(lat) && isFinite(lon)) ctx.map.flyTo({
+                center: [lon, lat],
+                zoom: Math.max(ctx.map.getZoom(),
+                    ctx.config.detail?.flyZoom ?? 15) });
+            pick(r);
         } else return;
         render();
     });
@@ -122,11 +134,13 @@ export function initTable(ctx) {
 
     handle.addEventListener('pointerdown', e => {
         e.preventDefault();
-        try { handle.setPointerCapture(e.pointerId); } catch {}   // synthetic events have no active pointer
+        // a synthetic event has no active pointer to capture
+        try { handle.setPointerCapture(e.pointerId); } catch {}
         const sx = e.clientX, sw = width;
         const move = ev => {
             const was = width;
-            setWidth(Math.max(0, Math.min(innerWidth - 340, sw + sx - ev.clientX)));
+            setWidth(Math.max(0,
+                Math.min(innerWidth - 340, sw + sx - ev.clientX)));
             if (width >= MIN && was < MIN) render();
         };
         handle.addEventListener('pointermove', move);

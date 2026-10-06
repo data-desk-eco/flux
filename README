@@ -33,6 +33,7 @@ Where things live:
 
   web/config.js      the whole app declaration, and the orchestration around it
   web/layers.js      marking, ramp and colour policy for every layer
+  web/key.js         the key: a group of colour bands per family
   web/shell/         the map shell: mount, panels, key, quarters, card, drawer
   web/card/          one card header, one body per feature kind
   web/nearby.js      the "also here" row across the families
@@ -40,11 +41,9 @@ Where things live:
   web/methane/       plume reader, attribution, candidates, licences, overlay
   web/vendor/        the dd design system, DuckDB, MapLibre, Inter
 
-web/shell/ was the cartograph library until August 2026, vendored into three
-maps. The other two now forward here, so it lives in the tree it serves: one
-copy, no vendor step, and no generality kept for a consumer that no longer
-exists. CLAUDE.md carries the invariants — read them before changing how a rate
-is computed.
+web/shell/ was the cartograph library until August 2026; the other maps that
+vendored it now forward here, so it is first-party code. CLAUDE.md carries the
+invariants: read them before changing how a rate is computed.
 
 Zero npm dependencies. MapLibre GL and DuckDB-Wasm are vendored; everything else
 is browser built-ins.

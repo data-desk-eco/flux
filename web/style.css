@@ -1,50 +1,32 @@
-/* flux's own ui, on top of shell/shell.css and vendor/dd/map.css (the data desk
-   design system). the panel, key, detail and modal furniture is the shell's;
-   what lives here is the four-group key's short-viewport layout, the card
-   internals and the intro modal's extras. */
+/* flux's own ui over shell/shell.css and the dd design system: the key's
+   short-viewport layout, the card internals and the intro modal's extras. */
 
-/* the panel must never scroll: the reader has no reason to look for a control
-   that is off the bottom of it. the two rules that hold that are the worldmap's
-   media query below and the key's side-by-side switch under it, and both are
-   sized against a panel of 536px — dd head, worldmap, search, quarter grid and
-   the persistence slider, at the 38px section gap. */
-
-/* the worldmap is the first thing to go where the panel would otherwise scroll:
-   a scrollbar hides controls the reader has no reason to look for, and this is
-   a locator, not data. 718px is where the panel stops fitting above the key —
-   its 533px of content against the max-height the rule below leaves it. */
+/* the panel must never scroll, so the worldmap (a locator, not data) goes
+   first: 718px is where its 533px of content stops fitting above the key */
 @media (max-height: 718px) { #worldmap { display: none; } }
 
 /* --- key: four groups on a short viewport --- */
 
-/* the dd rule lays the groups side by side on viewports too short for the stack
-   to clear the main panel. the shell switches at 960px, for two groups sharing
-   the left column's width; four groups stacked are 465px against a 536px panel,
-   so the stack only clears from 1040px — and side by side they need more than
-   the column. so: switch later, and size the key to its own content at gap L,
-   the only panel on that row. */
+/* groups go side by side where the stack would not clear the 536px panel:
+   four stacked are 465px, so from 1040px, sized to their own content */
 @media (max-height: 1040px) and (min-width: 769px) {
     .fx-key { flex-direction: row; justify-content: space-between;
               width: auto; max-width: calc(100vw - 60px); gap: 38px; }
-    /* each column is as wide as the wider of its rows and its title. the title
-       used to ride the rows' width instead, which kept the key tight until a
-       title outgrew the 38px gap: then it ran into the next column, and the
-       last one ate the panel's right padding. */
+    /* a column is as wide as the wider of its rows and its title */
     .fx-key-section { min-width: 0; }
     .fx-key-head { white-space: nowrap; }
-    /* and the main panel stops above the key rather than running through it —
-       panels must never overlap. 155px is the tallest the key gets side by
-       side: a label over the four methane bands, plus its own padding. */
+    /* panels never overlap: the key is at most 155px tall side by side */
     .fx-main { max-height: calc(100vh - 185px); }
 }
 
 /* --- detail card internals --- */
 
-/* "also here", the one row only the merged app can draw. its slot is refilled
-   as the other layers read, and collapses rather than spending a section gap */
+/* "also here": an empty slot collapses rather than spend a section gap */
 #nearby-slot:empty { display: none; }
 .also-here { display: flex; justify-content: space-between; gap: 11px; }
-.also-here button { background: none; border: none; padding: 0; font: inherit; color: var(--dd-ui-text); text-decoration: underline; cursor: pointer; }
+.also-here button { background: none; border: none; padding: 0;
+    font: inherit; color: var(--dd-ui-text); text-decoration: underline;
+    cursor: pointer; }
 .also-here button:hover { color: var(--dd-ui-text-secondary); }
 
 .info-stats { display: flex; flex-direction: column; gap: 6px; }
@@ -54,11 +36,15 @@
 .intensity-chart svg { width: 100%; height: 56px; display: block; }
 .intensity-chart .chart-dot { cursor: pointer; }
 
-.events-header { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; padding: 0 7px; margin-bottom: 6px; }
-.events-list { overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
-.event-item { grid-template-columns: 1fr auto auto; gap: 8px; display: grid; cursor: pointer; padding: 2px 6px; }
+.events-header, .event-item { display: grid;
+    grid-template-columns: 1fr auto auto; gap: 8px; }
+.events-header { padding: 0 7px; margin-bottom: 6px; }
+.events-list { overflow-y: auto; display: flex; flex-direction: column;
+    gap: 3px; }
+.event-item { cursor: pointer; padding: 2px 6px; }
 .event-item:hover { background: var(--dd-ui-hover); }
-.event-item.active { background: var(--dd-ui-active-background); color: var(--dd-ui-active-text); }
+.event-item.active { background: var(--dd-ui-active-background);
+    color: var(--dd-ui-active-text); }
 .col-right, .event-meta { text-align: right; }
 .col-val, .event-meta-val { width: 36px; }
 .col-count, .event-meta-count { width: 32px; }
@@ -69,20 +55,23 @@
 .plume-badges { display: flex; gap: 11px; }
 
 .plume-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 15px 11px; }
-.plume-stat-big { font-size: 14px; display: flex; align-items: center; gap: 4px; }
+.plume-stat-big { font-size: 14px; display: flex; align-items: center;
+    gap: 4px; }
 .plume-wind { width: 13px; height: 13px; flex-shrink: 0; }
 .plume-wind path { fill: none; stroke: currentColor; stroke-width: 2;
     stroke-linecap: round; stroke-linejoin: round; }
 
 .plume-analysis { display: flex; flex-direction: column; gap: 11px; }
-.plume-attrib { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.plume-attrib { display: flex; align-items: baseline; gap: 8px;
+    flex-wrap: wrap; }
 .plume-para { color: var(--dd-ui-text); }
 .plume-evidence a { color: var(--dd-ui-text-secondary); text-decoration: none; }
 .plume-evidence a:hover { color: var(--dd-ui-text); }
 
 /* --- intro modal: the coverage worldmap and the sources under it --- */
 
-.region-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 25px; margin-bottom: 14px; }
+.region-row { display: flex; justify-content: space-between;
+    align-items: flex-start; gap: 25px; margin-bottom: 14px; }
 .region-row .dd-secondary { margin-bottom: 6px; }
 .region-row svg { width: 170px; flex-shrink: 0; }
 .methods { margin-top: 14px; }
