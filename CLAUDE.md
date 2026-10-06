@@ -44,9 +44,9 @@ independently so a missing one costs its own rows. `methane/attribution.js`
 stamps ch4id's attributions on, `methane/candidates.js` reads the
 `infrastructure` tables around an open plume card and nowhere else — there is
 no standing infrastructure layer and no key group for one — `methane/overlay.js`
-drapes a
-Data Desk probability surface, and `methane/licences.js` draws MapStand acreage
-in the private build only.
+drapes a Data Desk probability surface, `methane/mask.js` reads the open plume's
+outline from its provider's `masks` table, one row per card, and
+`methane/licences.js` draws MapStand acreage in the private build only.
 
 no module names an archive object. `<meta name="data-bucket">` gives the bucket
 and `index.json` says which object each table is and whether it is partitioned,
@@ -83,6 +83,7 @@ web/
     candidates.js    infrastructure candidates around an open plume card only
     licences.js      MapStand licence acreage (private build)
     overlay.js       the MARS-S2L probability surface over the basemap
+    mask.js          the open plume's outline, from its provider's `masks`
     sweep.js         the viewport sweep licence acreage runs
   shell/             the map shell: app.js mount, map.js basemap, ui.js panels
                      and key, detail.js card, table.js drawer, quarters.js grid,

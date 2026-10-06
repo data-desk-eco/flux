@@ -1,13 +1,15 @@
 // the methane plume body. its html is a sync skeleton: `show` fires enrich(),
 // which races the open-meteo wind fetch and the attribution lookup into
 // #stat-wind and #analysis behind a request-id guard, then draws the candidate
-// sources around the plume. closing takes both down.
+// sources around the plume, and reads the plume's mask (methane/mask.js).
+// closing takes them all down.
 
 import { escapeHtml, formatDate } from '../shell/util.js';
 import { enrich } from '../methane/attribution.js';
 import { clearSelection } from '../methane/candidates.js';
 import { clearProbabilityOverlay, showProbabilityOverlay } from '../methane/overlay.js';
 import { label, rateT, enhT } from '../methane/plumes.js';
+import { clearMask, showMask } from '../methane/mask.js';
 
 let archive = '';
 
@@ -51,6 +53,6 @@ export default {
             <div class="dd-secondary">Analysis</div>
             <div id="analysis" class="dd-secondary">Loading…</div>
         </div>`,
-    show: p => { enrich(p); showProbabilityOverlay(p, overlayUrl(p)); },
-    close: () => { clearSelection(); clearProbabilityOverlay(); },
+    show: p => { enrich(p); showProbabilityOverlay(p, overlayUrl(p)); showMask(p); },
+    close: () => { clearSelection(); clearProbabilityOverlay(); clearMask(); },
 };

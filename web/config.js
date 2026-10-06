@@ -39,6 +39,7 @@ import { initPlumes, isPlume, label, readPlumes, availableQuartersPlumes, readPl
 import { addCandidateLayers } from './methane/candidates.js';
 import { LICENCE_LAYERS, addLicenceLayers } from './methane/licences.js';
 import { initProbabilityOverlay } from './methane/overlay.js';
+import { initMask } from './methane/mask.js';
 
 // legacy deep links: #vnf/123 -> #vnf=123 (the shell's hash params), which the
 // site resolver then reads whichever family the id belongs to
@@ -628,6 +629,7 @@ mount({
         initCard({ map: ctx.map, archive: ARCHIVE, quarterKeys: () => ctx.quarters.keys() });
         initNearby(ctx.map, nearbyGroups);
         initProbabilityOverlay(ctx.map);
+        initMask(ctx.map);
         addCandidateLayers(ctx.map, ctx.sql);
 
         // the intro modal's one live part: the archive's coverage, drawn as
