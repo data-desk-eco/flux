@@ -82,7 +82,7 @@ export function addCandidateLayers(m, sql, before = 'plumes') {
         data: { type: 'FeatureCollection', features: [] } });
     map.addLayer({
         id: 'candidates-hit', type: 'circle', source: 'candidates',
-        paint: { 'circle-radius': 12, 'circle-opacity': 0,
+        paint: { 'circle-radius': 22, 'circle-opacity': 0,
                  'circle-stroke-width': 0 },
     }, before);
     // the attributed one is told apart by shape and size, not a tint
