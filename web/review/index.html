@@ -41,6 +41,22 @@
         .rv-act .dd-btn.dd-active { background: var(--dd-ui-active-background);
                                     color: var(--dd-ui-active-text); }
         .rv-tabs { display: flex; gap: 11px; }
+        /* the queue's view: an order and two filters, in the tabs' idiom */
+        .rv-view { display: flex; flex-wrap: wrap; align-items: center;
+                   gap: 6px 15px; color: var(--dd-ui-text-secondary); }
+        .rv-view label { display: flex; align-items: center; gap: 6px;
+                         cursor: pointer; }
+        .rv-view select { background: none; color: var(--dd-ui-text);
+                          font: inherit; border: none; padding: 0;
+                          cursor: pointer; outline: none; }
+        .rv-view option { background: var(--dd-ui-background); }
+        .rv-view input { appearance: none; margin: 0; width: 9px; height: 9px;
+                         border: 1px solid var(--dd-ui-text-secondary);
+                         cursor: pointer; }
+        .rv-view input:checked { background: var(--dd-ui-text);
+                                 border-color: var(--dd-ui-text); }
+        .rv-view select { field-sizing: content; }
+        .rv-conf { display: flex; gap: 8px; }
         .rv-item.done > :not(.dd-heading) { display: none; }
         /* the agent's transcript, read when opened: its own scroll, so the
            list's does not move */
@@ -65,6 +81,17 @@
         <header class="dd-gap" style="gap:8px">
             <div class="dd-heading"><span class="dd-title">Attribution review</span></div>
             <div class="rv-tabs" id="tabs">Loading</div>
+            <form class="rv-view" id="view">
+                <label>Order by <select name="order">
+                    <option value="run">Run</option>
+                    <option value="date">Plume date</option>
+                    <option value="rate">Rate</option></select></label>
+                <label><input type="checkbox" name="feat"> With features</label>
+                <span class="rv-conf">Confidence
+                <button type="button" class="fx-opt active" data-c="high">High</button>
+                <button type="button" class="fx-opt active" data-c="medium">Medium</button>
+                <button type="button" class="fx-opt active" data-c="low">Low</button></span>
+            </form>
         </header>
         <div class="rv-list custom-scroll" id="list"></div>
     </aside>
@@ -196,10 +223,21 @@ let tab = 'open', shown = [], sel;
 function tabs() {
     $('tabs').innerHTML = Object.entries(TABS).map(([k, t]) =>
         `<button class="fx-opt${k === tab ? ' active' : ''}" data-tab="${k}">
-        ${t.label} ${t.rows().length}</button>`).join('');
+        ${t.label} ${view(t.rows()).length}</button>`).join('');
+}
+// the view over a tab: the tab's own order unless another is asked for,
+// newest plume or highest rate first, a plume without either last
+const by = { date: r => r.pdate ?? '', rate: r => r.rate_kg_h ?? -1 };
+function view(rows) {
+    const f = $('view'), k = by[f.order.value];
+    const cs = [...f.querySelectorAll('[data-c].active')].map(b => b.dataset.c);
+    rows = rows.filter(r => cs.includes(r.confidence)
+        && (!f.feat.checked || r.attributed_ids?.length));
+    return k ? rows.sort((a, b) => k(b) > k(a) ? 1 : k(b) < k(a) ? -1 : 0)
+        : rows;
 }
 function render(t) {
-    tab = t, sel = null, shown = TABS[t].rows();
+    tab = t, sel = null, shown = view(TABS[t].rows());
     list.innerHTML = shown.map((r, i) =>
         `<article class="rv-item" data-i="${i}">${inner(r)}</article>`).join('')
         || `<p class="dd-secondary" style="padding-top:25px">${t === 'open'
@@ -324,6 +362,9 @@ list.addEventListener('toggle', e => e.target.matches?.('.rv-tx')
     && openTranscript(e.target), true);
 $('tabs').addEventListener('click', e =>
     e.target.dataset.tab && render(e.target.dataset.tab));
+$('view').addEventListener('change', () => render(tab));
+$('view').addEventListener('click', e => e.target.dataset.c
+    && (e.target.classList.toggle('active'), render(tab)));
 render('open');
     </script>
 </body>

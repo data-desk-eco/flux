@@ -1,10 +1,9 @@
-// the methane plume body. its html is a sync skeleton: `show` fires enrich(),
-// which races the open-meteo wind fetch and the attribution lookup into
-// #stat-wind and #analysis behind a request-id guard, then draws the candidate
-// sources around the plume, and reads the plume's mask (methane/mask.js).
-// closing takes them all down.
+// the methane plume body. `show` fires enrich(), which fills #analysis with
+// the attribution behind a request-id guard and draws the candidate sources
+// around the plume, and reads the plume's mask (methane/mask.js). closing
+// takes them all down.
 
-import { escapeHtml, formatDate } from '../shell/util.js';
+import { escapeHtml, formatDate, compass } from '../shell/util.js';
 import { enrich } from '../methane/attribution.js';
 import { clearSelection } from '../methane/candidates.js';
 import { clearProbabilityOverlay, showProbabilityOverlay } from '../methane/overlay.js';
@@ -33,6 +32,18 @@ function overlayUrl(p) {
     return /^https?:/.test(p.overlay) ? p.overlay : `${archive}/${p.overlay.replace(/^\//, '')}?v=viridis`;
 }
 
+// the producer's wind at the plume. the arrow points the way it blows, which
+// is the way the plume drifts; a speed with no direction gets no arrow
+function wind({ wind_ms: ms, wind_from_deg: from }) {
+    if (ms == null) return '<div class="plume-stat-big">—</div>';
+    const arrow = from == null ? '' : `<svg class="plume-wind" viewBox="0 0 24 24"
+        style="transform: rotate(${(from + 180) % 360}deg)">
+        <path d="M12 4v16M12 4 7 9M12 4l5 5"/></svg>`;
+    const title = from == null ? '' : ` from ${compass(from)} (${from}°)`;
+    return `<div class="plume-stat-big" title="${ms.toFixed(1)} m/s${title}">
+        ${arrow} ${ms.toFixed(1)}</div>`;
+}
+
 export default {
     source: 'plumes',
     init: deps => { archive = deps.archive; },
@@ -45,7 +56,7 @@ export default {
         </div>
         <div class="plume-stats">
             <div><div class="plume-stat-big">${rateT(p) ?? (enhT(p) ? `~${enhT(p)}` : '—')}</div><div class="dd-secondary">${rateT(p) ? `t/hr${p.rate_std_kg_h ? ` ±${(p.rate_std_kg_h / 1000).toFixed(1)}` : ''}` : enhT(p) ? 'ppm·m enhancement' : '—'}</div></div>
-            <div id="stat-wind"><div class="plume-stat-big">…</div><div class="dd-secondary">wind</div></div>
+            <div>${wind(p)}<div class="dd-secondary">wind m/s</div></div>
             <div><div class="plume-stat-big">${escapeHtml(p.satellite || '—')}</div><div class="dd-secondary">satellite</div></div>
             <div><div class="plume-stat-big">${escapeHtml(p.date ? formatDate(p.date) : '—')}</div><div class="dd-secondary">date</div></div>
         </div>

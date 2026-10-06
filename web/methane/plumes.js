@@ -17,12 +17,14 @@ import { loadAttributions } from './attribution.js';
 // is what the key's rate bands and the detail card dispatch on.
 const PLUME_COLS = ['id', 'kind', 'provider', 'date', 'lat', 'lon', 'rate_kg_h',
     'rate_std_kg_h', 'satellite', 'sector', 'link', 'overlay', 'bounds'];
-// Nature Trace extension columns (a ppm·m modeled enhancement, not a mass rate).
+// extension columns: Nature Trace's ppm·m modelled enhancement (not a mass
+// rate), and the wind at the plume where its producer published one.
 // a second provider omits them rather than writes null, so they are only selected
 // over a union of all providers, never per provider — an object without them
 // would otherwise fail the SELECT. the display read unions to carry them; the
 // fallback reads base columns only, so it cannot grade confidence.
-const PLUME_EXT_COLS = ['observed_enh', 'confidence', 'cluster_size'];
+const PLUME_EXT_COLS = ['observed_enh', 'confidence', 'cluster_size',
+    'wind_ms', 'wind_from_deg'];
 // `detections` holds flares as well as plumes, and a data-desk retrieval the
 // producer does not trust rides along with valid = false
 const PLUME_WHERE = { kind: ['plume', 'plume'], valid: [true, true] };

@@ -1,10 +1,8 @@
-// plume source attribution — served entirely from the bulk agent-produced
-// dataset (attributions/data.parquet on the store, pushed by the sibling ch4id
-// repo), read in-browser via DuckDB. wind is fetched per plume from
-// open-meteo as an independent panel stat.
+// plume source attribution: ch4id's claims, read whole from
+// data-desk/attributions and drawn into the plume card's analysis slot.
 
 import { read } from '../shell/data.js';
-import { canon, escapeHtml, compass } from '../shell/util.js';
+import { canon, escapeHtml } from '../shell/util.js';
 import { selectPlume } from './candidates.js';
 
 let epoch = 0;
@@ -29,49 +27,6 @@ export function loadAttributions() {
             return new Map();
         }
     })();
-}
-
-// ── wind (independent panel stat) ──
-
-// daily vector-mean surface wind at the plume coordinate from open-meteo's
-// historical archive (no key, cors-friendly), so brief gusts in random
-// directions don't dominate. wind_direction is "FROM": convert to "TO" for
-// the vector sum so opposing winds cancel rather than averaging in direction
-// space (unstable around 0°/360°).
-async function fetchWind(lat, lon, dateISO) {
-    if (!dateISO) return null;
-    try {
-        const data = await (await fetch(`https://archive-api.open-meteo.com/v1/archive`
-            + `?latitude=${lat}&longitude=${lon}&start_date=${dateISO}&end_date=${dateISO}`
-            + `&hourly=wind_speed_10m,wind_direction_10m&wind_speed_unit=ms&timezone=auto`)).json();
-        const { wind_speed_10m: speeds, wind_direction_10m: dirs } = data.hourly || {};
-        if (!speeds) return null;
-        let u = 0, v = 0, n = 0;
-        for (let i = 0; i < speeds.length; i++) {
-            if (speeds[i] == null || dirs[i] == null) continue;
-            const radTo = ((dirs[i] + 180) % 360) * Math.PI / 180;
-            u += speeds[i] * Math.sin(radTo);
-            v += speeds[i] * Math.cos(radTo);
-            n++;
-        }
-        if (!n) return null;
-        u /= n; v /= n;
-        const toDeg = (Math.atan2(u, v) * 180 / Math.PI + 360) % 360;
-        return { speed: Math.hypot(u, v), fromDeg: (toDeg + 180) % 360, toDeg };
-    } catch { return null; }
-}
-
-// svg arrow rotated to point where the wind blows TO (the plume drift direction)
-function renderWind(wind) {
-    const el = document.getElementById('stat-wind');
-    if (!el) return;
-    if (!wind) { el.querySelector('.plume-stat-big').textContent = '—'; return; }
-    const speed = wind.speed.toFixed(1);
-    el.title = `${speed} m/s from ${compass(wind.fromDeg)} (${Math.round(wind.fromDeg)}°)`;
-    el.querySelector('.plume-stat-big').innerHTML = `
-        <svg class="plume-wind" viewBox="0 0 24 24" style="transform: rotate(${wind.toDeg}deg)">
-            <path d="M12 4 L12 20 M12 4 L7 9 M12 4 L17 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg> ${speed}`;
 }
 
 // ── attribution rendering ──
@@ -108,9 +63,6 @@ function recordHtml(rec) {
 export function enrich(p) {
     const e = ++epoch;
     const lat = Number(p.lat), lon = Number(p.lon);
-
-    fetchWind(lat, lon, p.date).then(w => { if (epoch === e) renderWind(w); });
-
     (async () => {
         const rec = (await loadAttributions()).get(canon(p.id)) || null;
         if (epoch !== e) return;

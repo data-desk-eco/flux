@@ -71,6 +71,8 @@
 .plume-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 15px 11px; }
 .plume-stat-big { font-size: 14px; display: flex; align-items: center; gap: 4px; }
 .plume-wind { width: 13px; height: 13px; flex-shrink: 0; }
+.plume-wind path { fill: none; stroke: currentColor; stroke-width: 2;
+    stroke-linecap: round; stroke-linejoin: round; }
 
 .plume-analysis { display: flex; flex-direction: column; gap: 11px; }
 .plume-attrib { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }

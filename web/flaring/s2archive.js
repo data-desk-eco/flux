@@ -6,57 +6,29 @@
 // the archive partitions a table past 250 MB on `cell` — an H3 index a reader
 // calculates from a position rather than discovers by listing — so passing the
 // cluster's cell is what keeps this reader correct on the day either splits.
-// `data-desk/coverage.geojson` gives the scanned AOI boxes the intro modal
-// draws; it is a named asset, not a table, so it stays named.
 
 import { read, memoised } from '../shell/data.js';
 import { objects } from '../shell/archive.js';
 import { quarterOf } from '../shell/util.js';
 
-let _base = '', _coverage = null, _initPromise = null, _flares = null, _rows = null;
-const inBox = ([w, s, e, n], c) => c.lon >= w && c.lon <= e && c.lat >= s && c.lat <= n;
+let _flares = null, _rows = null;
+const inBox = ([w, s, e, n], c) =>
+    c.lon >= w && c.lon <= e && c.lat >= s && c.lat <= n;
 
-// resolves once the coverage geojson has been fetched
-export const whenCovered = () => _initPromise ?? Promise.resolve();
+// start the whole-table read at page parse, so it downloads while maplibre
+// loads its style and tiles rather than on the first viewport
+export const initS2Archive = () => flares()
+    .catch(err => console.error('S2 archive warm-up failed:', err));
 
-// the published scanned-AOI boxes, for the intro modal's worldmap. polygons
-// only: the file states a flare AOI as a bare point, and the shell's featureBbox
-// walks a ring — the first of the 110 points threw out of the worldmap callback
-// and left the intro modal with no coverage drawn at all. null until it lands.
-export function coverageTiles() {
-    const features = _coverage?.features.filter(f => f.geometry?.type === 'Polygon'
-        || f.geometry?.type === 'MultiPolygon') ?? [];
-    return features.length ? { ..._coverage, features } : null;
+// what the archive covers, for the intro modal's worldmap: a point per
+// tenth of a degree holding a site, which minSize then draws as a box
+export async function coverage() {
+    const cells = new Map();
+    for (const { lat, lon } of await flares())
+        cells.set(`${Math.round(lat * 10)},${Math.round(lon * 10)}`,
+            [lon, lat, lon, lat]);
+    return [...cells.values()];
 }
-
-// remember the archive base url, start the whole-table read, and fetch the
-// coverage geojson (memoized). the two are independent: a missing coverage file
-// costs the modal its worldmap and nothing else.
-export function initS2Archive(base) {
-    _base = base.replace(/\/$/, '');
-    // the whole table is one object, so start pulling it here rather than on the
-    // first viewport: it downloads while maplibre loads its style and tiles
-    flares().catch(err => console.error('S2 archive warm-up failed:', err));
-    return _initPromise ??= fetch(`${_base}/data-desk/coverage.geojson`)
-        .then(r => r.json())
-        .then(g => { _coverage = g; })
-        .catch(err => console.warn('S2 coverage failed, no worldmap boxes:', err));
-}
-
-// one object for the whole table, so read it once and hold the rows: every
-// viewport and quarter indicator is then served from memory, where the old
-// per-tile cache served only the tiles a viewport had already touched.
-const flares = () => _flares ??= objects('flares', { provider: 'data-desk' })
-    .then(([u]) => {
-        // the archive partitions a table past 250 MB, and objects() then names
-        // nothing without a key — this whole-table read would quietly become
-        // zero rows and a blank map. it has to be the loud kind of broken.
-        if (!u) throw new Error('data-desk/flares names no object: the table has partitioned '
-            + 'and this reader must address it by cell');
-        return read(u);
-    })
-    .then(rows => (_rows = rows))
-    .catch(err => { _flares = null; throw err; });
 
 // the rows that whole-table read landed, for callers that need them without
 // awaiting — the card's "also here" row. null until it lands.

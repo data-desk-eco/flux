@@ -1,12 +1,11 @@
-// the terminal grid and the two pure feature builders both flaring families go
-// through: archiveFeature for an s2 cluster, enrichVNFFeatures for a vnf site.
-// terminal features arrive from terminals.geojson via setTerminals(), and
-// findNearestTerminal is what lets a site be named after the plant it sits on.
+// the two pure feature builders both flaring families go through:
+// archiveFeature for an s2 cluster, enrichVNFFeatures for a vnf site. each is
+// named after the lng terminal it sits on, where one is near enough.
 // no app state and no dom, so a node test can hold the reducer to its rules.
 
 import { dateInQuarters, degLat, haversineM } from '../shell/util.js';
 
-const TERMINAL_MATCH_M = 7500;
+const TERMINAL_MATCH_M = 7500, TERMINAL_DEG = degLat(TERMINAL_MATCH_M);
 // the denominator is ours now: a night counts as read when a satellite flew and
 // we sampled the sky at the site's overpass hours, so a low share means one
 // platform was grounded over this site — not eog's silence, and no longer the
@@ -19,45 +18,19 @@ const COVERAGE_MIN = 0.8;
 // three looks is noise — report the count and no rate.
 const MIN_LOOKS = 10;
 
-// a grid index over the terminal features, rebuilt when they load
-let _terminals = [];
-let _terminalGrid = null;
-let _terminalGridCell = 0;
-
-export function setTerminals(features) {
-    _terminals = features || [];
-    const cell = degLat(TERMINAL_MATCH_M);        // degrees per grid cell
-    _terminalGridCell = cell;
-    const g = new Map();
-    for (const f of _terminals) {
-        const [lon, lat] = f.geometry.coordinates;
-        const r = Math.floor(lat / cell), c = Math.floor(lon / cell);
-        for (let dr = -1; dr <= 1; dr++) {
-            for (let dc = -1; dc <= 1; dc++) {
-                const key = (r + dr) * 0x100000 + (c + dc);
-                const bucket = g.get(key);
-                if (bucket) bucket.push(f);
-                else g.set(key, [f]);
-            }
-        }
-    }
-    _terminalGrid = g;
-}
+// the export lng terminals a site is named after, as {name, lat, lon} rows
+// (terminals.js reads them). a few hundred, so a scan is all a lookup needs
+let terminals = [];
+export const setTerminals = rows => { terminals = rows; };
 
 export function findNearestTerminal(lat, lon) {
-    if (!_terminalGrid || _terminals.length === 0) return null;
-    const cell = _terminalGridCell;
-    const r = Math.floor(lat / cell), c = Math.floor(lon / cell);
-    const key = r * 0x100000 + c;
-    const bucket = _terminalGrid.get(key);
-    if (!bucket) return null;
-    let best = null, bestDist = Infinity;
-    for (const f of bucket) {
-        const [tLon, tLat] = f.geometry.coordinates;
-        const d = haversineM(lat, lon, tLat, tLon);
-        if (d < bestDist) { bestDist = d; best = f; }
+    let best = null, bestM = TERMINAL_MATCH_M;
+    for (const t of terminals) {
+        if (Math.abs(t.lat - lat) > TERMINAL_DEG) continue;
+        const m = haversineM(lat, lon, t.lat, t.lon);
+        if (m <= bestM) [best, bestM] = [t, m];
     }
-    return best && bestDist <= TERMINAL_MATCH_M ? { name: best.properties.name, distance: bestDist } : null;
+    return best;
 }
 
 // both flares tables publish one `quarters` struct, so both families window it
