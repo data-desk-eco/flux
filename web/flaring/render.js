@@ -18,7 +18,9 @@ export const MODE = {
         // a data-desk extension column; flareIcon coalesces a missing one to
         // stops[0], flattening the ramp rather than hiding the site
         prop: 'max_b12',
-        col2: 'B12', col3: 'px',
+        // the series table's columns, set from their left as drawn (pdf:89),
+        // as wide as their widest value: 0.98, a three-digit count
+        col2: 'B12', col3: 'px', cols: '1fr 23px 20px',
         stops: [0.9, 1.15, 1.5],
         log: false,
         chartRange: [0.85, 1.6],
@@ -33,7 +35,7 @@ export const MODE = {
     vnf: {
         unit: 'MW',
         prop: 'max_rh',
-        col2: 'RH', col3: 'MCM/d',
+        col2: 'RH', col3: 'MCM/d', cols: '1fr 27px 38px',
         // no floor: a 3 MW floor hid the lng trains, rare and dim between
         // upsets. the bottom band runs down to the dimmest look
         stops: [3, 7, 20],

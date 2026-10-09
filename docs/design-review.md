@@ -66,8 +66,10 @@ and set them against the figma rasters the pdf embeds, band by band at 2×
 - **geometry the text omits**, measured: statistics 18px apart, directly under
   the heading rule; selectable rows 25px, 4px apart, 9.35px under their
   header; controls 22px; key markings top-aligned in 15px slots, 24.5px apart,
-  13.5px padding top and bottom; the dot grid 7.5px between rows. data
-  columns are set from their left edge.
+  13.5px padding top and bottom; the dot grid 7.5px between rows; the chart
+  67.5px tall, five dim ticks spanning the data and the rule 13px under the
+  lowest. data columns are set from their left edge, as wide as their widest
+  value (the drawn table's sit 23 and 11px wide at the right).
 
 five places the drawings disagree with the text, a ruling or each other are
 named in the harness rather than fitted: one chevron on the key (twice),
@@ -165,14 +167,28 @@ measured against the 2× rasters, which put a panel at 270px:
     the guidelines; it is data, declared.
 23. the key has one chevron, on the first group (ruling 2026-07-08). the
     pdf draws one per group (pdf:90). kept; for mikael.
-24. a contracted panel keeps its padding (ruling 2026-07-08); the pdf drops
+24. an open key has 20px under its last row where the drawing has 13.5,
+    which read tight on screen, most under the methane group with a row
+    more than its neighbours (ruling 2026-10-09).
+25. a contracted panel keeps its padding (ruling 2026-07-08); the pdf drops
     it to s except on the left (pdf:88-89). kept.
-25. the detail card led with coordinates and "also here", then the
+26. the detail card led with coordinates and "also here", then the
     statistics a section gap down; the specimen sets the statistics directly
     under the rule (pdf:89). they are there now, with the coordinates first
     and "also here" last among them. the chart takes the drawn form: small
     dots, ticks up the left, a rule along the foot.
-26. the /review page still uses `map.css` classes (open).
+27. the /review page still uses `map.css` classes (open).
+
+## in the running app
+
+set against the screens rather than the specimens (2026-10-09): the drawer's
+tabs had lost their padding and grey, because a page's own rules (flux's
+`* { padding: 0 }` reset, `button { color: inherit }`) beat a shadow root's
+`::slotted` ones. the kernel now marks slotted chrome important, and the
+specimen carries that reset so the fit test would catch it. the drawer's
+outer columns come in to its head's padding, so tabs, rows and count share
+an edge; the intro's region text keeps its lines on a phone and the map
+gives way; the plume analysis spaces its lines as the card's sections.
 
 ## for notebooks
 

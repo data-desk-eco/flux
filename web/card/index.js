@@ -148,7 +148,7 @@ function seriesHtml(p, b) {
     const cfg = b.cfg;
     return `
         <div class="intensity-chart" id="intensity-chart"></div>
-        <div class="events">
+        <div class="events" style="--dd-cols:${cfg.cols}">
             <dd-row inset class="events-header"><span>Date</span>
                 <span>${cfg.col2}</span><span>${cfg.col3}</span></dd-row>
             <div class="events-list" id="events-list"></div>
@@ -208,7 +208,9 @@ function renderEvents(el, detections, b) {
     if (items.length) {
         const n = Math.min(items.length, rows);
         const gap = parseFloat(getComputedStyle(list).rowGap) || 0;
-        list.style.maxHeight = `${items[0].offsetHeight * n + gap * (n - 1)}px`;
+        // unrounded, or the list scrolls by a fraction and clips the top row
+        const h = items[0].getBoundingClientRect().height;
+        list.style.maxHeight = `${Math.ceil(h * n + gap * (n - 1))}px`;
     } else {
         chart.innerHTML = '';
         list.innerHTML = '<div class="events-empty">No detections</div>';

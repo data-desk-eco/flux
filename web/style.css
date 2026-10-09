@@ -27,10 +27,9 @@
 .also-here button:hover { color: var(--dd-ui-text-secondary); }
 
 .intensity-chart:empty { display: none; }
-.intensity-chart svg { width: 100%; height: 76px; display: block; }
+.intensity-chart svg { width: 100%; display: block; }
 .intensity-chart .chart-dot { cursor: pointer; }
 
-.events { --dd-cols: 1fr 36px 36px; }
 .events-header { margin-bottom: var(--dd-row-head-gap); }
 .events-list { overflow-y: auto; display: flex; flex-direction: column;
     gap: var(--dd-row-gap); scrollbar-width: thin;
@@ -45,7 +44,7 @@
 .plume-wind path { fill: none; stroke: currentColor; stroke-width: 2;
     stroke-linecap: round; stroke-linejoin: round; }
 
-.plume-analysis { display: flex; flex-direction: column;
+.plume-analysis, #analysis { display: flex; flex-direction: column;
     gap: var(--dd-button-pad-x); }
 .plume-attrib { display: flex; align-items: baseline;
     gap: var(--dd-button-pad-x); flex-wrap: wrap; }
@@ -59,9 +58,10 @@
 .fx-fine { font-size: 11px; font-variation-settings: "opsz" 22; }
 .region-row { display: flex; justify-content: space-between;
     align-items: flex-start; gap: var(--dd-gap-s); }
+/* the text keeps its lines and the map gives way on a narrow screen */
 .region-row .fx-fine { display: flex; flex-direction: column;
-    gap: var(--dd-info-gap); }
-.region-row svg { width: 218px; flex-shrink: 0; }
+    gap: var(--dd-info-gap); flex: none; white-space: nowrap; }
+.region-row svg { flex: 0 1 218px; min-width: 0; }
 /* the sources fold under a chevron, shut until asked for */
 .methods summary { list-style: none; cursor: pointer; }
 .methods summary::-webkit-details-marker { display: none; }

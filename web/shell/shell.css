@@ -168,6 +168,10 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
     user-select: none;
 }
 .fx-table td { padding: var(--dd-control-pad-y) var(--dd-button-pad-x); }
+/* the outer columns in to the head's and foot's s padding, so the tabs, the
+   rows and the count share a left edge */
+.fx-table :is(th, td):first-child { padding-left: var(--dd-padding-s); }
+.fx-table :is(th, td):last-child { padding-right: var(--dd-padding-s); }
 .fx-table tbody tr { cursor: pointer; }
 .fx-table tbody tr:hover { background: var(--dd-ui-hover); }
 .fx-table tbody tr.selected {
