@@ -39,7 +39,7 @@ export function initCard(deps) {
         e.preventDefault();
         const items = [...document.querySelectorAll('.event-item')];
         if (!items.length) return;
-        const at = items.findIndex(el => el.classList.contains('active'));
+        const at = items.findIndex(el => el.hasAttribute('active'));
         const next = Math.max(0, Math.min(items.length - 1, at + dir));
         if (next === at) return;
         items[next].click();
@@ -141,21 +141,18 @@ function seriesHtml(p, b) {
         [p.passes && p.observations != null
             ? `Cloud-free (${pct(p.observations / p.passes)})`
             : 'Cloud-free obs.', p.observations ?? '—'],
-    ].map(([k, v]) => `<div><span class="dd-secondary">${k}</span>`
-        + `<span>${v}</span></div>`).join('');
+    ].map(([k, v]) => `<dd-row><span>${k}</span><span>${v}</span></dd-row>`)
+        .join('');
     return `
         <div class="info-stats">${stats}</div>
         <div class="intensity-chart" id="intensity-chart"></div>
         <div class="events">
-            <div class="events-header dd-secondary">
-                <span>Date</span>
-                <span class="col-right col-val">${cfg.col2}</span>
-                <span class="col-right col-count">${cfg.col3}</span>
-            </div>
-            <div class="events-list custom-scroll" id="events-list"></div>
+            <dd-row inset class="events-header"><span>Date</span>
+                <span>${cfg.col2}</span><span>${cfg.col3}</span></dd-row>
+            <div class="events-list" id="events-list"></div>
         </div>
-        ${b.actions ? `<div class="dd-btn-pair panel-actions">
-            ${b.actions}</div>` : ''}`;
+        ${b.actions ? `<dd-btns class="panel-actions">${b.actions}</dd-btns>`
+            : ''}`;
 }
 
 function seriesShow(p, el, b) {
@@ -182,15 +179,13 @@ function renderEvents(el, detections, b) {
     let firstItem = null;
 
     for (const det of sorted) {
-        const item = document.createElement('div');
-        item.className = 'dd-row event-item';
+        const item = document.createElement('dd-row');
+        item.className = 'event-item';
+        item.toggleAttribute('selectable', true);
         item.dataset.date = det.date;
-        item.innerHTML = `
-            <span class="event-date">${formatDate(det.date)}</span>
-            <span class="event-meta event-meta-val">${
-                b.cfg.formatVal(det)}</span>
-            <span class="event-meta event-meta-count">${
-                b.cfg.formatCount(det)}</span>`;
+        item.innerHTML = `<span>${formatDate(det.date)}</span>`
+            + `<span>${b.cfg.formatVal(det)}</span>`
+            + `<span>${b.cfg.formatCount(det)}</span>`;
         item.onclick = () => selectDetection(det, item, b);
         list.appendChild(item);
         dateToItem.set(det.date, { det, item });
@@ -209,8 +204,9 @@ function renderEvents(el, detections, b) {
     const rows = window.innerWidth <= 768 ? 4 : 10;
     const items = list.querySelectorAll('.event-item');
     if (items.length) {
-        list.style.maxHeight =
-            `${items[0].offsetHeight * Math.min(items.length, rows)}px`;
+        const n = Math.min(items.length, rows);
+        const gap = parseFloat(getComputedStyle(list).rowGap) || 0;
+        list.style.maxHeight = `${items[0].offsetHeight * n + gap * (n - 1)}px`;
     } else {
         chart.innerHTML = '';
         list.innerHTML = '<div class="events-empty">No detections</div>';
@@ -222,8 +218,8 @@ function renderEvents(el, detections, b) {
 
 function selectDetection(det, item, b) {
     document.querySelectorAll('.event-item')
-        .forEach(el => el.classList.remove('active'));
-    item.classList.add('active');
+        .forEach(el => el.removeAttribute('active'));
+    item.setAttribute('active', '');
     selectedDetection = det;
     b.select(det);
 }

@@ -60,8 +60,8 @@ export default {
     title: p => siteTitle(p, 'Unknown facility'),
     fetch: fetchS2Detections,
     select: footprint,
-    actions: `<button class="dd-btn" id="open-image-btn">Open image</button>
-              <button class="dd-btn" id="download-btn">Download CSV</button>`,
+    actions: `<dd-btn id="open-image-btn">Open image</dd-btn>
+              <dd-btn id="download-btn">Download CSV</dd-btn>`,
     wire(el) {
         const on = (id, fn) => el.querySelector(id)
             .addEventListener('click', fn);

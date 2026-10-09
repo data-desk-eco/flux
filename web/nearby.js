@@ -76,8 +76,8 @@ export function nearbyHtml(p) {
     if (!near.length) return '';
     const entries = near.map((g, i) =>
         `<button data-nearby="${i}">${g.text}</button>`).join(', ');
-    return `<div class="also-here"><span class="dd-secondary">Also here</span>`
-        + `<span>${entries}</span></div>`;
+    return `<dd-row class="also-here"><span>Also here</span>`
+        + `<span>${entries}</span></dd-row>`;
 }
 
 // an entry opens the nearest of its group and hands the card header the

@@ -68,6 +68,13 @@
         .rv-tx-out, .rv-tx-think { color: var(--dd-ui-text-secondary); }
         .rv-tx-results a { display: block; }
         .rv-item.done { color: var(--dd-ui-inactive); }
+        /* the legacy dd classes (map.css) until this page moves onto the
+           elements the app uses */
+        .fx-opt { background: none; border: none; cursor: pointer;
+                  padding: 0; color: var(--dd-ui-inactive); }
+        .fx-opt.active { color: var(--dd-ui-text); }
+        .custom-scroll { scrollbar-width: thin;
+                         scrollbar-color: var(--dd-ui-inactive) transparent; }
         @media (max-width: 768px) {
             .rv { top: auto; right: 0; width: auto; height: 55vh; }
             .rv > header { padding: 15px; }

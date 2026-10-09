@@ -2,10 +2,8 @@
 // hilbert geoparquet, so duckdb range-reads just the row groups a viewport
 // intersects.
 
-import { hoverPopup } from '../shell/map.js';
-import { map as dd } from '../vendor/dd/palette.js';
+import { hover } from '../vendor/dd/dd.js';
 import { parquetInput } from '../shell/data.js';
-import { escapeHtml } from '../shell/util.js';
 import { AREA, DASH } from '../layers.js';
 
 // absolute, as it goes into raw SQL, and against the document (web/), where
@@ -79,23 +77,22 @@ export function addLicenceLayers(m, sql) {
         paint: { 'line-color': C, 'line-width': 1, 'line-opacity': 0.8,
                  'line-dasharray': DASH },
     });
-    // names only once the view is tight enough to read them
+    // names only once the view is tight enough to read them. map text is
+    // 11px (pdf:72); gl glyphs are not inter, a declared exception
     map.addLayer({
         id: 'licences-label', type: 'symbol', source: 'licences', minzoom: 8,
         layout: { 'text-field': ['get', 'name'],
-                  'text-font': ['Montserrat Regular'], 'text-size': 10 },
-        paint: { 'text-color': C, 'text-halo-color': dd.adjusted.black,
-                 'text-halo-width': 1 },
+                  'text-font': ['Montserrat Regular'], 'text-size': 11 },
+        paint: { 'text-color': C },
     });
 
-    hoverPopup(map, 'licences-fill', p => {
+    hover(map, 'licences-fill', p => {
         const term = [p.start_date, p.end_date].filter(Boolean).join(' – ');
         const area = p.area_sqkm
             && `${Number(p.area_sqkm).toLocaleString()} km²`;
-        const detail = [p.operator, p.country, p.shore, area, term]
-            .filter(Boolean).map(escapeHtml).join(' · ');
-        return `<span class="dd-title">${escapeHtml(p.name || 'Licence area')}`
-            + `</span><br>${detail}`;
+        return { heading: p.name || 'Licence area', color: C,
+            text: [p.operator, p.country, p.shore, area, term]
+                .filter(Boolean).join(' · ') };
     }, { click: false });
 
     const sweep = sweeper();

@@ -1,55 +1,50 @@
-/* the full-screen map layout, on ../vendor/dd/map.css. spacing follows the
-   2026 guidelines' ui examples (pdf:81-88); the app's css goes on top. */
+/* the full-screen map layout. the dd elements (vendor/dd/dd.js) draw their
+   own chrome; this places them, sizes them and styles what the shell puts
+   in them, in dd tokens only, so vendor/dd/audit.js passes it. */
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: 100%; height: 100%; background: #000; }
 body {
-    font: 400 11px/1.4 Inter, sans-serif;
+    font: 400 11px/1.4 InterVariable, Inter, sans-serif;
     font-feature-settings: "calt", "tnum", "ss01", "ss02";
+    color: var(--dd-ui-text);
 }
 #map { width: 100%; height: 100%; background: #000; }
 .maplibregl-ctrl, .maplibregl-ctrl-logo, .maplibregl-ctrl-attrib {
     display: none !important;
 }
 a { color: inherit; text-decoration: underline; }
+button { font: inherit; color: inherit; }
 .hidden { display: none !important; }
-
-.custom-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
-.custom-scroll::-webkit-scrollbar-track { background: transparent; }
-.custom-scroll::-webkit-scrollbar-thumb { background: var(--dd-ui-inactive); }
-
-/* --- shared panel furniture --- */
-
-.dd-heading { padding-bottom: 3px; }
-/* the heading's full-width rule IS the underline (dd heading rule) */
-.dd-heading a { text-decoration: none; }
-.dd-subtitle { margin-top: 8px; }
-.collapsed .dd-chevron { transform: rotate(180deg); }
+.fx-secondary { color: var(--dd-ui-text-secondary); }
 
 /* --- main panel --- */
 
 /* the left column: main panel and key share it, so their boxes line up */
-:root { --fx-panel: 250px; }
+:root { --fx-panel: 270px; }
+.fx-main, .fx-key, .fx-detail, .fx-logo {
+    position: absolute;
+    margin: var(--dd-margin);
+}
 .fx-main {
     top: 0;
     left: 0;
     width: var(--fx-panel);
-    max-height: calc(100vh - 20px);
-    overflow-y: auto;
+    max-height: calc(100vh - 2 * var(--dd-margin));
 }
-/* by id, not class: contraction hides content in place (ruling 2026-07-08),
-   and #worldmap's own id rule would outrank a class-only one */
-#main-panel.collapsed > :not(.dd-head) { display: none; }
-/* no shrink: an svg's minimum size is 0, so on a short viewport it absorbs
-   all the overflow and vanishes rather than the panel scrolling */
-#worldmap { width: 100%; display: block; flex-shrink: 0; }
+.fx-badge { color: var(--dd-ui-text-secondary); }
+/* the locator sits centred at seven eighths of the content (pdf:83). no
+   shrink: an svg's minimum size is 0, so on a short viewport it would absorb
+   the overflow and vanish rather than the panel scrolling */
+#worldmap { width: 87.5%; align-self: center; display: block;
+    flex-shrink: 0; }
 
-/* border + padding hang into the panel margins so the input text stays
-   aligned with the panel content (the dd hanging-chevron idiom) */
+/* the field's border hangs into the padding, so its text stays on the
+   content edge */
 .fx-search {
     width: calc(100% + 14px);
     margin: 0 -7px;
-    padding: 4px 6px;
+    padding: var(--dd-row-pad-y) var(--dd-button-pad-x);
     background: none;
     border: 1px solid var(--dd-ui-border);
     color: var(--dd-ui-text);
@@ -58,8 +53,6 @@ a { color: inherit; text-decoration: underline; }
 }
 .fx-search::placeholder { color: var(--dd-ui-text-secondary); }
 .fx-search.miss { border-color: var(--dd-map-red); }
-/* the browser's clear button, masked to a flat cross in the placeholder
-   grey rather than its own blue gradient */
 .fx-search::-webkit-search-cancel-button {
     -webkit-appearance: none; width: 8px; height: 8px; cursor: pointer;
     background: var(--dd-ui-text-secondary);
@@ -68,72 +61,26 @@ xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath \
 d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
         center/contain no-repeat;
 }
-.fx-search::-webkit-search-cancel-button:hover {
-    background: var(--dd-ui-text);
-}
 
-/* the drawer's tabs: dd toggle metrics, inactive until picked */
-.fx-opt {
-    background: none;
-    border: none;
-    color: var(--dd-ui-inactive);
-    font: inherit;
-    cursor: pointer;
-    padding: 0;
+/* the quarter grid (pdf:83): four columns and the years right, each dot's
+   centre half an active dot in from its column's start, 23px a row */
+.fx-quarters {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr) auto;
+    row-gap: 7px;
+    align-items: center;
 }
-.fx-opt.active { color: var(--dd-ui-text); }
-
-.fx-slider-val { min-width: 30px; text-align: right; }
-.fx-hint { margin-top: 11px; }
+.fx-quarters dd-dot { margin-left: -4px; }
+.fx-quarters > span:nth-child(5n) { text-align: right; }
+.fx-hint { margin-top: var(--dd-pair-gap);
+    color: var(--dd-ui-text-secondary); }
 .fx-hint:empty { display: none; }
+.fx-sliders { display: flex; flex-direction: column; gap: var(--dd-gap-s); }
 
 /* --- key --- */
 
-.fx-key {
-    bottom: 0;
-    left: 0;
-    width: var(--fx-panel);
-    padding: 15px 30px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 25px;
-}
-/* the dd hanging chevron: -(chevron 8px + gap 11px) into the padding */
-.fx-key-head {
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    cursor: pointer;
-    user-select: none;
-}
-.fx-key-head .dd-chevron { margin-left: -19px; }
-.fx-key-items {
-    margin-top: 15px;
-    display: flex;
-    flex-direction: column;
-    gap: 9px;
-}
+.fx-key { bottom: 0; left: 0; width: var(--fx-panel); }
 .fx-toggle { cursor: pointer; }
-.fx-swatch {
-    width: 13px;
-    display: flex;
-    justify-content: center;
-    flex-shrink: 0;
-}
-.fx-swatch svg { width: 11px; height: auto; flex-shrink: 0; }
-.dd-inactive .fx-swatch { opacity: 0.4; }
-.fx-ring {
-    display: inline-block;
-    border: 1.5px solid;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-/* dd key rule: sections side by side rather than under the main panel,
-   spread across its fixed width; the 20px gap is only a floor */
-@media (max-height: 960px) and (min-width: 769px) {
-    .fx-key { flex-direction: row; justify-content: space-between; gap: 20px; }
-}
 
 /* --- detail panel --- */
 
@@ -141,24 +88,16 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
     top: 0;
     right: 0;
     width: 290px;
-    max-height: calc(100vh - 20px);
-    overflow-y: auto;
+    max-height: calc(100vh - 2 * var(--dd-margin));
     display: none;
 }
-/* gap L: the card is the "Detected flare" holding device (pdf:89), which sets
-   L 38px between its sections and 6px between the rows inside one */
-.fx-detail.visible { display: flex; flex-direction: column; gap: 38px; }
-#detail.collapsed > :not(.dd-head) { display: none; }
+.fx-detail.visible { display: flex; }
 .fx-detail-id { overflow-wrap: anywhere; }
 .fx-overlap { white-space: nowrap; }
-.fx-nav {
-    background: none;
-    border: none;
-    color: var(--dd-ui-text);
-    font: inherit;
-    cursor: pointer;
-    padding: 0 3px;
-}
+.fx-nav { background: none; border: none; cursor: pointer;
+    padding: 0 var(--dd-control-pad-y); }
+
+.fx-logo { right: 0; bottom: 0; }
 
 /* --- data table drawer --- */
 
@@ -175,7 +114,6 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
     flex-direction: column;
     background: var(--dd-ui-background);
     border-left: 0 solid var(--dd-ui-border);
-    color: var(--dd-ui-text);
 }
 .fx-drawer-handle {
     position: fixed;
@@ -183,7 +121,7 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
     right: 0;
     transform: translateY(-50%);
     z-index: 6;
-    padding: 12px 5px;
+    padding: var(--dd-padding-s) var(--dd-button-pad-x);
     background: var(--dd-ui-background);
     border: 1px solid var(--dd-ui-border);
     border-right: none;
@@ -192,6 +130,7 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
     touch-action: none;
 }
 .fx-drawer-handle span {
+    display: block;
     writing-mode: vertical-rl;
     color: var(--dd-ui-text-secondary);
 }
@@ -199,14 +138,15 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
 .fx-drawer-head {
     display: flex;
     align-items: center;
-    gap: 11px;
-    padding: 10px 15px;
+    gap: var(--dd-pair-gap);
+    padding: var(--dd-margin) var(--dd-padding-s);
     border-bottom: 1px solid var(--dd-ui-border);
     flex-shrink: 0;
     overflow: hidden;
 }
 .fx-drawer-q { width: 130px; margin: 0 0 0 auto; flex-shrink: 0; }
-.fx-drawer-wrap { flex: 1; overflow: auto; }
+.fx-drawer-wrap { flex: 1; overflow: auto; scrollbar-width: thin;
+    scrollbar-color: var(--dd-ui-inactive) transparent; }
 /* min-width, not width: columns keep their natural size and the sticky header
    its background when the drawer is dragged wider than the rows need */
 .fx-table { border-collapse: collapse; white-space: nowrap; min-width: 100%; }
@@ -214,60 +154,44 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
     position: sticky;
     top: 0;
     background: var(--dd-ui-background);
-    color: var(--dd-ui-text-secondary);
     font-weight: 400;
     text-align: left;
-    padding: 6px 8px;
+    padding: var(--dd-row-pad-y) var(--dd-button-pad-x);
     border-bottom: 1px solid var(--dd-ui-border);
     cursor: pointer;
     user-select: none;
 }
-.fx-table td { padding: 3px 8px; }
+.fx-table td { padding: var(--dd-control-pad-y) var(--dd-button-pad-x); }
 .fx-table tbody tr { cursor: pointer; }
 .fx-table tbody tr:hover { background: var(--dd-ui-hover); }
 .fx-table tbody tr.selected {
     background: var(--dd-ui-active-background);
     color: var(--dd-ui-active-text);
 }
-.fx-drawer-empty { padding: 20px; }
+.fx-drawer-empty { padding: var(--dd-padding-s); }
 .fx-drawer-foot {
-    padding: 6px 15px;
+    padding: var(--dd-button-pad-x) var(--dd-padding-s);
     border-top: 1px solid var(--dd-ui-border);
     flex-shrink: 0;
 }
 
-/* --- about modal --- */
+/* --- intro --- */
 
+/* no scrim: the guidelines give a panel a black ground, not the map a veil.
+   the full-screen layer only catches the click that dismisses it */
 .fx-modal {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
 }
-/* the badge is a tag, not heading text — drop the intro heading's bold
-   32px/-3% tracking metrics (which stay on-token for the title itself). the
-   panel heading is a flex row, so its own gap spaces the badge there */
-.dd-intro-heading .fx-badge {
-    font-size: 14px;
-    font-weight: 400;
-    letter-spacing: 0;
-    margin-left: 4px;
-}
 .fx-modal-content {
-    position: relative;
     width: 420px;
-    max-width: calc(100vw - 40px);
-    max-height: calc(100vh - 40px);
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 38px;
+    max-width: calc(100vw - 4 * var(--dd-margin));
+    max-height: calc(100vh - 4 * var(--dd-margin));
 }
-.dd-intro-body p + p { margin-top: 14px; }
-.fx-enter { padding: 5px 6px; }
 
 /* --- mobile --- */
 
@@ -277,8 +201,7 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
     /* the key moves to the opposite corner, so it sizes to its own content
        rather than sharing the main panel's width */
     .fx-key { bottom: auto; top: 0; right: 0; left: auto; width: auto; }
-    /* width:auto so left+right size it inside the dd-panel 10px margins;
-       width:100% would override right:0 and overflow the viewport */
+    /* left and right, not width, so it sits inside the margins */
     .fx-detail {
         top: auto;
         bottom: 0;
@@ -287,6 +210,11 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
         width: auto;
         max-height: 45vh;
     }
-    .dd-logo { display: none; }
+    .fx-logo { display: none; }
     .fx-drawer, .fx-drawer-handle { display: none; }
+}
+
+/* while the intro is up it is the one holding device on screen */
+body:has(.fx-modal:not(.hidden)) :is(.fx-main, .fx-key, .fx-detail) {
+    visibility: hidden;
 }

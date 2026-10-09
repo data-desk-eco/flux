@@ -20,6 +20,19 @@ and delete what only a second consumer would have wanted.
 zero npm dependencies. MapLibre GL and DuckDB-Wasm lite are vendored; everything
 else is browser built-ins.
 
+## the brand
+
+the ui is built on `vendor/dd/dd.js`, the kernel the data desk `design`
+repository compiles from mikael dahlén's guidelines: `dd-panel`, `dd-key`,
+`dd-row`, `dd-btn`, `dd-dot`, `dd-slider`, `dd-toggle`, `dd-label`,
+`dd-logo`, which draw their own chrome in shadow roots, and the basemap,
+markings and graded imagery. flux css places and sizes them and styles what
+it puts in them, in `--dd-*` tokens only. `make audit` runs
+`vendor/dd/audit.js` over the intro, the map and a card, and fails on any
+deviation not declared in `AUDIT` (`layers.js`): viridis, two gl text layers,
+the data rasters. a new deviation is a line there, argued in its comment.
+change the elements in the design repository, never in vendor/.
+
 ## the three families
 
 **S2 flaring.** `flaring/s2archive.js` reads `data-desk/flares` (one row per
@@ -79,7 +92,8 @@ web/
   shell/             app.js mount, map.js, ui.js, detail.js, table.js,
                      quarters.js, data.js duckdb, archive.js index, util.js
   review/            the /review page: index.html and review.js
-  vendor/            dd design system, duckdb, maplibre, fonts
+  vendor/            dd kernel (dd.js, audit.js) and basemap, duckdb,
+                     maplibre, inter (regular, bold, italic)
 worker/              the review api and its d1 schema
 scripts/             vendor.sh, dist.sh, serve.py
 test/                the rate rules, in node:test
@@ -90,7 +104,8 @@ test/                the rate rules, in node:test
 ```bash
 make serve     # static server on :8000
 make test      # the rate rules (node --test)
-make vendor    # re-vendor maplibre, duckdb, the dd design system, inter
+make audit     # the ui against the brand, headless (needs ~/data-desk browse)
+make vendor    # re-vendor maplibre, duckdb, the dd kernel, inter
 make dist      # the pages artifact, assertions and all
 ```
 

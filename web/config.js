@@ -10,7 +10,8 @@ import { canon, padBbox, escapeHtml, formatDate, debounce }
 import { initArchive, objects } from './shell/archive.js';
 import { prefetchData } from './shell/data.js';
 import { MODE } from './flaring/render.js';
-import { DD, MARKS, PIN, RATE_LABEL, flareIcon, plumeIcon } from './layers.js';
+import { DD, MARKS, PIN, RATE_LABEL, AUDIT, flareIcon, plumeIcon }
+    from './layers.js';
 import { keySections } from './key.js';
 import { initNearby } from './nearby.js';
 import { initVNF, resetVNF, queryVNF, queryVNFFlare, availableQuartersVNF,
@@ -159,10 +160,10 @@ async function quarterDots() {
     const avail = flares.length && new Set([...flares.flatMap(s => [...s]),
         ...await availableQuartersPlumes(pad, GRID_START, GRID_END)]);
     const btns = [...q.buttons()];
-    const ticked = b => b.classList.contains('dd-active');
+    const ticked = b => b.hasAttribute('active');
     q.hint(avail && !btns.some(b => ticked(b) && avail.has(q.key(b)))
         ? 'No data for the selected quarters here' : '');
-    btns.forEach(b => b.classList.toggle('dd-unavailable',
+    btns.forEach(b => b.toggleAttribute('unavailable',
         !!avail && !avail.has(q.key(b))));
 }
 const scheduleDots = debounce(quarterDots, 300);
@@ -202,16 +203,17 @@ mount({
     subtitle: 'Emissions explorer',
     badge: 'Beta',
     search: true,
+    audit: AUDIT,
     map: { center: [52.8720, 25.1676], zoom: 12, minZoom: 1.5, maxZoom: 18 },
     about: `
         <div class="region-row">
-            <div><div class="dd-secondary">Regions covered:</div>
+            <div><div class="fx-secondary">Regions covered:</div>
                 <div>Data Desk archive</div></div>
             <svg id="modal-worldmap"></svg>
         </div>
         <div class="methods">
-            <div class="dd-secondary">Methods &amp; data</div>
-            <div class="methods-list dd-secondary">
+            <div class="fx-secondary">Methods &amp; data</div>
+            <div class="methods-list fx-secondary">
                 <p>Faruolo et al. (2024) ${link(
                     'https://doi.org/10.1088/1748-9326/ad82fb',
                     'The DAFI v2 algorithm for gas flare detection')}</p>
@@ -271,9 +273,9 @@ mount({
             // carries the number
             id: 'plumes', type: 'symbol', source: 'plumes',
             filter: ['!', ['has', 'point_count']],
-            hover: p => [label(p.provider), p.confidence,
-                p.date && formatDate(p.date)].filter(Boolean)
-                .map(escapeHtml).join(' · '),
+            hover: p => ({ heading: label(p.provider), text: [p.confidence
+                && `${p.confidence} confidence`, p.date && formatDate(p.date)]
+                .filter(Boolean).join(' · ') }),
             layout: { ...PIN, 'icon-image': plumeIcon },
             paint: { 'text-color': DD.white },
         },

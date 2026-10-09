@@ -2,8 +2,8 @@
 // quarters, sliders, detail, table, search — from one declarative config,
 // web/config.js.
 
-import { createMap, addSatellite, wireWorldmap, wireCollapse, hoverPopup }
-    from './map.js';
+import { createMap, addSatellite, wireWorldmap } from './map.js';
+import { hover } from '../vendor/dd/dd.js';
 import { initData, read, sql, fc } from './data.js';
 import { buildShell, initKey, wireSliders } from './ui.js';
 import { initQuarters } from './quarters.js';
@@ -52,7 +52,6 @@ export async function mount(config) {
     buildShell(config);
     const map = createMap({ hash: 'map', ...config.map });
     wireWorldmap(map, document.getElementById('worldmap'));
-    wireCollapse(['main-collapse', 'main-title'], 'main-panel');
     if (config.search) wireSearch(map);
     if (config.data) initData(config.data);
 
@@ -74,9 +73,9 @@ export async function mount(config) {
         map.addSource(id, { type: 'geojson', ...(s.type ? { data: s } : s) });
         ctx.sources[id] = s.data ?? s;
     }
-    for (const { hover, ...spec } of config.layers || []) {
+    for (const { hover: label, ...spec } of config.layers || []) {
         map.addLayer(spec);
-        if (hover) hoverPopup(map, spec.id, hover,
+        if (label) hover(map, spec.id, label,
             { click: !config.detail?.layers.includes(spec.id) });
     }
 

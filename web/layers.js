@@ -9,9 +9,9 @@
 // methane reads on viridis, the ramp its plume rasters are rendered in; one
 // shared ramp made a bright plume and a bright flare look like one quantity.
 
-import { map as ddPalette } from './vendor/dd/palette.js';
+import { palette } from './vendor/dd/dd.js';
 
-export const DD = ddPalette.adjusted;
+export const DD = palette;
 export const RAMP = [DD.red, DD.orange, DD.white];   // low → high intensity
 
 // `mark` stepped through `colors` at `breaks`, one more colour than break
@@ -66,6 +66,18 @@ export const MARK = {
     attributed: `diamond-${DD.white}`,    // the attributed source among them
 };
 export const AREA = { licence: DD.purple };
+
+// where flux departs from the guidelines on purpose, written down so
+// vendor/dd/audit.js passes everything else (`make audit`): viridis, the
+// plume rasters' own ramp; gl text for counts and licence names, which want
+// inter glyphs the basemap does not serve; the heat halo and the probability
+// surface, which are data, not imagery
+export const AUDIT = {
+    colors: VIRIDIS,
+    glyphs: ['plumes-clusters', 'licences-label'],
+    graded: ['detection-footprint', 'dd-plume-probability',
+        'plume-mask-image'],
+};
 export const DASH = [2, 2];
 
 // marking ids only expressions name, which styleimagemissing never sees

@@ -3,10 +3,10 @@
 // white over an invisible fat hit layer — a triangle per candidate, a diamond
 // for the attributed source — since colour on this map is measurement.
 
-import { hoverPopup } from '../shell/map.js';
+import { hover } from '../vendor/dd/dd.js';
 import { objects } from '../shell/archive.js';
 import { parquetInput } from '../shell/data.js';
-import { degLat, degLon, escapeHtml, fmtMetres, haversineM }
+import { degLat, degLon, fmtMetres, haversineM }
     from '../shell/util.js';
 import { MARK, PIN } from '../layers.js';
 
@@ -96,15 +96,13 @@ export function addCandidateLayers(m, sql, before = 'plumes') {
         },
     }, before);
 
-    hoverPopup(map, 'candidates-hit', p => {
+    hover(map, 'candidates-hit', p => {
         const kind = (p.kind || '').replace(/_/g, ' ');
         const title = p.name || kind;
-        const detail = [kind, p.operator, p.status, p.fuel, p.detail,
-            p.dist != null && fmtMetres(p.dist)]
-            .filter(v => v && v !== title).map(escapeHtml).join(' · ');
-        return `<span class="dd-title">${escapeHtml(title)}</span>`
-            + `${p.hl ? ' ★' : ''}<br>${detail}<br>`
-            + `<span class="dd-secondary">${escapeHtml(p.id)}</span>`;
+        const detail = [p.hl && 'attributed', kind, p.operator, p.status,
+            p.fuel, p.detail, p.dist != null && fmtMetres(p.dist)]
+            .filter(v => v && v !== title).join(' · ');
+        return { heading: title, text: `${detail}\n${p.id}` };
     });
 }
 

@@ -34,7 +34,7 @@ export const keySections = isPrivate => [
     // a layer toggle, not a data filter: licence areas are not detections
     ...(isPrivate ? [{
         label: 'Acreage',
-        rows: [{ swatch: { ring: AREA.licence },
+        rows: [{ swatch: { mark: 'area', color: AREA.licence },
                  label: 'Licence areas (MapStand)', toggle: LICENCE_LAYERS }],
     }] : []),
 ];

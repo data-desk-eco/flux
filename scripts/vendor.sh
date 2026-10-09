@@ -31,15 +31,18 @@ gh release download "$DUCKDB_TAG" -R data-desk-eco/duckdb-wasm-lite \
 
 echo "dd design system (from $DD_DIST) ..."
 mkdir -p "$VENDOR/dd"
-cp -r "$DD_DIST/map.css" "$DD_DIST/style.dark.json" "$DD_DIST/palette.js" \
-      "$DD_DIST/markings.js" "$DD_DIST/markings" "$DD_DIST/worldmap.js" \
-      "$DD_DIST/land.json" "$VENDOR/dd/"
+# dd.js is the kernel the app is built on; audit.js checks a page against it.
+# map.css is the review page's alone, until it moves onto the elements
+cp "$DD_DIST/dd.js" "$DD_DIST/audit.js" "$DD_DIST/style.dark.json" \
+   "$DD_DIST/worldmap.js" "$DD_DIST/land.json" "$DD_DIST/map.css" \
+   "$VENDOR/dd/"
 
 echo "inter font ..."
 # a desktop chrome agent, so google serves woff2
 UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
 UA+=' (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-AXES='ital,opsz,wght@0,14..32,400..500;1,14..32,400..500'
+# regular, bold and italic: the guidelines' fonts (pdf:22)
+AXES='ital,opsz,wght@0,14..32,400..700;1,14..32,400..700'
 curl -sH "User-Agent: $UA" \
   "https://fonts.googleapis.com/css2?family=Inter:$AXES&display=swap" |
 python3 -c "

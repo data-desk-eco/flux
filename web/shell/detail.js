@@ -16,7 +16,7 @@
 // }
 
 import { escapeHtml, fmtCoords, readHashKeys, writeHashKeys } from './util.js';
-import { ensureMark } from './map.js';
+import { mark } from '../vendor/dd/dd.js';
 
 let map, cfg, allFeatures;
 let overlapping = [], overlapIndex = 0;
@@ -89,25 +89,17 @@ function render(feature, fromPermalink) {
     setHighlight([{ type: 'Feature', properties: {},
         geometry: { type: 'Point', coordinates: [lon, lat] } }]);
 
+    // the heading opens and shuts the card, so it is never a link (ruling
+    // 2026-07-08): a body that has one puts it in itself
     const t = cfg.title?.(p) || { text: id }, n = overlapping.length;
-    const title = t.href
-        ? `<a class="fx-detail-id" href="${escapeHtml(t.href)}"
-            target="_blank" rel="noopener">${escapeHtml(t.text)}</a>`
-        : `<span class="fx-detail-id">${escapeHtml(t.text)}</span>`;
     const nav = n < 2 ? '' : ` <span class="fx-overlap">`
         + `<button class="fx-nav" data-nav="-1">‹</button> `
         + `${overlapIndex + 1} / ${n} `
         + `<button class="fx-nav" data-nav="1">›</button></span>`;
     const el = panel();
     el.innerHTML = `
-        <div class="dd-head">
-            <button class="dd-chevron-btn" id="detail-collapse"
-                title="Contract"><span class="dd-chevron"></span></button>
-            <div class="dd-head-text">
-                <div class="dd-heading">${title}</div>
-                <div class="dd-subtitle">${fmtCoords(lat, lon)}${nav}</div>
-            </div>
-        </div>
+        <span slot="title" class="fx-detail-id">${escapeHtml(t.text)}</span>
+        <span slot="subtitle">${fmtCoords(lat, lon)}${nav}</span>
         ${cfg.html?.(p) || ''}`;
     el.classList.add('visible');
     shown = { feature, n, i: overlapIndex };
@@ -157,7 +149,7 @@ export function initDetail(m, config, getFeatures) {
 
     // the dd heavy-stroke box round the selection, from highlightZoom: below
     // it a selection is carried by its own marking
-    ensureMark(map, 'highlight-#FFFFFF');
+    mark(map, 'highlight');
     map.addSource('fx-highlight', { type: 'geojson',
         data: { type: 'FeatureCollection', features: [] } });
     map.addLayer({
@@ -187,8 +179,6 @@ export function initDetail(m, config, getFeatures) {
             overlapIndex = (overlapIndex + Number(nav.dataset.nav) + n) % n;
             showDetail(overlapping[overlapIndex]);
         }
-        if (e.target.closest('#detail-collapse'))
-            panel().classList.toggle('collapsed');
     });
 
     addEventListener('keydown', e => e.key === 'Escape' && closeDetail());

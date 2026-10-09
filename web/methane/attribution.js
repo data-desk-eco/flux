@@ -41,7 +41,7 @@ function recordHtml(rec) {
     const evidence = rec.evidence?.length ? `<div class="plume-evidence">${
         rec.evidence.map((u, i) => out(u, u, `[${i + 1}]`)).join(' ')}</div>`
         : '';
-    const confidence = rec.confidence ? `<span class="dd-secondary">`
+    const confidence = rec.confidence ? `<span class="fx-secondary">`
         + `(confidence: ${escapeHtml(rec.confidence)})</span>` : '';
     const para = rec.paragraph
         ? `<p class="plume-para">${escapeHtml(rec.paragraph)}</p>` : '';
@@ -59,7 +59,7 @@ export async function enrich(p) {
     const el = document.getElementById('analysis');
     if (el) {
         el.innerHTML = rec ? recordHtml(rec) : 'No source attribution yet.';
-        el.classList.toggle('dd-secondary', !rec);
+        el.classList.toggle('fx-secondary', !rec);
     }
     const coarse = /tropomi|viirs|goes|s3/i.test(p.satellite || '');
     selectPlume(Number(p.lon), Number(p.lat), coarse ? 10 : 3, rec);

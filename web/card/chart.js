@@ -3,7 +3,7 @@
 
 import { chartNorm } from '../flaring/render.js';
 
-const W = 268, H = 50, M = { top: 8, right: 8, bottom: 16, left: 8 };
+const W = 228, H = 56, M = { top: 8, right: 8, bottom: 20, left: 8 };
 const IW = W - M.left - M.right, IH = H - M.top - M.bottom, BASE = H - M.bottom;
 
 export function renderChart(container, detections, cfg, onSelect) {
@@ -22,7 +22,7 @@ export function renderChart(container, detections, cfg, onSelect) {
         const at = x(new Date(y, 0, 1).getTime());
         svg += `<line x1="${at}" y1="${M.top}" x2="${at}" y2="${BASE}"
             stroke="#4D4D4D" stroke-width="0.5"/>
-            <text x="${at}" y="${H - 2}" fill="#808080" font-size="8"
+            <text x="${at}" y="${H - 3}" fill="#808080" font-size="11"
             text-anchor="middle">${y}</text>`;
     }
     sorted.forEach((det, i) => {

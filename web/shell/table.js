@@ -29,19 +29,18 @@ export function initTable(ctx) {
     let width = 0, active = 0, sortCol = null, sortDir = 1, q = '';
     let selected = null, shown = [];
 
-    const tabHtml = (t, i) => `<button class="fx-opt${i ? '' : ' active'}"`
-        + ` data-tab="${i}">${escapeHtml(t.label)}</button>`;
+    const tabHtml = (t, i) =>
+        `<button value="${i}">${escapeHtml(t.label)}</button>`;
     document.body.insertAdjacentHTML('beforeend', `
         <div class="fx-drawer">
             <div class="fx-drawer-head">
-                <div class="dd-toggle">${tabs.map(tabHtml)
-                    .join('<span class="dd-toggle-divider"></span>')}</div>
+                <dd-toggle value="0">${tabs.map(tabHtml).join('')}</dd-toggle>
                 <input type="search" class="fx-search fx-drawer-q"
                     placeholder="Search" spellcheck="false">
             </div>
-            <div class="fx-drawer-wrap custom-scroll">
+            <div class="fx-drawer-wrap">
                 <table class="fx-table"></table></div>
-            <div class="fx-drawer-foot dd-secondary"></div>
+            <div class="fx-drawer-foot fx-secondary"></div>
         </div>
         <div class="fx-drawer-handle"><span>Data table</span></div>`);
     const [drawer, handle] =
@@ -61,7 +60,7 @@ export function initTable(ctx) {
         // search only once there is room beside the tabs. visibility, not
         // display, so the head never changes height
         el('.fx-drawer-q').style.visibility =
-            w < el('.dd-toggle').offsetWidth + 200 ? 'hidden' : '';
+            w < el('dd-toggle').offsetWidth + 200 ? 'hidden' : '';
     };
 
     async function render() {
@@ -86,7 +85,7 @@ export function initTable(ctx) {
         el('.fx-table').innerHTML = rows.length
             ? `<thead><tr>${cols.map(th).join('')}</tr></thead>`
                 + `<tbody>${rows.map(tr).join('')}</tbody>`
-            : '<tbody><tr><td class="fx-drawer-empty dd-secondary">'
+            : '<tbody><tr><td class="fx-drawer-empty fx-secondary">'
                 + 'No rows in view</td></tr></tbody>';
         el('.fx-drawer-foot').textContent = (hits.length > rows.length
             ? `${rows.length.toLocaleString()} of ` : '')
@@ -101,16 +100,15 @@ export function initTable(ctx) {
         if (f) showDetail(f);
     };
 
+    el('dd-toggle').addEventListener('change', e => {
+        active = +e.target.value;
+        sortCol = selected = null;
+        render();
+    });
     drawer.addEventListener('click', e => {
-        const tab = e.target.closest('[data-tab]');
         const th = e.target.closest('th[data-col]');
         const tr = e.target.closest('tr[data-i]');
-        if (tab) {
-            active = +tab.dataset.tab;
-            sortCol = selected = null;
-            drawer.querySelectorAll('[data-tab]')
-                .forEach(b => b.classList.toggle('active', b === tab));
-        } else if (th) {
+        if (th) {
             sortDir = sortCol === th.dataset.col ? -sortDir : 1;
             sortCol = th.dataset.col;
         } else if (tr) {

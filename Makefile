@@ -1,4 +1,4 @@
-.PHONY: serve test dist review-deploy deploy-private vendor help
+.PHONY: serve test audit dist review-deploy deploy-private vendor help
 
 # the etl that publishes everything this map reads. only the private bake
 # below reads it directly; the public site reads the archive
@@ -52,9 +52,15 @@ deploy-private:
 test:
 	@node --test test/*.test.mjs
 
+# the page against the brand guidelines, through vendor/dd/audit.js: any
+# deviation not declared in config.audit (layers.js AUDIT) fails it
+audit:
+	@bash scripts/audit.sh
+
 help:
 	@echo "make serve          - dev server on :8000"
 	@echo "make test           - the flaring rate rules, in node"
+	@echo "make audit          - the ui against the dd brand, headless"
 	@echo "make vendor         - re-vendor maplibre, duckdb, dd and inter"
 	@echo "make dist           - the public artifact in dist/, as Actions"
 	@echo "make deploy-private - the ghgsat + mapstand bake, behind Access"
