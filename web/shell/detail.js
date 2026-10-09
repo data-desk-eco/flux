@@ -102,8 +102,9 @@ function render(feature, fromPermalink) {
     el.innerHTML = `
         <span slot="title" title="${escapeHtml(t.text)
             }">${escapeHtml(t.text)}</span>
-        <div slot="subtitle" class="fx-stats"><span>${fmtCoords(lat, lon)
-            }${nav}</span>${cfg.stats?.(p) || ''}</div>
+        <div slot="subtitle" class="fx-sub"><span>${fmtCoords(lat, lon)
+            }${nav}</span><div class="fx-stats">${cfg.stats?.(p) || ''
+            }</div></div>
         ${cfg.html?.(p) || ''}`;
     el.classList.add('visible');
     shown = { feature, n, i: overlapIndex };

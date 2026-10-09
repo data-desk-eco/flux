@@ -174,7 +174,9 @@ measured against the 2× rasters, which put a panel at 270px:
     it to s except on the left (pdf:88-89). kept.
 26. the detail card led with coordinates and "also here", then the
     statistics a section gap down; the specimen sets the statistics directly
-    under the rule (pdf:89). they are there now, the coordinates first; the
+    under the rule (pdf:89). they are there now, under the coordinates, which
+    are the card's subtitle, 15px above them as a key's label is above its
+    rows (ruling 2026-10-09); the
     "also here" row that followed them went (2026-10-09), and a heading too
     long for its line ends in an ellipsis rather than wrapping. the chart takes the drawn form: small
     dots, ticks up the left, a rule along the foot.

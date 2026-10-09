@@ -14,8 +14,12 @@
 
 /* --- detail card internals --- */
 
-/* the statistics under the heading rule, 18px apart, their values in a
-   column set from its left edge (pdf:89) */
+/* the coordinates are the card's subtitle; the statistics follow 15px down,
+   as a key's rows follow its label (ruling 2026-10-09), 18px apart, their
+   values in a column set from its left edge (pdf:89) */
+.fx-sub { display: flex; flex-direction: column;
+    gap: var(--dd-key-label-margin-bottom); }
+.fx-stats:empty { display: none; }
 .fx-stats, .info-stats { display: flex; flex-direction: column;
     gap: var(--dd-info-gap); --dd-cols: 1fr 30px; }
 .plume-row { --dd-cols: 1fr 92px; }
