@@ -32,10 +32,8 @@ gh release download "$DUCKDB_TAG" -R data-desk-eco/duckdb-wasm-lite \
 echo "dd design system (from $DD_DIST) ..."
 mkdir -p "$VENDOR/dd"
 # dd.js is the kernel the app is built on; audit.js checks a page against it.
-# map.css is the review page's alone, until it moves onto the elements
 cp "$DD_DIST/dd.js" "$DD_DIST/audit.js" "$DD_DIST/style.dark.json" \
-   "$DD_DIST/worldmap.js" "$DD_DIST/land.json" "$DD_DIST/map.css" \
-   "$VENDOR/dd/"
+   "$DD_DIST/worldmap.js" "$DD_DIST/land.json" "$VENDOR/dd/"
 
 echo "inter font ..."
 # a desktop chrome agent, so google serves woff2

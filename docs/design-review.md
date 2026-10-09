@@ -180,7 +180,8 @@ measured against the 2× rasters, which put a panel at 270px:
     "also here" row that followed them went (2026-10-09), and a heading too
     long for its line ends in an ellipsis rather than wrapping. the chart takes the drawn form: small
     dots, ticks up the left, a rule along the foot.
-27. the /review page still uses `map.css` classes (open).
+27. the /review page used `map.css` classes; it is on the elements and
+    tokens now, and `map.css` is gone.
 
 ## in the running app
 

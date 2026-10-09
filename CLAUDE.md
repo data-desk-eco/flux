@@ -91,7 +91,7 @@ web/
                      quarters.js, data.js duckdb, archive.js index, util.js
   review/            the /review page: index.html and review.js
   vendor/            dd kernel (dd.js, audit.js) and basemap, duckdb,
-                     maplibre, inter (regular, bold, italic)
+                     maplibre, inter (300-800, italic)
 worker/              the review api and its d1 schema
 scripts/             vendor.sh, dist.sh, serve.py
 test/                the rate rules, in node:test

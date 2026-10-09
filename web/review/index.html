@@ -13,34 +13,38 @@
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2240%22 fill=%22%23FD7700%22/%3E%3C/svg%3E">
     <link rel="stylesheet" href="../vendor/fonts/inter.css">
     <link rel="stylesheet" href="../vendor/maplibre-gl.css">
-    <link rel="stylesheet" href="../vendor/dd/map.css">
     <link rel="stylesheet" href="../shell/shell.css">
     <link rel="stylesheet" href="../style.css">
     <style>
         /* one column: the queue is the panel, and each claim is reviewed where
            it sits in it. the claim at the top of the scroll is the map's */
-        .rv { top: 0; left: 0; bottom: 0; width: 400px; padding: 0;
-              display: flex; flex-direction: column; }
-        .rv > header { padding: 30px 30px 15px; }
+        .rv { position: absolute; top: 0; left: 0; bottom: 0; width: 400px;
+              margin: var(--dd-margin); display: flex;
+              flex-direction: column; background: var(--dd-ui-background);
+              border: 1px solid var(--dd-ui-border); }
+        .rv > header { padding: var(--dd-padding-l) var(--dd-padding-l)
+                       var(--dd-padding-s); display: flex;
+                       flex-direction: column; gap: var(--dd-pair-gap); }
+        .rv-head { display: flex; align-items: baseline;
+                   justify-content: space-between; gap: var(--dd-pair-gap);
+                   border-bottom: 1px solid var(--dd-ui-border);
+                   padding-bottom: var(--dd-head-rule); }
+        .rv-list, .rv-tx-body { scrollbar-width: thin;
+            scrollbar-color: var(--dd-ui-inactive) transparent; }
         .rv-list { flex: 1; overflow-y: auto; padding: 0 30px 50vh; }
         .rv-item { padding: 25px 0;
                    display: flex; flex-direction: column; gap: 15px;
                    color: var(--dd-ui-text-secondary); }
-        .rv-item.dd-active { color: var(--dd-ui-text); cursor: default; }
-        .rv-item .dd-heading { justify-content: space-between; gap: 11px; }
+        .rv-item.on { color: var(--dd-ui-text); cursor: default; }
         .rv-why { white-space: pre-wrap; overflow-wrap: anywhere; }
         .rv-ev { display: flex; flex-wrap: wrap; gap: 6px; }
-        .info-stats div { gap: 11px; }
-        .info-stats span:last-child { text-align: right;
-                                      overflow-wrap: anywhere; }
+        .rv-none { padding-top: var(--dd-gap-s); }
+        .rv-stats { display: flex; flex-direction: column;
+                    gap: var(--dd-info-gap); overflow-wrap: anywhere; }
         .rv-notes { width: calc(100% + 14px); margin: 0 -7px; padding: 4px 6px;
                     background: none; color: inherit; font: inherit;
                     border: 1px solid var(--dd-ui-border); resize: vertical;
                     outline: none; }
-        .rv-act .dd-btn { padding: 4px 6px; }
-        .rv-act .dd-btn.dd-active { background: var(--dd-ui-active-background);
-                                    color: var(--dd-ui-active-text); }
-        .rv-tabs { display: flex; gap: 11px; }
         /* the queue's view: an order and two filters, in the tabs' idiom */
         .rv-view { display: flex; flex-wrap: wrap; align-items: center;
                    gap: 6px 15px; color: var(--dd-ui-text-secondary); }
@@ -56,39 +60,34 @@
         .rv-view input:checked { background: var(--dd-ui-text);
                                  border-color: var(--dd-ui-text); }
         .rv-view select { field-sizing: content; }
-        .rv-conf { display: flex; gap: 8px; }
-        .rv-item.done > :not(.dd-heading) { display: none; }
+        .rv-conf { display: flex; gap: var(--dd-pair-gap); }
+        .rv-c { background: none; border: none; cursor: pointer;
+                color: var(--dd-ui-inactive); }
+        .rv-c.on { color: var(--dd-ui-text); }
+        .rv-item.done > :not(.rv-head) { display: none; }
         /* the agent's transcript, read when opened: its own scroll, so the
            list's does not move */
         .rv-tx summary { cursor: pointer; }
         .rv-tx-body { max-height: 60vh; overflow-y: auto; margin-top: 15px;
                       display: flex; flex-direction: column; gap: 11px;
                       white-space: pre-wrap; overflow-wrap: anywhere; }
-        .rv-tx-body .dd-heading { margin-top: 15px; }
+        .rv-tx-body .rv-head { margin-top: var(--dd-padding-s); }
         .rv-tx-out, .rv-tx-think { color: var(--dd-ui-text-secondary); }
         .rv-tx-results a { display: block; }
         .rv-item.done { color: var(--dd-ui-inactive); }
-        /* the legacy dd classes (map.css) until this page moves onto the
-           elements the app uses */
-        .fx-opt { background: none; border: none; cursor: pointer;
-                  padding: 0; color: var(--dd-ui-inactive); }
-        .fx-opt.active { color: var(--dd-ui-text); }
-        .custom-scroll { scrollbar-width: thin;
-                         scrollbar-color: var(--dd-ui-inactive) transparent; }
         @media (max-width: 768px) {
             .rv { top: auto; right: 0; width: auto; height: 55vh; }
-            .rv > header { padding: 15px; }
-            .rv-list { padding: 0 15px 40vh; }
+            .rv > header { padding: var(--dd-padding-s); }
+            .rv-list { padding: 0 var(--dd-padding-s) 40vh; }
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <aside class="dd-panel rv">
-        <header class="dd-gap" style="gap:8px">
-            <div class="dd-heading">
-                <span class="dd-title">Attribution review</span></div>
-            <div class="rv-tabs" id="tabs">Loading</div>
+    <aside class="rv">
+        <header>
+            <div class="rv-head">Attribution review</div>
+            <dd-toggle id="tabs" value="open"></dd-toggle>
             <form class="rv-view" id="view">
                 <label>Order by <select name="order">
                     <option value="run">Run</option>
@@ -96,15 +95,15 @@
                     <option value="rate">Rate</option></select></label>
                 <label><input type="checkbox" name="feat"> With features</label>
                 <span class="rv-conf">Confidence
-                <button type="button" class="fx-opt active"
+                <button type="button" class="rv-c on"
                     data-c="high">High</button>
-                <button type="button" class="fx-opt active"
+                <button type="button" class="rv-c on"
                     data-c="medium">Medium</button>
-                <button type="button" class="fx-opt active"
+                <button type="button" class="rv-c on"
                     data-c="low">Low</button></span>
             </form>
         </header>
-        <div class="rv-list custom-scroll" id="list"></div>
+        <div class="rv-list" id="list"></div>
     </aside>
     <script src="../vendor/maplibre-gl.js"></script>
     <script type="module" src="review.js"></script>

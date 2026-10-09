@@ -50,15 +50,15 @@ const TABS = {
 };
 const VERB = { confirmed: 'Confirm', refuted: 'Refute', unclear: 'Unclear' };
 
-const stat = (k, v) => v ? `<div><span class="dd-secondary">${k}</span>
+const stat = (k, v) => v ? `<div><span class="fx-secondary">${k}</span>
     <span>${v}</span></div>` : '';
 const where = r => r.plat == null ? 'Unknown' : km(r) < 0.05
     ? 'On the plume' : `${km(r).toFixed(2)} km from the plume`;
 function inner(r) {
     const v = state(r), d = dec.get(key(r));
-    return `<div class="dd-heading"><span>${esc(r.source_label)}</span>
-        <span class="dd-secondary">${esc(v ?? r.confidence)}</span></div>
-    <div class="info-stats">
+    return `<div class="rv-head"><span>${esc(r.source_label)}</span>
+        <span class="fx-secondary">${esc(v ?? r.confidence)}</span></div>
+    <div class="rv-stats">
         ${stat('Kind', esc(r.source_kind))}
         ${stat('Confidence', v && esc(r.confidence))}
         ${stat('Operator', esc(r.operator))}
@@ -75,19 +75,19 @@ function inner(r) {
         ${stat('Run', esc(r.run))}
         ${stat('Verdict', v && d && `${esc(v)}, ${esc(d.by)},
             ${esc(d.at.slice(0, 16).replace('T', ' '))}`)}
-        <div class="dd-secondary">${esc(r.id)}</div></div>
+        <div class="fx-secondary">${esc(r.id)}</div></div>
     <div class="rv-why">${esc(r.paragraph)}</div>
     ${r.evidence?.length ? `<div class="rv-ev">${r.evidence.map((u, i) =>
         `<a href="${esc(u)}" title="${esc(u)}" target="_blank"
             rel="noopener">[${i + 1}]</a>`).join('')}</div>` : ''}
     <details class="rv-tx"><summary>Transcript</summary>
-        <div class="rv-tx-body custom-scroll">Loading</div></details>
+        <div class="rv-tx-body">Loading</div></details>
     <textarea class="rv-notes" rows="2" placeholder="Notes">${
         esc(d?.notes ?? '')}</textarea>
-    <div class="dd-btn-pair rv-act">${Object.entries(VERB).map(([k, l]) =>
-        `<button class="dd-btn${v === k ? ' dd-active' : ''}" data-v="${k}">${l}
-        </button>`).join('')}${v ? '<button class="dd-btn" data-v="open">'
-        + 'Reopen</button>' : ''}</div>`;
+    <dd-btns>${Object.entries(VERB).map(([k, l]) =>
+        `<dd-btn data-v="${k}"${v === k ? ' disabled' : ''}>${l}</dd-btn>`)
+        .join('')}${v ? '<dd-btn data-v="open">Reopen</dd-btn>' : ''}
+    </dd-btns>`;
 }
 
 // what the agent did, published per plume beside the table by the run
@@ -107,8 +107,8 @@ function transcript(events) {
                 esc(title || url)}</a>`;
         }).join('') : esc(e.text);
         return (h === head ? ''
-            : `<div class="dd-heading">${esc(head = h)}</div>`)
-            + `<div class="rv-tx-${e.kind}"><span class="dd-secondary">${
+            : `<div class="rv-head">${esc(head = h)}</div>`)
+            + `<div class="rv-tx-${e.kind}"><span class="fx-secondary">${
                 KIND[e.kind] ?? e.kind}</span>\n${text}</div>`;
     }).join('');
 }
@@ -127,16 +127,18 @@ async function openTranscript(d) {
 const list = $('list');
 let tab = 'open', shown = [], sel;
 function tabs() {
+    $('tabs').setAttribute('value', tab);
     $('tabs').innerHTML = Object.entries(TABS).map(([k, t]) =>
-        `<button class="fx-opt${k === tab ? ' active' : ''}" data-tab="${k}">
-        ${t.label} ${view(t.rows()).length}</button>`).join('');
+        `<button value="${k}">${t.label} ${view(t.rows()).length}</button>`)
+        .join('');
+    $('tabs').render();
 }
 // the view over a tab: the tab's own order unless another is asked for,
 // newest plume or highest rate first, a plume without either last
 const by = { date: r => r.pdate ?? '', rate: r => r.rate_kg_h ?? -1 };
 function view(rows) {
     const f = $('view'), k = by[f.order.value];
-    const cs = [...f.querySelectorAll('[data-c].active')].map(b => b.dataset.c);
+    const cs = [...f.querySelectorAll('[data-c].on')].map(b => b.dataset.c);
     rows = rows.filter(r => cs.includes(r.confidence)
         && (!f.feat.checked || r.attributed_ids?.length));
     return k ? rows.sort((a, b) => k(b) > k(a) ? 1 : k(b) < k(a) ? -1 : 0)
@@ -146,7 +148,7 @@ function render(t) {
     tab = t, sel = null, shown = view(TABS[t].rows());
     list.innerHTML = shown.map((r, i) =>
         `<article class="rv-item" data-i="${i}">${inner(r)}</article>`).join('')
-        || `<p class="dd-secondary" style="padding-top:25px">${t === 'open'
+        || `<p class="fx-secondary rv-none">${t === 'open'
             ? 'No claims await a verdict.' : 'No verdicts yet.'}</p>`;
     list.scrollTop = 0;
     tabs();
@@ -194,8 +196,8 @@ map.addLayer({ id: 'rv-plume', type: 'symbol', source: 'rv',
 function select(el, scroll) {
     if (!el) return map.getSource('rv').setData(empty);
     if (el === sel) return;
-    sel?.classList.remove('dd-active');
-    (sel = el).classList.add('dd-active');
+    sel?.classList.remove('on');
+    (sel = el).classList.add('on');
     if (scroll) list.scrollTo({ top: el.offsetTop - list.offsetTop,
                                 behavior: 'smooth' });
     const r = shown[el.dataset.i];
@@ -225,14 +227,14 @@ function select(el, scroll) {
 async function decide(verdict) {
     const el = sel, r = shown[el.dataset.i];
     if (verdict === 'open' && !state(r)) return;
-    const btns = el.querySelectorAll('button');
-    btns.forEach(b => b.disabled = true);
+    const btns = el.querySelectorAll('dd-btn');
+    btns.forEach(b => b.toggleAttribute('disabled', true));
     const notes = el.querySelector('textarea').value.trim();
     const res = await fetch(API, { method: 'POST', body: JSON.stringify({
         id: r.id, run_at: r.run_s, verdict, notes }) })
         .catch(e => ({ ok: false, text: () => e.message }));
-    btns.forEach(b => b.disabled = false);
-    if (!res.ok) return $('tabs').insertAdjacentHTML('beforeend',
+    btns.forEach(b => b.removeAttribute('disabled'));
+    if (!res.ok) return $('tabs').insertAdjacentHTML('afterend',
         `<span style="color:var(--dd-map-red)">Not saved: ${
             esc(await res.text())}</span>`);
     dec.set(key(r), { id: r.id, run_at: r.run_s, verdict, notes: notes || null,
@@ -241,7 +243,7 @@ async function decide(verdict) {
     tabs();
     // reopened in the queue, a claim stays open where it is to be judged again
     if (verdict === 'open' && tab === 'open') return;
-    if (verdict === 'open') el.querySelector('.dd-heading .dd-secondary')
+    if (verdict === 'open') el.querySelector('.rv-head .fx-secondary')
         .textContent = 'reopened';
     el.classList.add('done');
     const items = [...list.querySelectorAll('.rv-item:not(.done)')];
@@ -268,9 +270,8 @@ list.addEventListener('click', e => {
 // toggle does not bubble, so the list listens for it on the way down
 list.addEventListener('toggle', e => e.target.matches?.('.rv-tx')
     && openTranscript(e.target), true);
-$('tabs').addEventListener('click', e =>
-    e.target.dataset.tab && render(e.target.dataset.tab));
+$('tabs').addEventListener('change', e => render(e.target.value));
 $('view').addEventListener('change', () => render(tab));
 $('view').addEventListener('click', e => e.target.dataset.c
-    && (e.target.classList.toggle('active'), render(tab)));
+    && (e.target.classList.toggle('on'), render(tab)));
 render('open');
