@@ -40,7 +40,9 @@
         .rv-ev { display: flex; flex-wrap: wrap; gap: 6px; }
         .rv-none { padding-top: var(--dd-gap-s); }
         .rv-stats { display: flex; flex-direction: column;
-                    gap: var(--dd-info-gap); overflow-wrap: anywhere; }
+                    gap: var(--dd-info-gap); --dd-cols: auto 1fr; }
+        .rv-stats dd-row > :last-child { text-align: right;
+                                         overflow-wrap: anywhere; }
         .rv-notes { width: calc(100% + 14px); margin: 0 -7px; padding: 4px 6px;
                     background: none; color: inherit; font: inherit;
                     border: 1px solid var(--dd-ui-border); resize: vertical;

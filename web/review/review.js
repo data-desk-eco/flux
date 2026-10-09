@@ -50,8 +50,9 @@ const TABS = {
 };
 const VERB = { confirmed: 'Confirm', refuted: 'Refute', unclear: 'Unclear' };
 
-const stat = (k, v) => v ? `<div><span class="fx-secondary">${k}</span>
-    <span>${v}</span></div>` : '';
+// information rows: the label left, the data right (pdf:84)
+const stat = (k, v) => v ? `<dd-row><span class="fx-secondary">${k}</span>
+    <span>${v}</span></dd-row>` : '';
 const where = r => r.plat == null ? 'Unknown' : km(r) < 0.05
     ? 'On the plume' : `${km(r).toFixed(2)} km from the plume`;
 function inner(r) {
