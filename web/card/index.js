@@ -6,7 +6,6 @@
 
 import { showDetail, refreshDetail, closeDetail } from '../shell/detail.js';
 import { dateInQuarters, formatDate } from '../shell/util.js';
-import { nearbyHtml, wireNearby } from '../nearby.js';
 import { renderChart } from './chart.js';
 import { initOverlays, greyCircles, clearOverlays } from './overlays.js';
 import flare from './flare.js';
@@ -60,23 +59,9 @@ export const siteTitle = (p, fallback) =>
 // ── detail hooks ──
 
 export const cardTitle = p => bodyOf(p).title(p);
-// the statistics sit under the heading rule (pdf:89), "also here" last among
-// them in a slot of its own, refilled in place: it is the one part that reads
-// other layers, and re-rendering the card for them would drop the reader's
-// selected date
-export function cardStats(p) {
-    const b = bodyOf(p);
-    return (b.stats ?? seriesStats)(p, b)
-        + `<div id="nearby-slot">${nearbyHtml(p)}</div>`;
-}
+// the statistics sit under the heading rule (pdf:89)
+export const cardStats = p => (bodyOf(p).stats ?? seriesStats)(p, bodyOf(p));
 export const cardHtml = p => (bodyOf(p).html ?? seriesHtml)(p, bodyOf(p));
-
-function refreshNearbyRow() {
-    const slot = document.getElementById('nearby-slot');
-    if (!slot || !current) return;
-    slot.innerHTML = nearbyHtml(current);
-    wireNearby(slot);
-}
 
 export function onCardShow(p, el) {
     const b = bodyOf(p);
@@ -86,7 +71,6 @@ export function onCardShow(p, el) {
     shownBody = b;
     current = p;
     selectedDetection = null;
-    wireNearby(el);
     (b.show ?? seriesShow)(p, el, b);
     document.activeElement?.blur();
 }
@@ -123,7 +107,7 @@ export function reselectCurrentFeature() {
     // sites' cards, and ids are VARCHAR everywhere
     const match = features
         .find(f => String(f.properties.id) === String(current.id));
-    if (match) { reopen(match.properties); refreshNearbyRow(); }
+    if (match) reopen(match.properties);
     else if (map.getBounds().contains(coords(current))) closeDetail();
 }
 

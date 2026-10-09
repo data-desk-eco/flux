@@ -15,16 +15,10 @@
 /* --- detail card internals --- */
 
 /* the statistics under the heading rule, 18px apart, their values in a
-   column set from its left edge (pdf:89); "also here" last among them, and
-   gone when empty */
+   column set from its left edge (pdf:89) */
 .fx-stats, .info-stats { display: flex; flex-direction: column;
     gap: var(--dd-info-gap); --dd-cols: 1fr 30px; }
 .plume-row { --dd-cols: 1fr 92px; }
-#nearby-slot:empty { display: none; }
-.also-here { --dd-cols: auto 1fr; }
-.also-here button { background: none; border: none; padding: 0;
-    text-decoration: underline; cursor: pointer; }
-.also-here button:hover { color: var(--dd-ui-text-secondary); }
 
 .intensity-chart:empty { display: none; }
 .intensity-chart svg { width: 100%; display: block; }

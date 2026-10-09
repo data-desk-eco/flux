@@ -13,7 +13,6 @@ import { MODE } from './flaring/render.js';
 import { DD, MARKS, PIN, RATE_LABEL, AUDIT, flareIcon, plumeIcon }
     from './layers.js';
 import { keySections } from './key.js';
-import { initNearby } from './nearby.js';
 import { initVNF, resetVNF, queryVNF, queryVNFFlare, availableQuartersVNF,
     isReady as vnfReady } from './flaring/vnf.js';
 import { initS2Archive, queryS2Archive, queryS2Flare, availableQuartersS2,
@@ -358,7 +357,6 @@ mount({
     ready: ctx => {
         initCard({ map: ctx.map, archive: ARCHIVE,
                    quarterKeys: () => ctx.quarters.keys() });
-        initNearby(ctx);
         initProbabilityOverlay(ctx.map);
         initMask(ctx.map, ARCHIVE);
         addCandidateLayers(ctx.map, ctx.sql);

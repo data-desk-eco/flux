@@ -91,7 +91,8 @@ function render(feature, fromPermalink) {
         geometry: { type: 'Point', coordinates: [lon, lat] } }]);
 
     // the heading opens and shuts the card, so it is never a link (ruling
-    // 2026-07-08): a body that has one puts it in itself
+    // 2026-07-08): a body that has one puts it in itself. a long one ends in
+    // an ellipsis (dd.js) and the tooltip carries it whole
     const t = cfg.title?.(p) || { text: id }, n = overlapping.length;
     const nav = n < 2 ? '' : ` <span class="fx-overlap">`
         + `<button class="fx-nav" data-nav="-1">‹</button> `
@@ -99,7 +100,8 @@ function render(feature, fromPermalink) {
         + `<button class="fx-nav" data-nav="1">›</button></span>`;
     const el = panel();
     el.innerHTML = `
-        <span slot="title" class="fx-detail-id">${escapeHtml(t.text)}</span>
+        <span slot="title" title="${escapeHtml(t.text)
+            }">${escapeHtml(t.text)}</span>
         <div slot="subtitle" class="fx-stats"><span>${fmtCoords(lat, lon)
             }${nav}</span>${cfg.stats?.(p) || ''}</div>
         ${cfg.html?.(p) || ''}`;

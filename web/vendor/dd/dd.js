@@ -75,7 +75,9 @@ const fire = (el, type) => el.dispatchEvent(new Event(type,
 // <dd-panel pad=l|s gap=l|s collapsible collapsed info intro>
 //   <span slot=title>…</span><span slot=subtitle>…</span> content
 // </dd-panel>. a collapsible panel keeps the l left padding the chevron
-// hangs in; contracting hides the content in place (ruling 2026-07-08)
+// hangs in; contracting hides the content in place (ruling 2026-07-08).
+// a heading is one line: a long one ends in an ellipsis, the text whole
+// underneath, so a triple click selects and copies all of it
 define('dd-panel', `:host{display:flex;flex-direction:column;min-height:0}
 .box{flex:1 1 auto;min-height:0;overflow:auto;background:${C.background};
 border:1px solid ${C.border};padding:${S.paddingL};display:flex;
@@ -89,7 +91,8 @@ scrollbar-color:${C.inactive} transparent}
 .head{position:relative}.head[hidden],.sub[hidden]{display:none}
 .title{display:flex;align-items:center;gap:${S.buttonPadX};
 border-bottom:1px solid ${C.border};padding-bottom:${S.headRule}}
-.title slot{display:block;flex:1;min-width:0;overflow-wrap:anywhere}
+.title slot{display:block;flex:1;min-width:0;overflow:hidden;
+white-space:nowrap;text-overflow:ellipsis}
 :host([collapsible]) .title slot{cursor:pointer}
 .info{display:none;flex:none;width:10px;height:10px}
 .info svg{display:block}:host([info]) .info{display:block}
@@ -124,7 +127,14 @@ name="title"></slot><button class="info" aria-label="About">${INFO}
     fire(el, 'toggle')
   }
   $('.chev').onclick = toggle
-  $('slot[name=title]').onclick = e => e.target.closest('a') || toggle()
+  // a heading click toggles once it is plainly not the start of a double or
+  // triple click (which select), nor the end of a drag that selected
+  let wait
+  $('slot[name=title]').onclick = e => {
+    clearTimeout(wait)
+    if (e.target.closest('a') || e.detail > 1) return
+    wait = setTimeout(() => getSelection().isCollapsed && toggle(), 300)
+  }
   $('.info').onclick = () => fire(el, 'info')
 })
 

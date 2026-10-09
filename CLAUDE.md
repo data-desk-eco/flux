@@ -73,8 +73,6 @@ web/
   layers.js          marking / ramp / colour policy and the key's bands.
                      shape categorises, colour is measurement
   key.js             the key: a group of bands per family
-  nearby.js          the "also here" row and its groups, from what the
-                     session already holds
   card/              one header, one body per feature kind
     index.js         the registry, the shared series card,
                      reselectCurrentFeature
@@ -154,10 +152,9 @@ family and nothing else.
 **`reselectCurrentFeature()` is load-bearing.** every dot carries the numbers
 for the ticked quarters alone, and an open card holds a copy. every layer
 refreshes through the one `refresh(id)` in `config.js`, which ends in it; a
-new layer goes in `READS` and gets that for free. it also refills the "also
-here" slot, the card's one part that reads the *other* layers: when only they
-moved, the card's own re-render is a no-op (detail.js compares properties,
-rightly — a rebuild would drop the reader's selected date).
+new layer goes in `READS` and gets that for free. a card reads no layer but
+its own: when only others moved, its re-render is a no-op (detail.js compares
+properties, rightly — a rebuild would drop the reader's selected date).
 
 **units and types.** MCM/d is `rh_mw × 0.0315` (JZ-RH, Zhizhin et al. 2025);
 `RH_TO_MCM` in `flaring/render.js` is the only place it is spelled. EOG's own
@@ -179,7 +176,7 @@ averaging, always check `n_sats`, and read a day with files but no detections
 as cloud, not as zero activity (`docs/ras-laffan-monitoring.md`).
 
 **the negation in the S2 intensity gate is deliberate.**
-`!(c.avg_b12 < MODE.s2.floor)` (`config.js`, `nearby.js`) lets a cluster the
+`!(c.avg_b12 < MODE.s2.floor)` (`config.js`) lets a cluster the
 table gives no intensity for through: `undefined >= 0.85` is false for every
 row.
 

@@ -98,7 +98,6 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
     display: none;
 }
 .fx-detail.visible { display: flex; }
-.fx-detail-id { overflow-wrap: anywhere; }
 .fx-overlap { white-space: nowrap; }
 .fx-nav { background: none; border: none; cursor: pointer;
     padding: 0 var(--dd-control-pad-y); }

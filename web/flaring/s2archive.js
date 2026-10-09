@@ -7,7 +7,7 @@ import { read, memoised } from '../shell/data.js';
 import { objects } from '../shell/archive.js';
 import { quarterOf } from '../shell/util.js';
 
-let _flares = null, _rows = null;
+let _flares = null;
 const inBox = ([w, s, e, n], c) =>
     c.lon >= w && c.lon <= e && c.lat >= s && c.lat <= n;
 
@@ -20,7 +20,6 @@ const flares = () => _flares ??= objects('flares', { provider: 'data-desk' })
             + 'partitioned, and this reader must address it by cell');
         return read(u);
     })
-    .then(rows => (_rows = rows))
     .catch(err => { _flares = null; throw err; });
 
 // start the whole-table read at page parse, so it downloads while maplibre
@@ -37,10 +36,6 @@ export async function coverage() {
             [lon, lat, lon, lat]);
     return [...cells.values()];
 }
-
-// the rows that whole-table read landed, for callers that need them without
-// awaiting — the card's "also here" row. null until it lands.
-export const residentFlares = () => _rows;
 
 // clusters intersecting a viewport bbox and date window. the window is an
 // overlap test on each cluster's [first_seen, last_seen]; the published scalar
