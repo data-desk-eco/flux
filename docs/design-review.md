@@ -58,6 +58,11 @@ and set them against the figma rasters the pdf embeds, band by band at 2×
   the weight matches.
 - **tracking.** the intro heading's "-3%" is thousandths of an em: both
   drawings of it measure untracked within a pixel.
+- **weight.** figma's raster softens stroke cores; at 400 the browser's are
+  solid white and read heavier on black (39% more fully white pixels for the
+  same footprint). regular is set at 370, which matches the drawing's solid
+  ink within 1% on a light row and by eye on dark; at 32px it runs the other
+  way, and the intro's bold is 750.
 - **geometry the text omits**, measured: statistics 18px apart, directly under
   the heading rule; selectable rows 25px, 4px apart, 9.35px under their
   header; controls 22px; key markings top-aligned in 15px slots, 24.5px apart,

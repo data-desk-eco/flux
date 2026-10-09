@@ -5,10 +5,10 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: 100%; height: 100%; background: #000; }
 /* the ui type the elements set, for what sits outside them: inter at its
-   own line height, the optical size the drawings measure at, greyscale
-   smoothing (vendor/dd/dd.js) */
+   own line height, the weight and optical size the drawings measure at,
+   greyscale smoothing (vendor/dd/dd.js) */
 body {
-    font: 400 11px/1.21 InterVariable, Inter, sans-serif;
+    font: 370 11px/1.21 InterVariable, Inter, sans-serif;
     font-variation-settings: "opsz" 22;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -160,7 +160,7 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
     position: sticky;
     top: 0;
     background: var(--dd-ui-background);
-    font-weight: 400;
+    font-weight: var(--dd-weight);
     text-align: left;
     padding: var(--dd-row-pad-y) var(--dd-button-pad-x);
     border-bottom: 1px solid var(--dd-ui-border);

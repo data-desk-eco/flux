@@ -41,8 +41,8 @@ echo "inter font ..."
 # a desktop chrome agent, so google serves woff2
 UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
 UA+=' (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-# regular, bold and italic: the guidelines' fonts (pdf:22)
-AXES='ital,opsz,wght@0,14..32,400..700;1,14..32,400..700'
+# regular, bold and italic (pdf:22), over the weights the drawings measure at
+AXES='ital,opsz,wght@0,14..32,300..800;1,14..32,300..800'
 curl -sH "User-Agent: $UA" \
   "https://fonts.googleapis.com/css2?family=Inter:$AXES&display=swap" |
 python3 -c "
