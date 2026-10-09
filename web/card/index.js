@@ -118,6 +118,7 @@ const pct = v => `${Math.round(v * 100)}%`;
 // the feature carries the window's numbers, so nothing here recomputes a
 // rate. "(clear)" only where a cloud mask says which passes were clear
 const seriesStats = (p, b) => [
+    ['Instrument', b.instrument],
     [p.observations == null ? 'Detections' : 'Detections (clear)',
         p.detection_count],
     ['Persistence', p.persistence != null ? pct(p.persistence) : '—'],

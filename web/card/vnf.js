@@ -18,6 +18,7 @@ function footprint(det) {
 export default {
     source: 'vnf',
     cfg: MODE.vnf,
+    instrument: 'VIIRS Nightfire',
     passLabel: 'Nights read',
     title: p => siteTitle(p, `Flare #${p.id}`),
     fetch: fetchVNFDetections,
