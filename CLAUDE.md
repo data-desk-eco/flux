@@ -88,7 +88,8 @@ web/
   methane/           plumes.js reader, attribution.js, candidates.js,
                      licences.js, overlay.js, mask.js
   shell/             app.js mount, map.js, ui.js, detail.js, table.js,
-                     quarters.js, data.js duckdb, archive.js index, util.js
+                     quarters.js, data.js reads, engine.js the duckdb
+                     worker, archive.js index, util.js
   review/            the /review page: index.html and review.js
   vendor/            dd kernel (dd.js, audit.js) and basemap, duckdb,
                      maplibre, inter (300-800, italic)

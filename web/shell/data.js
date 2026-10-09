@@ -1,35 +1,31 @@
 // one lazy duckdb-wasm engine serves every parquet read and raw statement.
-// it runs in its own worker, so nothing here needs one.
-const DDB = new URL('../vendor/duckdb/', import.meta.url).href;
-const DUCKDB_RELEASE = 'v2.0.0-alpha1-lite.5';
-const duckdbAsset = name => `${DDB}${name}?v=${DUCKDB_RELEASE}`;
+// its client runs in engine.js, a worker, so a read costs the main thread
+// only the structured clone of its rows.
+let files = {}, engine, seq = 0;
+const pending = new Map();
 
-let files = {}, engine;
-const lanes = new Map();
+const db = () => engine ??= (() => {
+    const w = new Worker(new URL('./engine.js', import.meta.url),
+        { type: 'module' });
+    w.onmessage = ({ data: [n, v, err] }) => {
+        const [ok, fail] = pending.get(n);
+        pending.delete(n);
+        err == null ? ok(v) : fail(new Error(err));
+    };
+    return w;
+})();
+const call = (op, args, transfer = []) => new Promise((ok, fail) => {
+    pending.set(++seq, [ok, fail]);
+    db().postMessage([seq, op, ...args], transfer);
+});
 
 // the engine is ~7 MB over the wire, so it starts here, downloading while
 // the map loads its style and tiles rather than after
 export function initData({ files: f = {}, prefetch = [] } = {}) {
     files = f;
-    connect().catch(() => {});
+    call('ready', []).catch(() => {});
     for (const name of prefetch) prefetchData(name);
 }
-
-const db = () => engine ??= (async () => {
-    const d = await import(duckdbAsset('duckdb-browser.mjs'));
-    const worker = new Worker(duckdbAsset('duckdb-browser-eh.worker.js'));
-    const db = new d.AsyncDuckDB(new d.VoidLogger(), worker);
-    await db.instantiate(duckdbAsset('duckdb-eh.wasm'));
-    return db;
-})();
-
-// a connection per lane. the engine runs one connection's statements in turn
-// and overlaps different connections' reads, so a lane is "may wait behind
-// itself, never behind anything else": a card open cannot hold a pan.
-const connect = (lane = 'map') => {
-    if (!lanes.has(lane)) lanes.set(lane, db().then(d => d.connect()));
-    return lanes.get(lane);
-};
 
 // an object small enough to hold is fetched whole, racing the engine
 // download, and registered as an engine buffer, so every statement over it
@@ -50,7 +46,7 @@ export function prefetchData(name) {
         }
         const bytes = new Uint8Array(await res.arrayBuffer());
         const buf = `prefetch${bufSeq++}.parquet`;
-        await (await db()).registerFileBuffer(buf, bytes);
+        await call('register', [buf, bytes], [bytes.buffer]);
         return buf;
     })().catch(() => null));
     return buffers.get(u);
@@ -107,44 +103,10 @@ const url = name => {
 const list = s => Array.isArray(s) ? `[${s.map(quote).join(', ')}]` : quote(s);
 export const parquetInput = name => list(url(name));
 
-// column by column, not through row proxies: each field's vector is walked
-// once, and a list of structs the same way, which was most of the main
-// thread's share of a read. an iterated vector yields null where invalid
-export async function sql(statement, { lane } = {}) {
-    const result = await (await connect(lane)).query(statement);
-    return rows(result, result.schema.fields);
-}
-
-const rows = (vec, fields) => {
-    const cols = fields.map(f => [f.name,
-        Array.from(vec.getChild(f.name), v => value(v, f.type))]);
-    return Array.from({ length: vec.length ?? vec.numRows }, (_, i) => {
-        const out = {};
-        for (const [k, c] of cols) out[k] = c[i];
-        return out;
-    });
-};
-
-const day = ms => new Date(Number(ms)).toISOString()
-    .replace('T00:00:00.000Z', '');
-const value = (item, type) => item == null ? item
-    : type.typeId === 8 ? day(item)
-    : type.typeId === 10 ? new Date(Number(item)).toISOString()
-    : type.typeId === 12 ? (type.children[0].type.typeId === 13
-        ? rows(item, type.children[0].type.children)
-        : Array.from(item, child => value(child, type.children[0].type)))
-    : type.typeId === 13 ? Object.fromEntries(type.children
-        .map(c => [c.name, value(item[c.name], c.type)]))
-    : norm(item);
-
-// bigints to numbers and dates to iso strings, through lists and structs,
-// leaving typed arrays alone
-const norm = v => typeof v === 'bigint' ? Number(v)
-    : v instanceof Date ? day(v)
-    : Array.isArray(v) ? v.map(norm)
-    : v && typeof v === 'object' && !ArrayBuffer.isView(v)
-        ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, norm(x)]))
-    : v;
+// a connection per lane (engine.js): a lane may wait behind itself, never
+// behind anything else, so a card open cannot hold a pan
+export const sql = (statement, { lane } = {}) =>
+    call('sql', [statement, lane]);
 
 // `where` is {column: [lo, hi]}, either end open, and never null
 export async function read(name, { columns, where, lane } = {}) {

@@ -20,7 +20,7 @@ rm -rf dist/data dist/vendor/.ok
 mkdir -p dist/data
 
 [ -f "$WASM" ] && [ "$(wc -c < "$WASM")" -lt 30000000 ]   # see vendor.sh
-grep -q "duckdbAsset('duckdb-eh\.wasm')" dist/shell/data.js
+grep -q "duckdbAsset('duckdb-eh\.wasm')" dist/shell/engine.js
 
 if [ "$MODE" = local ]; then
     for f in plumes licences; do
