@@ -56,7 +56,7 @@ function downloadCSV() {
 export default {
     source: 'detections',
     cfg: MODE.s2,
-    instrument: 'Sentinel-2',
+    instrument: 'S2',
     passLabel: 'Passes',
     title: p => siteTitle(p, 'Unknown facility'),
     fetch: fetchS2Detections,
