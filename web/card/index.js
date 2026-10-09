@@ -60,14 +60,16 @@ export const siteTitle = (p, fallback) =>
 // ── detail hooks ──
 
 export const cardTitle = p => bodyOf(p).title(p);
-// "also here" has a slot of its own, refilled in place: it is the one part
-// that reads other layers, and re-rendering the card for them would drop the
-// reader's selected date
-export function cardHtml(p) {
+// the statistics sit under the heading rule (pdf:89), "also here" last among
+// them in a slot of its own, refilled in place: it is the one part that reads
+// other layers, and re-rendering the card for them would drop the reader's
+// selected date
+export function cardStats(p) {
     const b = bodyOf(p);
-    return `<div id="nearby-slot">${nearbyHtml(p)}</div>`
-        + (b.html ?? seriesHtml)(p, b);
+    return (b.stats ?? seriesStats)(p, b)
+        + `<div id="nearby-slot">${nearbyHtml(p)}</div>`;
 }
+export const cardHtml = p => (bodyOf(p).html ?? seriesHtml)(p, bodyOf(p));
 
 function refreshNearbyRow() {
     const slot = document.getElementById('nearby-slot');
@@ -131,20 +133,20 @@ const pct = v => `${Math.round(v * 100)}%`;
 
 // the feature carries the window's numbers, so nothing here recomputes a
 // rate. "(clear)" only where a cloud mask says which passes were clear
+const seriesStats = (p, b) => [
+    [p.observations == null ? 'Detections' : 'Detections (clear)',
+        p.detection_count],
+    ['Persistence', p.persistence != null ? pct(p.persistence) : '—'],
+    [b.passLabel, p.passes ?? '—'],
+    [p.passes && p.observations != null
+        ? `Cloud-free (${pct(p.observations / p.passes)})`
+        : 'Cloud-free obs.', p.observations ?? '—'],
+].map(([k, v]) => `<dd-row><span>${k}</span><span>${v}</span></dd-row>`)
+    .join('');
+
 function seriesHtml(p, b) {
     const cfg = b.cfg;
-    const stats = [
-        [p.observations == null ? 'Detections' : 'Detections (clear)',
-            p.detection_count],
-        ['Persistence', p.persistence != null ? pct(p.persistence) : '—'],
-        [b.passLabel, p.passes ?? '—'],
-        [p.passes && p.observations != null
-            ? `Cloud-free (${pct(p.observations / p.passes)})`
-            : 'Cloud-free obs.', p.observations ?? '—'],
-    ].map(([k, v]) => `<dd-row><span>${k}</span><span>${v}</span></dd-row>`)
-        .join('');
     return `
-        <div class="info-stats">${stats}</div>
         <div class="intensity-chart" id="intensity-chart"></div>
         <div class="events">
             <dd-row inset class="events-header"><span>Date</span>

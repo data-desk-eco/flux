@@ -35,8 +35,8 @@ function sourceUrl({ id, provider, link }) {
 const overlayUrl = p => p.provider === 'data-desk' && p.overlay
     ? onArchive(p.overlay) : null;
 
-const row = (k, v, title = '') =>
-    `<dd-row title="${title}"><span>${k}</span><span>${v}</span></dd-row>`;
+const row = (k, v, title = '') => `<dd-row class="plume-row" title="${
+    title}"><span>${k}</span><span>${v}</span></dd-row>`;
 
 // the rate, or nature trace's ppm·m enhancement where no rate was published
 function rate(p) {
@@ -69,8 +69,7 @@ export default {
     source: 'plumes',
     init: deps => { archive = deps.archive; },
     title: p => ({ text: p.id || '—' }),
-    html: p => `
-        <div class="info-stats">
+    stats: p => `
             ${row('Source', provider(p))}
             ${p.sector ? row('Sector', escapeHtml(SECTOR[p.sector]
                 || p.sector)) : ''}
@@ -78,8 +77,8 @@ export default {
             ${rate(p)}
             ${wind(p)}
             ${row('Satellite', escapeHtml(p.satellite || '—'))}
-            ${row('Date', p.date ? escapeHtml(formatDate(p.date)) : '—')}
-        </div>
+            ${row('Date', p.date ? escapeHtml(formatDate(p.date)) : '—')}`,
+    html: () => `
         <div class="plume-analysis">
             <div>Analysis</div>
             <div id="analysis" class="fx-secondary">Loading…</div>

@@ -14,23 +14,24 @@
 
 /* --- detail card internals --- */
 
-/* "also here": an empty slot collapses rather than spend a section gap */
+/* the statistics under the heading rule, 18px apart, their values in a
+   column set from its left edge (pdf:89); "also here" last among them, and
+   gone when empty */
+.fx-stats, .info-stats { display: flex; flex-direction: column;
+    gap: var(--dd-info-gap); --dd-cols: 1fr 30px; }
+.plume-row { --dd-cols: 1fr 92px; }
 #nearby-slot:empty { display: none; }
 .also-here { --dd-cols: auto 1fr; }
 .also-here button { background: none; border: none; padding: 0;
     text-decoration: underline; cursor: pointer; }
 .also-here button:hover { color: var(--dd-ui-text-secondary); }
 
-/* information rows, 6px apart (pdf:84) */
-.info-stats { display: flex; flex-direction: column;
-    gap: var(--dd-button-pad-x); }
-
 .intensity-chart:empty { display: none; }
-.intensity-chart svg { width: 100%; height: 56px; display: block; }
+.intensity-chart svg { width: 100%; height: 76px; display: block; }
 .intensity-chart .chart-dot { cursor: pointer; }
 
 .events { --dd-cols: 1fr 36px 36px; }
-.events-header { margin-bottom: var(--dd-button-pad-x); }
+.events-header { margin-bottom: var(--dd-row-head-gap); }
 .events-list { overflow-y: auto; display: flex; flex-direction: column;
     gap: var(--dd-row-gap); scrollbar-width: thin;
     scrollbar-color: var(--dd-ui-inactive) transparent; }
@@ -52,16 +53,23 @@
     text-decoration: none; }
 .plume-evidence a:hover { color: var(--dd-ui-text); }
 
-/* --- intro: the coverage worldmap and the sources under it --- */
+/* --- intro: the coverage worldmap and the sources under it (pdf:91) --- */
 
+/* fine print, 11px under the 14px body (pdf:77) */
+.fx-fine { font-size: 11px; font-variation-settings: "opsz" 22; }
 .region-row { display: flex; justify-content: space-between;
     align-items: flex-start; gap: var(--dd-gap-s); }
-.region-row .fx-secondary { margin-bottom: var(--dd-button-pad-x); }
-.region-row svg { width: 170px; flex-shrink: 0; }
-/* the sources are fine print (pdf:77), 11px under the 14px body */
-.methods { font-size: 11px; }
-.methods-list { margin-top: var(--dd-pair-gap); }
-.methods-list p + p { margin-top: var(--dd-button-pad-x); }
+.region-row .fx-fine { display: flex; flex-direction: column;
+    gap: var(--dd-info-gap); }
+.region-row svg { width: 218px; flex-shrink: 0; }
+/* the sources fold under a chevron, shut until asked for */
+.methods summary { list-style: none; cursor: pointer; }
+.methods summary::-webkit-details-marker { display: none; }
+.methods summary svg { width: 8px; height: 4px; margin-right: 7px;
+    vertical-align: middle; fill: none; stroke: currentColor; }
+.methods[open] summary svg { transform: rotate(180deg); }
+.methods-list { margin-top: var(--dd-pair-gap); display: flex;
+    flex-direction: column; gap: var(--dd-info-gap); }
 
 /* --- mobile --- */
 

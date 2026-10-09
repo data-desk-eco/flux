@@ -4,16 +4,22 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: 100%; height: 100%; background: #000; }
+/* the ui type the elements set, for what sits outside them: inter at its
+   own line height, the optical size the drawings measure at, greyscale
+   smoothing (vendor/dd/dd.js) */
 body {
-    font: 400 11px/1.4 InterVariable, Inter, sans-serif;
-    font-feature-settings: "calt", "tnum", "ss01", "ss02";
+    font: 400 11px/1.21 InterVariable, Inter, sans-serif;
+    font-variation-settings: "opsz" 22;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     color: var(--dd-ui-text);
 }
 #map { width: 100%; height: 100%; background: #000; }
 .maplibregl-ctrl, .maplibregl-ctrl-logo, .maplibregl-ctrl-attrib {
     display: none !important;
 }
-a { color: inherit; text-decoration: underline; }
+a { color: inherit; text-decoration: underline;
+    text-underline-offset: var(--dd-underline-offset); }
 button { font: inherit; color: inherit; }
 .hidden { display: none !important; }
 .fx-secondary { color: var(--dd-ui-text-secondary); }
@@ -21,7 +27,7 @@ button { font: inherit; color: inherit; }
 /* --- main panel --- */
 
 /* the left column: main panel and key share it, so their boxes line up */
-:root { --fx-panel: 270px; }
+:root { --fx-panel: 269px; }
 .fx-main, .fx-key, .fx-detail, .fx-logo {
     position: absolute;
     margin: var(--dd-margin);
@@ -33,10 +39,10 @@ button { font: inherit; color: inherit; }
     max-height: calc(100vh - 2 * var(--dd-margin));
 }
 .fx-badge { color: var(--dd-ui-text-secondary); }
-/* the locator sits centred at seven eighths of the content (pdf:83). no
-   shrink: an svg's minimum size is 0, so on a short viewport it would absorb
-   the overflow and vanish rather than the panel scrolling */
-#worldmap { width: 87.5%; align-self: center; display: block;
+/* the locator sits centred, 187.6px of the 207 (pdf:88). no shrink: an
+   svg's minimum size is 0, so on a short viewport it would absorb the
+   overflow and vanish rather than the panel scrolling */
+#worldmap { width: 90.6%; align-self: center; display: block;
     flex-shrink: 0; }
 
 /* the field's border hangs into the padding, so its text stays on the
@@ -62,15 +68,15 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
         center/contain no-repeat;
 }
 
-/* the quarter grid (pdf:83): four columns and the years right, each dot's
-   centre half an active dot in from its column's start, 23px a row */
+/* the quarter grid (pdf:88): four columns and the years right, each dot
+   just in from its column's start, under its label */
 .fx-quarters {
     display: grid;
     grid-template-columns: repeat(4, 1fr) auto;
-    row-gap: 7px;
+    row-gap: var(--dd-dot-row-gap);
     align-items: center;
 }
-.fx-quarters dd-dot { margin-left: -4px; }
+.fx-quarters dd-dot { margin-left: var(--dd-dot-inset); }
 .fx-quarters > span:nth-child(5n) { text-align: right; }
 .fx-hint { margin-top: var(--dd-pair-gap);
     color: var(--dd-ui-text-secondary); }
@@ -87,7 +93,7 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
 .fx-detail {
     top: 0;
     right: 0;
-    width: 290px;
+    width: 270px;
     max-height: calc(100vh - 2 * var(--dd-margin));
     display: none;
 }
@@ -188,7 +194,7 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
     z-index: 1000;
 }
 .fx-modal-content {
-    width: 420px;
+    width: 459px;
     max-width: calc(100vw - 4 * var(--dd-margin));
     max-height: calc(100vh - 4 * var(--dd-margin));
 }

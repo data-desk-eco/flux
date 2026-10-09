@@ -20,8 +20,8 @@ import { initS2Archive, queryS2Archive, queryS2Flare, availableQuartersS2,
     coverage } from './flaring/s2archive.js';
 import { archiveFeature, enrichVNFFeatures } from './flaring/clustering.js';
 import { loadTerminals } from './flaring/terminals.js';
-import { initCard, cardTitle, cardHtml, onCardShow, onCardClose, refreshCard,
-    reselectCurrentFeature } from './card/index.js';
+import { initCard, cardTitle, cardStats, cardHtml, onCardShow, onCardClose,
+    refreshCard, reselectCurrentFeature } from './card/index.js';
 import { initPlumes, isPlume, label, readPlumes, availableQuartersPlumes,
     readPlume } from './methane/plumes.js';
 import { addCandidateLayers } from './methane/candidates.js';
@@ -207,12 +207,13 @@ mount({
     map: { center: [52.8720, 25.1676], zoom: 12, minZoom: 1.5, maxZoom: 18 },
     about: `
         <div class="region-row">
-            <div><div class="fx-secondary">Regions covered:</div>
-                <div>Data Desk archive</div></div>
+            <div class="fx-fine"><div class="fx-secondary">Regions covered:
+                </div><div>Data Desk archive</div></div>
             <svg id="modal-worldmap"></svg>
         </div>
-        <div class="methods">
-            <div class="fx-secondary">Methods &amp; data</div>
+        <details class="methods fx-fine">
+            <summary class="fx-secondary"><svg viewBox="0 0 8 4"><path
+                d="M.5.5 4 3.5l3.5-3"/></svg>Methods &amp; data</summary>
             <div class="methods-list fx-secondary">
                 <p>Faruolo et al. (2024) ${link(
                     'https://doi.org/10.1088/1748-9326/ad82fb',
@@ -230,7 +231,7 @@ mount({
                 <p>Design by ${link('https://mikaeldahlen.com/',
                     'Mikael Dahlén')}</p>
             </div>
-        </div>`,
+        </details>`,
 
     data: {
         files: { attributions: ATTRIBUTIONS,
@@ -348,6 +349,7 @@ mount({
         idProp: 'id',
         flyZoom: 15, highlightZoom: 10,
         title: cardTitle,
+        stats: cardStats,
         html: cardHtml,
         onShow: onCardShow,
         onClose: onCardClose,

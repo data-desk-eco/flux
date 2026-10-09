@@ -9,7 +9,8 @@
 //   idProp: 'id',
 //   flyZoom: 15,               zoom floor on select
 //   highlightZoom: 10,         zoom the highlight box appears from
-//   title: p => ({text, href?}),
+//   title: p => ({text}),       never a link: the heading collapses the card
+//   stats: p => rows html,      under the heading rule, after the coordinates
 //   html: p => body html,
 //   onShow: (p, el) => {},
 //   onClose: () => {},
@@ -99,7 +100,8 @@ function render(feature, fromPermalink) {
     const el = panel();
     el.innerHTML = `
         <span slot="title" class="fx-detail-id">${escapeHtml(t.text)}</span>
-        <span slot="subtitle">${fmtCoords(lat, lon)}${nav}</span>
+        <div slot="subtitle" class="fx-stats"><span>${fmtCoords(lat, lon)
+            }${nav}</span>${cfg.stats?.(p) || ''}</div>
         ${cfg.html?.(p) || ''}`;
     el.classList.add('visible');
     shown = { feature, n, i: overlapIndex };

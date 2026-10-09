@@ -39,6 +39,36 @@ now. the check proves values come from the allowed set, not that the right
 value is in the right place: that is the elements' job, and the reason they
 exist.
 
+## fitting the drawings
+
+a second pass rebuilt the guidelines' ui examples (pdf:88-91) word for word
+and set them against the figma rasters the pdf embeds, band by band at 2×
+(`test/fit.mjs` in the design repository). every edge now lands within
+1.5px. getting there settled what the written spec leaves open:
+
+- **leading.** every 2026 drawing sets ui text at inter's own line height,
+  1.21 (intro lines 17px apart at 14px), not the 2022 prose rule's 1.4. that
+  was the 21-versus-18px gap between statistic rows.
+- **features.** the drawings use inter's defaults: proportional, standard
+  digits. tnum, ss01 and ss02 (pdf:21) had made flux's numbers look
+  monospaced. they stay with prose.
+- **optical size.** the drawings were made at 2×, so inter's automatic optical
+  size followed the doubled size: 22 at 11px, 26 at 14px. css's own (14) ran
+  5% wide and heavy. with greyscale smoothing, as figma draws white on black,
+  the weight matches.
+- **tracking.** the intro heading's "-3%" is thousandths of an em: both
+  drawings of it measure untracked within a pixel.
+- **geometry the text omits**, measured: statistics 18px apart, directly under
+  the heading rule; selectable rows 25px, 4px apart, 9.35px under their
+  header; controls 22px; key markings top-aligned in 15px slots, 24.5px apart,
+  13.5px padding top and bottom; the dot grid 7.5px between rows. data
+  columns are set from their left edge.
+
+five places the drawings disagree with the text, a ruling or each other are
+named in the harness rather than fitted: one chevron on the key (twice),
+uneven quarter columns, a 35px gap under the dot grid where every other gap
+is 38, a tighter world-map frame on pdf:91, and one line break.
+
 ## findings
 
 fixed unless marked. **declared**: a deliberate deviation written into
@@ -97,7 +127,8 @@ fixed unless marked. **declared**: a deliberate deviation written into
 
 measured against the 2× rasters, which put a panel at 270px:
 
-13. panels were 250px wide; now 270 (pdf:88).
+13. panels were 250 and 290px wide; now 269 and 270, and the intro 459, as
+    drawn (pdf:88-91).
 14. the key's padding was 15 / 30 / 20 / 30 (right 30, bottom 20). it is l
     on the left, where the chevron hangs, and s elsewhere (pdf:90). its
     markings sat in a 13px column at 11px, 9px from the label; the specimen
@@ -107,7 +138,7 @@ measured against the 2× rasters, which put a panel at 270px:
     rule, as drawn.
 16. selectable rows were 19px tall and 3px apart; the specimen's are 25px
     and 4px apart, bordered left and right (pdf:80, 89). statistic rows stay
-    unbordered and 6px apart.
+    unbordered, 18px apart as drawn.
 17. the quarter grid centred dots under their labels with space between;
     the specimen has four equal columns, each dot just in from its column's
     start, the years right.
@@ -131,9 +162,11 @@ measured against the 2× rasters, which put a panel at 270px:
     pdf draws one per group (pdf:90). kept; for mikael.
 24. a contracted panel keeps its padding (ruling 2026-07-08); the pdf drops
     it to s except on the left (pdf:88-89). kept.
-25. the detail card leads with coordinates and "also here"; the specimen
-    leads with the statistics directly under the rule (pdf:89). kept, as
-    product; the order is a choice, the spacing is not.
+25. the detail card led with coordinates and "also here", then the
+    statistics a section gap down; the specimen sets the statistics directly
+    under the rule (pdf:89). they are there now, with the coordinates first
+    and "also here" last among them. the chart takes the drawn form: small
+    dots, ticks up the left, a rule along the foot.
 26. the /review page still uses `map.css` classes (open).
 
 ## for notebooks
