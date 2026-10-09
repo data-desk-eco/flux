@@ -1,13 +1,9 @@
 // the dom from config, on the dd elements: the main panel (title, worldmap,
-// search, quarters, sliders), the key, the detail panel, the intro and the
+// search, quarters), the key, the detail panel, the intro and the
 // logo. the elements own the chrome; this places them and fills them.
 
 import '../vendor/dd/dd.js';
 import { escapeHtml } from './util.js';
-
-const sliderHtml = s => `<dd-slider data-key="${s.key}" label="${
-    escapeHtml(s.label)}" min="${s.min}" max="${s.max}" step="${s.step}"
-    value="${s.value}"></dd-slider>`;
 
 export const logo = '<dd-logo class="fx-logo" '
     + 'href="https://research.datadesk.eco/"></dd-logo>';
@@ -32,8 +28,6 @@ export function buildShell(config) {
         <svg id="worldmap"></svg>
         ${config.search ? SEARCH : ''}
         ${config.quarters ? QUARTERS : ''}
-        ${config.sliders?.length ? `<div class="fx-sliders">${
-            config.sliders.map(sliderHtml).join('')}</div>` : ''}
     </dd-panel>
 
     <dd-key class="fx-key" id="key-panel"></dd-key>
@@ -67,16 +61,6 @@ function wireIntro(title) {
     document.getElementById('main-panel')
         .addEventListener('info', () => modal.classList.remove('hidden'));
     if (localStorage.getItem(seen)) modal.classList.add('hidden');
-}
-
-// each slider shows its formatted value and calls onInput(value, ctx)
-export function wireSliders(config, ctx) {
-    for (const s of config.sliders || []) {
-        const el = document.querySelector(`dd-slider[data-key="${s.key}"]`);
-        el.format = s.format || String;
-        el.render();
-        el.addEventListener('input', () => s.onInput?.(el.value, ctx));
-    }
 }
 
 // ── the key ──

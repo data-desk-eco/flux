@@ -1,11 +1,11 @@
 // mount(config): the whole app — dom, map, data, sources, layers, key,
-// quarters, sliders, detail, table, search — from one declarative config,
+// quarters, detail, table, search — from one declarative config,
 // web/config.js.
 
 import { createMap, addSatellite, wireWorldmap } from './map.js';
 import { hover } from '../vendor/dd/dd.js';
 import { initData, read, sql, fc } from './data.js';
-import { buildShell, initKey, wireSliders } from './ui.js';
+import { buildShell, initKey } from './ui.js';
 import { initQuarters } from './quarters.js';
 import { initDetail, restorePermalink } from './detail.js';
 import { initTable } from './table.js';
@@ -59,7 +59,6 @@ export async function mount(config) {
     if (config.quarters) ctx.quarters = initQuarters(
         document.getElementById('quarters'),
         () => config.quarters.onChange?.(ctx), config.quarters.years);
-    wireSliders(config, ctx);
 
     // style.load, not load: layers need the style, not the first tiles
     await new Promise(r =>

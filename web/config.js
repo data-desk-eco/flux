@@ -62,13 +62,11 @@ const whenReady = new Promise(r => readyResolve = r);
 
 // ── persistence ──
 
-// the gate ranks on `rank`, the card shows `persistence`: the two answer
-// different questions (clustering.js). the last argument is where the two
-// null branches split — an unrated s2 site passes (1), a vnf site with no
-// clear night is dropped (0). do not fold them into one.
-let PERSISTENCE_MIN = 0.25;
-const persistenceFilter = (v, unrated) =>
-    ['>=', ['coalesce', ['get', 'rank'], ['get', 'persistence'], unrated], v];
+// no persistence threshold: it only hid flares. what is left is where the
+// two null branches split — an unrated s2 site passes (0), a vnf site with
+// no clear night is dropped (-1). do not fold them into one.
+const persistenceFilter = unrated =>
+    ['>=', ['coalesce', ['get', 'rank'], ['get', 'persistence'], unrated], 0];
 
 // ── the three layers ──
 
@@ -259,13 +257,13 @@ mount({
     layers: [
         {
             id: 'detections', type: 'symbol', source: 'detections',
-            filter: persistenceFilter(PERSISTENCE_MIN, 1),
+            filter: persistenceFilter(0),
             layout: { ...PIN, 'icon-image': flareIcon(MODE.s2) },
         },
         {
             // above s2, so the card's heat footprint stays under both
             id: 'vnf', type: 'symbol', source: 'vnf',
-            filter: persistenceFilter(PERSISTENCE_MIN, 0),
+            filter: persistenceFilter(-1),
             layout: { ...PIN, 'icon-image': flareIcon(MODE.vnf) },
         },
         {
@@ -301,18 +299,6 @@ mount({
             refreshCard();
         },
     },
-
-    // intensity is the key's: two scales, and a slider carries one
-    sliders: [{
-        key: 'persistence', label: 'Minimum persistence',
-        min: 0, max: 1, step: 0.05, value: PERSISTENCE_MIN,
-        format: v => `${Math.round(v * 100)}%`,
-        onInput: v => {
-            PERSISTENCE_MIN = v;
-            CTX.map.setFilter('detections', persistenceFilter(v, 1));
-            CTX.map.setFilter('vnf', persistenceFilter(v, 0));
-        },
-    }],
 
     key: () => keySections(PRIVATE),
 

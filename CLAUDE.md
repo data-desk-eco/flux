@@ -135,10 +135,11 @@ gate's `rank` fallback (`clustering.js`), a different question.
 **the two null branches stay split.** in S2 a null persistence is unrated and
 passes the gate; in VNF it is a finding — no clear night — and the flare is
 dropped. the split is the last argument of `persistenceFilter` (`config.js`),
-`1` for S2 and `0` for VNF. coalescing S2 to 0 sank the whole archive below
-the slider's default.
+`0` for S2 and `-1` for VNF; the gate is `>= 0`. the old slider at 0.25 sank
+the whole archive when S2 coalesced to 0.
 
-**intensity is the key's, not a slider's.** B12 reflectance and radiant heat
+**intensity is the key's.** there is no persistence slider: it only hid
+flares. B12 reflectance and radiant heat
 are not one scale. `MODE.s2.floor` is the published quality gate (a constant,
 on the site's *average*; VNF has none), and the key's rows filter above it, on
 the *maximum*, at exactly the breaks `flareIcon` steps at — `flareBands` in

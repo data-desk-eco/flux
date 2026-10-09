@@ -81,7 +81,6 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
 .fx-hint { margin-top: var(--dd-pair-gap);
     color: var(--dd-ui-text-secondary); }
 .fx-hint:empty { display: none; }
-.fx-sliders { display: flex; flex-direction: column; gap: var(--dd-gap-s); }
 
 /* --- key --- */
 

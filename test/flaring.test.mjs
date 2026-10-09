@@ -89,7 +89,7 @@ describe('archiveFeature', () => {
     });
 
     // the gate ranks on the window's rate, then the published one, and leaves a
-    // site nothing has ever rated unrated — 0 would hide it behind the slider
+    // site nothing has ever rated unrated — the old slider hid such a site
     it('ranks on the window, then the published rate, then not at all', () => {
         assert.equal(site([Q('2026-01-01')], { persistence: 0.9 }).rank, 0.25);
         assert.equal(site([Q('2026-01-01', thin)], { persistence: 0.9 }).rank,
