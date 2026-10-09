@@ -107,24 +107,32 @@ const url = name => {
 const list = s => Array.isArray(s) ? `[${s.map(quote).join(', ')}]` : quote(s);
 export const parquetInput = name => list(url(name));
 
-// the schema is read once, not per row: a viewport returns tens of thousands
+// column by column, not through row proxies: each field's vector is walked
+// once, and a list of structs the same way, which was most of the main
+// thread's share of a read. an iterated vector yields null where invalid
 export async function sql(statement, { lane } = {}) {
     const result = await (await connect(lane)).query(statement);
-    const fields = result.schema.fields;
-    return result.toArray().map(row => {
+    return rows(result, result.schema.fields);
+}
+
+const rows = (vec, fields) => {
+    const cols = fields.map(f => [f.name,
+        Array.from(vec.getChild(f.name), v => value(v, f.type))]);
+    return Array.from({ length: vec.length ?? vec.numRows }, (_, i) => {
         const out = {};
-        for (const f of fields) out[f.name] = value(row[f.name], f.type);
+        for (const [k, c] of cols) out[k] = c[i];
         return out;
     });
-}
+};
 
 const day = ms => new Date(Number(ms)).toISOString()
     .replace('T00:00:00.000Z', '');
 const value = (item, type) => item == null ? item
     : type.typeId === 8 ? day(item)
     : type.typeId === 10 ? new Date(Number(item)).toISOString()
-    : type.typeId === 12
-        ? Array.from(item, child => value(child, type.children[0].type))
+    : type.typeId === 12 ? (type.children[0].type.typeId === 13
+        ? rows(item, type.children[0].type.children)
+        : Array.from(item, child => value(child, type.children[0].type)))
     : type.typeId === 13 ? Object.fromEntries(type.children
         .map(c => [c.name, value(item[c.name], c.type)]))
     : norm(item);

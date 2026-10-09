@@ -126,7 +126,7 @@ const refresh = id => {
             const features = await READS[id](range);
             if (!features || e !== epoch) return;
             setSource(id, features);
-            reselectCurrentFeature();
+            reselectCurrentFeature(id);
         } catch (err) {
             console.error(`${id} read failed:`, err);
             CTX.quarters.hint(FAILED[id]);

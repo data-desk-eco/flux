@@ -100,8 +100,10 @@ export function refreshCard() {
 // the ticked quarters alone and an open card holds a copy, so re-open it on
 // the rebuilt feature, or close it if it was filtered out of a viewport that
 // reaches it (a #site= card the first viewport never read stays open).
-export function reselectCurrentFeature() {
-    if (!current || !shownBody) return;
+// only on the card's own layer: another's refresh says nothing about it, and
+// before its own has landed (a permalink) it would close a card it holds
+export function reselectCurrentFeature(id) {
+    if (!current || shownBody?.source !== id) return;
     const features = map.getSource(shownBody.source)?._data?.features || [];
     // on the id as a string: an 11 m coordinate match once swapped two
     // sites' cards, and ids are VARCHAR everywhere
