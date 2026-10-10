@@ -72,7 +72,7 @@ web/
   layers.js          marking / ramp / colour policy and the key's bands.
                      shape categorises, colour is measurement
   key.js             the key: a group of bands per family
-  sites.js           data-desk/sites, osm outlines of large facilities
+  sites.js           data-desk/sites, the outlines a detection sits in
   card/              one header, one body per feature kind
     index.js         the registry, the shared series card,
                      reselectCurrentFeature
@@ -234,7 +234,9 @@ exactly what a reader may rely on.
 - `<provider>/infrastructure` — candidate sources, Hilbert-clustered on
   lon/lat; gem's `lng_terminal` rows name the flares.
 - `data-desk/attributions` — ch4id's plume → source contract.
-- `data-desk/sites` — the osm polygon each large catalogue facility (lng,
-  refinery, gas plant, petrochemical plant) falls on, `outline` as
-  geojson. read whole and drawn as an area from z10; it names no detection,
-  so a flare's facility is what the reader sees it inside.
+- `data-desk/sites` — the osm outline of every industrial facility a flare
+  or plume can come from (oil and gas, coal, steel, cement, power, waste),
+  `outline` as geojson and a box. 88k rows, so read for the viewport from
+  z10, and an outline is drawn only while a drawn detection is inside it
+  (`drawSites`, on `fx-filters`). it names no detection, so a flare's
+  facility is what the reader sees it inside.

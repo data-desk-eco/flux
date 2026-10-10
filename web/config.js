@@ -27,7 +27,7 @@ import { addCandidateLayers } from './methane/candidates.js';
 import { initProbabilityOverlay } from './methane/overlay.js';
 import { initMask } from './methane/mask.js';
 import { shown } from './methane/attribution.js';
-import { SITE_LAYERS, loadSites } from './sites.js';
+import { SITE_LAYERS, SITE_ZOOM, readSites, drawSites } from './sites.js';
 
 // legacy deep links: #vnf/123 -> #vnf=123, which resolveSite reads
 if (/^#vnf\/[^/=&]+$/.test(location.hash))
@@ -42,7 +42,7 @@ const ATTRIBUTIONS = `${ARCHIVE}/data-desk/attributions/data.parquet`;
 
 // every object small enough to hold is fetched whole at page parse, racing
 // the engine download (shell/data.js); what is past the cap stays ranged
-for (const t of ['flares', 'detections', 'sites'])
+for (const t of ['flares', 'detections'])
     objects(t).then(us => us.forEach(prefetchData)).catch(() => {});
 prefetchData(ATTRIBUTIONS);
 initS2Archive();
@@ -105,9 +105,13 @@ const READS = {
     },
     plumes: async ({ startDate, endDate }) =>
         CTX.fc(await readPlumes(startDate, endDate)).features,
+    // every outline in view; drawSites keeps the ones a detection is in
+    sites: async () => CTX.map.getZoom() < SITE_ZOOM ? []
+        : readSites(viewportBbox(CTX.map)),
 };
 const FAILED = { detections: 'Flare archive unavailable',
-                 vnf: 'VNF read failed', plumes: 'Plume read failed' };
+                 vnf: 'VNF read failed', plumes: 'Plume read failed',
+                 sites: 'Site outlines unavailable' };
 
 // every path ends in reselectCurrentFeature: an open card holds a copy of the
 // numbers for the window it was opened in, so it is re-opened from the new
@@ -348,6 +352,7 @@ mount({
             scheduleDots();
             SCHEDULED.detections();
             SCHEDULED.vnf();
+            SCHEDULED.sites();
         });
 
         // the dots wait for the first plume paint: their index is the one
@@ -355,9 +360,14 @@ mount({
         REFRESH.detections();
         REFRESH.vnf();
         REFRESH.plumes().then(quarterDots);
+        // an outline is drawn while a drawn detection is inside it: after
+        // any layer is re-set, and after the key re-filters them
+        const shown = id => (ctx.sources[id]?.features ?? [])
+            .filter(f => (ctx.preds ?? []).every(p => p(f.properties)));
+        addEventListener('fx-filters', () =>
+            drawSites(ctx.map, ctx.sources.sites?.features ?? [], shown));
+        REFRESH.sites();
         // a flare drawn before the terminals land is renamed by this
-        loadSites(ctx.map).catch(err =>
-            console.warn('site outlines unavailable:', err));
         loadTerminals().then(() => { REFRESH.detections(); REFRESH.vnf(); });
         readyResolve();
     },
