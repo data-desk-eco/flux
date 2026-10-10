@@ -12,6 +12,10 @@
     .fx-main { max-height: calc(100vh - 185px); }
 }
 
+/* a grey quarter (no layer covers it here) still ticks: it is a statement
+   about this viewport, and a pan can fill it */
+dd-dot[unavailable] { pointer-events: auto; }
+
 /* --- detail card internals --- */
 
 /* the coordinates are the card's subtitle; the statistics follow 15px down,

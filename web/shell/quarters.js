@@ -1,6 +1,6 @@
 // the dd dot-grid quarter picker (pdf:81, 83): a Q1–Q4 column per quarter, a
 // row per year. it owns the selection; callers grey a quarter by toggling
-// `unavailable` on buttons().
+// `unavailable` on buttons(), which still ticks.
 
 import { quarterRange } from './util.js';
 
@@ -23,10 +23,9 @@ export function initQuarters(el, onChange, years = 4) {
     el.addEventListener('click', e => {
         const btn = e.target.closest('dd-dot');
         if (!btn) return;
-        // keep one *available* quarter ticked: an unavailable one cannot be
-        // unticked, so it would hold an empty map
-        if (btn.hasAttribute('active') && el.querySelectorAll(
-            `${ACTIVE}:not([unavailable])`).length <= 1) return;
+        // keep one quarter ticked
+        if (btn.hasAttribute('active')
+            && el.querySelectorAll(ACTIVE).length <= 1) return;
         btn.toggleAttribute('active');
         onChange?.();
     });
