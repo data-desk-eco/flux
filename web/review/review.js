@@ -8,7 +8,7 @@ import { initMask, showMask, clearMask } from '../methane/mask.js';
 import { createMap, addSatellite, ensureMark } from '../shell/map.js';
 import { logo } from '../shell/ui.js';
 import { escapeHtml as esc } from '../shell/util.js';
-import { DD, MARKS, PIN, RATE_LABEL, plumeIcon }
+import { DD, MARKS, PIN, RATE_LABEL, DASH, plumeIcon }
     from '../layers.js';
 
 const BUCKET = 'https://s3.WAW3-2.cloudferro.com/data-desk-archive/';
@@ -158,7 +158,8 @@ function render(t) {
 
 // the plume in the quantitative marking on the main map's ramp, and the
 // attributed features in their diamonds where the source data puts them:
-// the agent's own point is a conclusion, so it is not drawn
+// the agent's own point is a conclusion, so it is not drawn. a fine dash
+// joins plume and each: the link is the claim, not a measurement
 const map = createMap({ center: [0, 20], zoom: 2 });
 const empty = { type: 'FeatureCollection', features: [] };
 const pt = (lon, lat, p) => ({ type: 'Feature', properties: p,
@@ -174,6 +175,10 @@ map.addSource('rv', { type: 'geojson', data: empty });
 // reviewer might have picked instead
 addCandidateLayers(map, sql, null);
 initMask(map, BUCKET, 'candidates-hit');
+map.addLayer({ id: 'rv-link', type: 'line', source: 'rv',
+    filter: ['==', '$type', 'LineString'],
+    paint: { 'line-color': DD.white, 'line-width': 1,
+             'line-dasharray': DASH } }, 'candidates-hit');
 map.addLayer({ id: 'rv-plume', type: 'symbol', source: 'rv',
     filter: ['==', 'kind', 'plume'], layout: { ...PIN, ...RATE_LABEL,
         'icon-image': plumeIcon, 'text-allow-overlap': true,
@@ -195,7 +200,13 @@ function select(el, scroll) {
     r.plat != null ? showMask({ id: r.id, lat: r.plat, lon: r.plon })
         : clearMask();
     if (r.plat != null) selectPlume(r.plon, r.plat,
-        /tropomi|viirs|goes|s3/i.test(r.satellite || '') ? 10 : 3, r);
+        /tropomi|viirs|goes|s3/i.test(r.satellite || '') ? 10 : 3, r)
+        .then(c => c && sel === el && map.getSource('rv').setData({
+            type: 'FeatureCollection', features: [...f, ...c
+                .filter(c => c.properties.hl).map(c => ({ type: 'Feature',
+                    properties: {}, geometry: { type: 'LineString',
+                    coordinates: [[r.plon, r.plat],
+                                  c.geometry.coordinates] } }))] }));
     const b = new maplibregl.LngLatBounds([r.lon, r.lat], [r.lon, r.lat]);
     if (r.plat != null) b.extend([r.plon, r.plat]);
     // the globe's fitBounds overshoots maxZoom, so the zoom is clamped here:

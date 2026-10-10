@@ -78,6 +78,8 @@ export const AUDIT = {
         'plume-mask-image'],
 };
 
+export const DASH = [2, 2];
+
 // marking ids only expressions name, which styleimagemissing never sees
 export const MARKS = [...RAMP.map(c => `flare-${c}`),
     ...[...VIRIDIS, DD.grey, DD.white].map(c => `quantitative-${c}`),

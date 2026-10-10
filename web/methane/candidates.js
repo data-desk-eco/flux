@@ -45,7 +45,7 @@ const render = features => map.getSource('candidates')
 
 // the rect stretches to the attribution's assessed source point, so a distant
 // attributed feature still loads, and attributed ids survive both the radius
-// cut and the display cap
+// cut and the display cap. resolves to what it drew, or nothing if stale
 export async function selectPlume(lon, lat, radiusKm, rec) {
     const hl = new Set((rec?.attributed_ids || []).map(normId));
     const r = radiusKm * 1000, dLat = degLat(r), dLon = degLon(r, lat);
@@ -68,6 +68,7 @@ export async function selectPlume(lon, lat, radiusKm, rec) {
     feats.sort((a, b) => a.properties.dist - b.properties.dist);
     render(feats.filter((f, i) =>
         (i < MAX_SHOW && f.properties.dist <= r) || f.properties.hl));
+    return shown;
 }
 
 // the epoch bump keeps a closed card from being refilled by its own read
