@@ -8,7 +8,7 @@ import { initMask, showMask, clearMask } from '../methane/mask.js';
 import { createMap, addSatellite, ensureMark } from '../shell/map.js';
 import { logo } from '../shell/ui.js';
 import { escapeHtml as esc } from '../shell/util.js';
-import { DD, MARK, MARKS, PIN, RATE_LABEL, DASH, plumeIcon }
+import { DD, MARKS, PIN, RATE_LABEL, plumeIcon }
     from '../layers.js';
 
 const BUCKET = 'https://s3.WAW3-2.cloudferro.com/data-desk-archive/';
@@ -156,9 +156,9 @@ function render(t) {
     select(list.querySelector('.rv-item'));
 }
 
-// the plume in the quantitative marking on the main map's ramp, the claimed
-// source in its attributed diamond, and a fine dash between: the link is
-// the claim, not a measurement
+// the plume in the quantitative marking on the main map's ramp, and the
+// attributed features in their diamonds where the source data puts them:
+// the agent's own point is a conclusion, so it is not drawn
 const map = createMap({ center: [0, 20], zoom: 2 });
 const empty = { type: 'FeatureCollection', features: [] };
 const pt = (lon, lat, p) => ({ type: 'Feature', properties: p,
@@ -170,24 +170,10 @@ map.setPadding(innerWidth > 768 ? { left: 410 }
     : { bottom: innerHeight * .55 });
 MARKS.forEach(id => ensureMark(map, id));
 map.addSource('rv', { type: 'geojson', data: empty });
-// the other structures around the plume, under the claim: the sources the
-// reviewer might have picked instead. the claimed one is drawn below as the
-// claim's own diamond, so it is left out here. its hit target stays, so
-// the diamond's tooltip is the infrastructure row, never the claim
+// the structures around the plume: the attributed ones, and those the
+// reviewer might have picked instead
 addCandidateLayers(map, sql, null);
-map.setFilter('candidates', ['!', ['get', 'hl']]);
 initMask(map, BUCKET, 'candidates-hit');
-map.addLayer({ id: 'rv-link', type: 'line', source: 'rv',
-    filter: ['==', '$type', 'LineString'],
-    paint: { 'line-color': DD.white, 'line-width': 1,
-             'line-dasharray': DASH } });
-map.addLayer({ id: 'rv-source', type: 'symbol', source: 'rv',
-    filter: ['==', 'kind', 'source'], layout: { ...PIN, ...RATE_LABEL,
-        'icon-image': MARK.attributed, 'text-allow-overlap': true,
-        // below the plume's label, which takes the dd up-and-right
-        'text-anchor': 'top-left', 'text-offset': [0.7, 0.7],
-        'text-field': ['get', 'label'] },
-    paint: { 'text-color': DD.white } });
 map.addLayer({ id: 'rv-plume', type: 'symbol', source: 'rv',
     filter: ['==', 'kind', 'plume'], layout: { ...PIN, ...RATE_LABEL,
         'icon-image': plumeIcon, 'text-allow-overlap': true,
@@ -202,13 +188,9 @@ function select(el, scroll) {
     if (scroll) list.scrollTo({ top: el.offsetTop - list.offsetTop,
                                 behavior: 'smooth' });
     const r = shown[el.dataset.i];
-    // the source drawn first, so a plume on its coordinate shows on top
-    const f = [pt(r.lon, r.lat, { kind: 'source', label: r.source_kind })];
-    if (r.plat != null) f.push(pt(r.plon, r.plat, { kind: 'plume',
+    const f = r.plat == null ? [] : [pt(r.plon, r.plat, { kind: 'plume',
         rate_kg_h: r.rate_kg_h, label: r.rate_kg_h
-            ? `${Math.round(r.rate_kg_h).toLocaleString()} kg/h` : 'plume' }),
-        { type: 'Feature', properties: {}, geometry: { type: 'LineString',
-            coordinates: [[r.plon, r.plat], [r.lon, r.lat]] } });
+            ? `${Math.round(r.rate_kg_h).toLocaleString()} kg/h` : 'plume' })];
     map.getSource('rv').setData({ type: 'FeatureCollection', features: f });
     r.plat != null ? showMask({ id: r.id, lat: r.plat, lon: r.plon })
         : clearMask();
