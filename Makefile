@@ -12,7 +12,6 @@ web/vendor/.ok:
 	@touch web/vendor/.ok
 
 serve: vendor
-	@echo "http://localhost:8000"
 	@python3 scripts/serve.py 8000 web
 
 # exactly what the pages workflow runs, assertions and all: the public build
