@@ -99,7 +99,7 @@ export function addCandidateLayers(m, sql, before = 'plumes') {
     hover(map, 'candidates-hit', p => {
         const kind = (p.kind || '').replace(/_/g, ' ');
         const title = p.name || kind;
-        const detail = [p.hl && 'attributed', kind, p.operator, p.status,
+        const detail = [kind, p.operator, p.status,
             p.fuel, p.detail, p.dist != null && fmtMetres(p.dist)]
             .filter(v => v && v !== title).join(' · ');
         return { heading: title, text: `${detail}\n${p.id}` };

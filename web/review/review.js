@@ -7,7 +7,6 @@ import { addCandidateLayers, selectPlume } from '../methane/candidates.js';
 import { initMask, showMask, clearMask } from '../methane/mask.js';
 import { createMap, addSatellite, ensureMark } from '../shell/map.js';
 import { logo } from '../shell/ui.js';
-import { hover } from '../vendor/dd/dd.js';
 import { escapeHtml as esc } from '../shell/util.js';
 import { DD, MARK, MARKS, PIN, RATE_LABEL, DASH, plumeIcon }
     from '../layers.js';
@@ -173,10 +172,10 @@ MARKS.forEach(id => ensureMark(map, id));
 map.addSource('rv', { type: 'geojson', data: empty });
 // the other structures around the plume, under the claim: the sources the
 // reviewer might have picked instead. the claimed one is drawn below as the
-// claim's own diamond, so it is left out here
+// claim's own diamond, so it is left out here. its hit target stays, so
+// the diamond's tooltip is the infrastructure row, never the claim
 addCandidateLayers(map, sql, null);
-for (const l of ['candidates', 'candidates-hit'])
-    map.setFilter(l, ['!', ['get', 'hl']]);
+map.setFilter('candidates', ['!', ['get', 'hl']]);
 initMask(map, BUCKET, 'candidates-hit');
 map.addLayer({ id: 'rv-link', type: 'line', source: 'rv',
     filter: ['==', '$type', 'LineString'],
@@ -189,12 +188,6 @@ map.addLayer({ id: 'rv-source', type: 'symbol', source: 'rv',
         'text-anchor': 'top-left', 'text-offset': [0.7, 0.7],
         'text-field': ['get', 'label'] },
     paint: { 'text-color': DD.white } });
-// the claimed source's tooltip, in the candidates' own form
-hover(map, 'rv-source', p => {
-    const kind = (p.label || '').replace(/_/g, ' ');
-    return { heading: p.name || kind, text: `${['attributed', kind, p.operator]
-        .filter(v => v && v !== p.name).join(' · ')}\n${p.ids ?? ''}` };
-});
 map.addLayer({ id: 'rv-plume', type: 'symbol', source: 'rv',
     filter: ['==', 'kind', 'plume'], layout: { ...PIN, ...RATE_LABEL,
         'icon-image': plumeIcon, 'text-allow-overlap': true,
@@ -210,9 +203,7 @@ function select(el, scroll) {
                                 behavior: 'smooth' });
     const r = shown[el.dataset.i];
     // the source drawn first, so a plume on its coordinate shows on top
-    const f = [pt(r.lon, r.lat, { kind: 'source', label: r.source_kind,
-        name: r.source_label, operator: r.operator,
-        ids: r.attributed_ids?.join(' ') })];
+    const f = [pt(r.lon, r.lat, { kind: 'source', label: r.source_kind })];
     if (r.plat != null) f.push(pt(r.plon, r.plat, { kind: 'plume',
         rate_kg_h: r.rate_kg_h, label: r.rate_kg_h
             ? `${Math.round(r.rate_kg_h).toLocaleString()} kg/h` : 'plume' }),
