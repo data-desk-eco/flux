@@ -159,7 +159,7 @@ function render(t) {
 
 // the plume in the quantitative marking on the main map's ramp, and the
 // attributed features in their diamonds where the source data puts them:
-// the agent's own point is a conclusion, so it is not drawn. a fine dash
+// the agent's own point is a conclusion, so it is a bare ring. a fine dash
 // joins plume and each: the link is the claim, not a measurement
 const map = createMap({ center: [0, 20], zoom: 2 });
 const empty = { type: 'FeatureCollection', features: [] };
@@ -180,6 +180,10 @@ map.addLayer({ id: 'rv-link', type: 'line', source: 'rv',
     filter: ['==', '$type', 'LineString'],
     paint: { 'line-color': DD.white, 'line-width': 1,
              'line-dasharray': DASH } }, 'candidates-hit');
+map.addLayer({ id: 'rv-claim', type: 'circle', source: 'rv',
+    filter: ['==', 'kind', 'claim'],
+    paint: { 'circle-radius': 5, 'circle-opacity': 0,
+             'circle-stroke-color': DD.white, 'circle-stroke-width': 1 } });
 map.addLayer({ id: 'rv-plume', type: 'symbol', source: 'rv',
     filter: ['==', 'kind', 'plume'], layout: { ...PIN, ...RATE_LABEL,
         'icon-image': plumeIcon, 'text-allow-overlap': true,
@@ -194,9 +198,10 @@ function select(el, scroll) {
     if (scroll) list.scrollTo({ top: el.offsetTop - list.offsetTop,
                                 behavior: 'smooth' });
     const r = shown[el.dataset.i];
-    const f = r.plat == null ? [] : [pt(r.plon, r.plat, { kind: 'plume',
+    const f = [pt(r.lon, r.lat, { kind: 'claim' }), ...r.plat == null ? []
+        : [pt(r.plon, r.plat, { kind: 'plume',
         rate_kg_h: r.rate_kg_h, label: r.rate_kg_h
-            ? `${Math.round(r.rate_kg_h).toLocaleString()} kg/h` : 'plume' })];
+            ? `${Math.round(r.rate_kg_h).toLocaleString()} kg/h` : 'plume' })]];
     map.getSource('rv').setData({ type: 'FeatureCollection', features: f });
     r.plat != null ? showMask({ id: r.id, lat: r.plat, lon: r.plon })
         : clearMask();
