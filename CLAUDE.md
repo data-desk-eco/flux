@@ -71,8 +71,7 @@ web/
                      quarter availability, the table's tabs, deep links
   layers.js          marking / ramp / colour policy and the key's bands.
                      shape categorises, colour is measurement
-  key.js             the key: a group of bands per family, and the site
-                     outlines' switch
+  key.js             the key: a group of bands per family
   sites.js           data-desk/sites, osm outlines of large facilities
   card/              one header, one body per feature kind
     index.js         the registry, the shared series card,
