@@ -78,8 +78,9 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
 }
 .fx-quarters dd-dot { margin-left: var(--dd-dot-inset); }
 .fx-quarters > span:nth-child(5n) { text-align: right; }
-.fx-hint { margin-top: var(--dd-pair-gap);
-    color: var(--dd-ui-text-secondary); }
+/* a pair gap from the last row's dots, not their hit areas */
+.fx-hint { color: var(--dd-ui-text-secondary); margin-top: calc(
+    var(--dd-pair-gap) - (var(--dd-dot-hit) - var(--dd-dot-inactive)) / 2); }
 .fx-hint:empty { display: none; }
 
 /* --- key --- */
@@ -176,7 +177,7 @@ d='M0 0 8 8M8 0 0 8' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E")
     background: var(--dd-ui-active-background);
     color: var(--dd-ui-active-text);
 }
-.fx-drawer-empty { padding: var(--dd-padding-s); }
+.fx-table .fx-drawer-empty { padding: var(--dd-padding-s); }
 .fx-drawer-foot {
     padding: var(--dd-button-pad-x) var(--dd-padding-s);
     border-top: 1px solid var(--dd-ui-border);
