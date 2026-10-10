@@ -21,10 +21,9 @@ import { archiveFeature, enrichVNFFeatures } from './flaring/clustering.js';
 import { loadTerminals } from './flaring/terminals.js';
 import { initCard, cardTitle, cardStats, cardHtml, onCardShow, onCardClose,
     refreshCard, reselectCurrentFeature } from './card/index.js';
-import { initPlumes, isPlume, label, readPlumes, availableQuartersPlumes,
+import { isPlume, label, readPlumes, availableQuartersPlumes,
     readPlume } from './methane/plumes.js';
 import { addCandidateLayers } from './methane/candidates.js';
-import { addLicenceLayers } from './methane/licences.js';
 import { initProbabilityOverlay } from './methane/overlay.js';
 import { initMask } from './methane/mask.js';
 import { shown } from './methane/attribution.js';
@@ -38,15 +37,11 @@ if (/^#vnf\/[^/=&]+$/.test(location.hash))
 const ARCHIVE = document.querySelector('meta[name="data-bucket"]').content;
 initArchive(ARCHIVE);
 
-// the access-gated build: it bakes a plumes parquet carrying ghgsat and draws
-// mapstand acreage, both licensed
-const PRIVATE = !!document.querySelector('meta[name="private"]');
-initPlumes(PRIVATE);
 const ATTRIBUTIONS = `${ARCHIVE}/data-desk/attributions/data.parquet`;
 
 // every object small enough to hold is fetched whole at page parse, racing
 // the engine download (shell/data.js); what is past the cap stays ranged
-for (const t of ['flares', ...(PRIVATE ? [] : ['detections'])])
+for (const t of ['flares', 'detections'])
     objects(t).then(us => us.forEach(prefetchData)).catch(() => {});
 prefetchData(ATTRIBUTIONS);
 initS2Archive();
@@ -231,9 +226,7 @@ mount({
         </details>`,
 
     data: {
-        files: { attributions: ATTRIBUTIONS,
-                 ...(PRIVATE ? { plumes: 'data/plumes.parquet' } : {}) },
-        prefetch: PRIVATE ? ['plumes'] : [],
+        files: { attributions: ATTRIBUTIONS },
     },
 
     // every source starts empty and ready() fires the first reads, so no
@@ -242,8 +235,6 @@ mount({
         CTX = ctx;
         // before the layers, or maplibre logs the expression-only ids missing
         MARKS.forEach(id => ensureMark(ctx.map, id));
-        // here, so licence acreage sits beneath every marking
-        if (PRIVATE) addLicenceLayers(ctx.map, ctx.sql);
         return {
             detections: empty,
             vnf: empty,
@@ -300,7 +291,7 @@ mount({
         },
     },
 
-    key: () => keySections(PRIVATE),
+    key: () => keySections(),
 
     // a tab per family, each the rows its layer is drawing. attributions are
     // ch4id's contract, not feature properties, so they sit out the filters

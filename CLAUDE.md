@@ -56,9 +56,8 @@ the ticked window, the wind at the plume among them (`wind_ms`,
 wind; sron has none). `methane/attribution.js` stamps ch4id's attributions on,
 `methane/candidates.js` reads the `infrastructure` tables around an open plume
 card and nowhere else (there is no standing infrastructure layer),
-`methane/overlay.js` drapes a Data Desk probability surface, `methane/mask.js`
-reads the open plume's outline from its provider's `masks`, and
-`methane/licences.js` draws MapStand acreage in the private build only.
+`methane/overlay.js` drapes a Data Desk probability surface, and `methane/mask.js`
+reads the open plume's outline from its provider's `masks`.
 
 no module names an archive object. `<meta name="data-bucket">` gives the bucket
 and `index.json` says which object each table is and whether it is partitioned,
@@ -86,7 +85,7 @@ web/
     s2archive.js     data-desk/flares + detections, coverage()
     vnf.js           eog/flares + eog/detections
   methane/           plumes.js reader, attribution.js, candidates.js,
-                     licences.js, overlay.js, mask.js
+                     overlay.js, mask.js
   shell/             app.js mount, map.js, ui.js, detail.js, table.js,
                      quarters.js, data.js reads, engine.js the duckdb
                      worker, archive.js index, util.js

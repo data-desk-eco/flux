@@ -60,21 +60,20 @@ export const PLUME_BANDS = [
 ];
 
 // white is the default state. the two structure shapes that cannot be told
-// apart wrongly at icon size; licence acreage is the one area with a colour
+// apart wrongly at icon size
 export const MARK = {
     candidate: `triangle-${DD.white}`,    // infrastructure near the plume
     attributed: `diamond-${DD.white}`,    // the attributed source among them
 };
-export const AREA = { licence: DD.purple };
 
 // where flux departs from the guidelines on purpose, written down so
 // vendor/dd/audit.js passes everything else (`make audit`): viridis, the
-// plume rasters' own ramp; gl text for counts and licence names, which want
+// plume rasters' own ramp; gl text for cluster counts, which wants
 // inter glyphs the basemap does not serve; the heat halo and the probability
 // surface, which are data, not imagery
 export const AUDIT = {
     colors: VIRIDIS,
-    glyphs: ['plumes-clusters', 'licences-label'],
+    glyphs: ['plumes-clusters'],
     graded: ['detection-footprint', 'dd-plume-probability',
         'plume-mask-image'],
 };

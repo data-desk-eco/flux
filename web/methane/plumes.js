@@ -26,7 +26,7 @@ const confident = p => p.confidence == null || p.confidence === 'high';
 
 // colour never means provider here; the label is the only editorial part
 const LABEL = { 'carbon-mapper': 'Carbon Mapper', imeo: 'IMEO / MARS',
-    sron: 'SRON', ghgsat: 'GHGSat', 'data-desk': 'Data Desk' };
+    sron: 'SRON', 'data-desk': 'Data Desk' };
 export const label = p => LABEL[p] ?? p;
 
 // t/hr, or null where the provider published no rate
@@ -36,12 +36,7 @@ export const rateT = p => p.rate_kg_h == null ? null
 export const enhT = p => p.observed_enh == null ? null
     : Number(p.observed_enh).toFixed(0);
 
-// the private build bakes one plumes parquet (the only one carrying ghgsat)
-let isPrivate = false;
-export const initPlumes = priv => { isPrivate = priv; };
-
-const plumeObjects = () => isPrivate ? Promise.resolve(['plumes'])
-    : objects('detections')
+const plumeObjects = () => objects('detections')
         .catch(err => (console.warn('archive index:', err), []));
 
 // one unioned read; if it fails, each object on its own on the base columns,

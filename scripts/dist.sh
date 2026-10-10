@@ -1,35 +1,21 @@
 #!/usr/bin/env bash
 # assemble the pages artifact in dist/, cache-busting js/css with the git sha.
-# usage: dist.sh <sha> [local]
-#   public: plumes are read live off the archive
-#   local:  bake the local plumes.parquet (the only artifact that may carry
-#           ghgsat) and licences.parquet, and set <meta name="private">
+# usage: dist.sh <sha>
 set -euo pipefail
 
 die() { echo "dist.sh: $*" >&2; exit 1; }
 
 V="${1:-dev}"; V="${V:0:8}"
-MODE="${2:-}"
 WASM=dist/vendor/duckdb/duckdb-eh.wasm
 
-# the whole web tree, so no new module can fall off a file list. web/data is
-# a symlink to the private bakes, and never rides along
+# the whole web tree, so no new module can fall off a file list. web/data
+# is local scratch, and never rides along
 rm -rf dist
 cp -R web dist
 rm -rf dist/data dist/vendor/.ok
-mkdir -p dist/data
 
 [ -f "$WASM" ] && [ "$(wc -c < "$WASM")" -lt 30000000 ]   # see vendor.sh
 grep -q "duckdbAsset('duckdb-eh\.wasm')" dist/shell/engine.js
-
-if [ "$MODE" = local ]; then
-    for f in plumes licences; do
-        [ -f "web/data/$f.parquet" ] || die "web/data/$f.parquet is" \
-            "missing: the private deploy would serve the public map"
-        cp "web/data/$f.parquet" dist/data/
-    done
-    sed -i.bak 's#<head>#<head><meta name="private">#' dist/index.html
-fi
 
 # stamp the sha into every first-party specifier and html asset tag, so a
 # deploy never pairs a fresh module with a stale cached one (pages caches for
@@ -46,22 +32,8 @@ find dist -path dist/vendor -prune -o \
   -e "s|\?v=[0-9a-z]+|?v=$V|g" \
   -e "s|(vendor/[^']*\.m?js)\?v=[0-9a-z]+|\1|g"
 
-# the bakes are fetched by literal path, not imported
-sed -i.bak -E "s#(data/plumes\.parquet)#\1?v=$V#" dist/config.js
-sed -i.bak -E "s#(data/licences\.parquet)#\1?v=$V#" dist/methane/licences.js
 find dist -name '*.bak' -delete
 
-# a leak of licensed data is the worst outcome here, so the public build
-# proves it carries none: nothing baked, no flag set, and the flag still the
-# only thing the private layers hang off
-PRIV='const PRIVATE = !!document.querySelector(.meta\[name="private"\].)'
-if [ "$MODE" != local ]; then
-    [ -z "$(find dist -name '*.parquet' -print -quit)" ] \
-        || die 'a parquet is baked into the public build'
-    ! grep -q 'name="private"' dist/index.html \
-        || die 'the public build carries <meta name="private">'
-    grep -q "$PRIV" dist/config.js \
-        || die 'config.js no longer derives PRIVATE from the meta tag'
-    grep -q 'if (PRIVATE) addLicenceLayers' dist/config.js \
-        || die 'the mapstand licence layers are no longer gated on PRIVATE'
-fi
+# the archive is read live: nothing is baked into the build
+[ -z "$(find dist -name '*.parquet' -print -quit)" ] \
+    || die 'a parquet is baked into the build'

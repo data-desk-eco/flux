@@ -3,9 +3,8 @@
 // family (`p.kind !== kind || …`), so one key filters several sources and
 // switching a group's rows all off takes that family off the map.
 
-import { AREA, PLUME_BANDS, flareBands } from './layers.js';
+import { PLUME_BANDS, flareBands } from './layers.js';
 import { MODE } from './flaring/render.js';
-import { LICENCE_LAYERS } from './methane/licences.js';
 
 const flareSection = (label, kind, cfg) => ({
     label,
@@ -21,7 +20,7 @@ const inPlumeBand = (lo, hi) => p => p.kind !== 'plume'
     || (p.rate_kg_h != null && p.rate_kg_h >= lo && (!hi || p.rate_kg_h < hi));
 
 // no infrastructure group: candidates belong to an open plume card alone
-export const keySections = isPrivate => [
+export const keySections = () => [
     flareSection(`S2 flaring (${MODE.s2.unit})`, 'flare', MODE.s2),
     flareSection(`VNF flaring (${MODE.vnf.unit})`, 'vnf', MODE.vnf),
     {
@@ -31,10 +30,4 @@ export const keySections = isPrivate => [
             pred: inPlumeBand(lo, hi),
         })),
     },
-    // a layer toggle, not a data filter: licence areas are not detections
-    ...(isPrivate ? [{
-        label: 'Acreage',
-        rows: [{ swatch: { mark: 'area', color: AREA.licence },
-                 label: 'Licence areas (MapStand)', toggle: LICENCE_LAYERS }],
-    }] : []),
 ];

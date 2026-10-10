@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v6
 
       # the same script `make dist` runs, so what is verified locally is what
-      # ships — including the assertions that refuse to publish a private bake
+      # ships, assertions and all
       - run: bash scripts/dist.sh "$GITHUB_SHA"
 
       - uses: actions/configure-pages@v6
