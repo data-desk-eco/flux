@@ -236,6 +236,6 @@ exactly what a reader may rely on.
   lon/lat; gem's `lng_terminal` rows name the flares.
 - `data-desk/attributions` — ch4id's plume → source contract.
 - `data-desk/sites` — the osm polygon each large catalogue facility (lng,
-  refinery, gas plant, chemical plant, oil terminal) falls on, `outline` as
+  refinery, gas plant, petrochemical plant) falls on, `outline` as
   geojson. read whole and drawn as an area from z10; it names no detection,
   so a flare's facility is what the reader sees it inside.

@@ -10,7 +10,7 @@ import { read } from './shell/data.js';
 
 const KIND = { lng_terminal: 'LNG terminal', refinery: 'Refinery',
     processing_plant: 'Gas processing plant',
-    chemical_plant: 'Chemical plant', terminal: 'Oil terminal' };
+    chemical_plant: 'Chemical plant' };
 // below this a refinery is a few pixels and the outlines are noise
 const MIN_ZOOM = 10;
 
