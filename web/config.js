@@ -196,7 +196,7 @@ const props = id => ({ sources }) =>
 const link = (href, text) => `<a href="${href}" target="_blank">${text}</a>`;
 
 mount({
-    title: 'Aerial',
+    title: 'Flux',
     subtitle: 'Emissions explorer',
     badge: 'Beta',
     search: true,
