@@ -4,6 +4,7 @@
 import { sql } from '../shell/data.js';
 import { initArchive } from '../shell/archive.js';
 import { addCandidateLayers, selectPlume } from '../methane/candidates.js';
+import { label } from '../methane/plumes.js';
 import { initMask, showMask, clearMask } from '../methane/mask.js';
 import { createMap, addSatellite, ensureMark } from '../shell/map.js';
 import { logo } from '../shell/ui.js';
@@ -65,8 +66,8 @@ function inner(r) {
         ${stat('Operator', esc(r.operator))}
         ${stat('Register', r.operator_id && `${esc(r.operator_name)}
             (${esc(r.operator_id)})`)}
-        ${stat('Plume', [r.pprov, r.satellite, r.pdate].filter(Boolean)
-            .map(esc).join(' · '))}
+        ${stat('Plume', [r.pprov && label(r.pprov), r.satellite, r.pdate]
+            .filter(Boolean).map(esc).join(' · '))}
         ${stat('Rate', r.rate_kg_h && `${Math.round(r.rate_kg_h)
             .toLocaleString()} kg/h`)}
         ${stat('Source', where(r))}
