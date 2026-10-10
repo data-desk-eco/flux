@@ -71,7 +71,9 @@ web/
                      quarter availability, the table's tabs, deep links
   layers.js          marking / ramp / colour policy and the key's bands.
                      shape categorises, colour is measurement
-  key.js             the key: a group of bands per family
+  key.js             the key: a group of bands per family, and the site
+                     outlines' switch
+  sites.js           data-desk/sites, osm outlines of large facilities
   card/              one header, one body per feature kind
     index.js         the registry, the shared series card,
                      reselectCurrentFeature
@@ -233,3 +235,7 @@ exactly what a reader may rely on.
 - `<provider>/infrastructure` — candidate sources, Hilbert-clustered on
   lon/lat; gem's `lng_terminal` rows name the flares.
 - `data-desk/attributions` — ch4id's plume → source contract.
+- `data-desk/sites` — the osm polygon each large catalogue facility (lng,
+  refinery, gas plant, chemical plant, oil terminal) falls on, `outline` as
+  geojson. read whole and drawn as an area from z10; it names no detection,
+  so a flare's facility is what the reader sees it inside.

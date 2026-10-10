@@ -27,6 +27,7 @@ import { addCandidateLayers } from './methane/candidates.js';
 import { initProbabilityOverlay } from './methane/overlay.js';
 import { initMask } from './methane/mask.js';
 import { shown } from './methane/attribution.js';
+import { SITE_LAYERS, loadSites } from './sites.js';
 
 // legacy deep links: #vnf/123 -> #vnf=123, which resolveSite reads
 if (/^#vnf\/[^/=&]+$/.test(location.hash))
@@ -41,7 +42,7 @@ const ATTRIBUTIONS = `${ARCHIVE}/data-desk/attributions/data.parquet`;
 
 // every object small enough to hold is fetched whole at page parse, racing
 // the engine download (shell/data.js); what is past the cap stays ranged
-for (const t of ['flares', 'detections'])
+for (const t of ['flares', 'detections', 'sites'])
     objects(t).then(us => us.forEach(prefetchData)).catch(() => {});
 prefetchData(ATTRIBUTIONS);
 initS2Archive();
@@ -236,6 +237,7 @@ mount({
         // before the layers, or maplibre logs the expression-only ids missing
         MARKS.forEach(id => ensureMark(ctx.map, id));
         return {
+            sites: empty,
             detections: empty,
             vnf: empty,
             // clustered far out; the label is a count, since a summed rate
@@ -245,7 +247,9 @@ mount({
         };
     },
 
+    // the outlines first, so every detection draws over them
     layers: [
+        ...SITE_LAYERS,
         {
             id: 'detections', type: 'symbol', source: 'detections',
             filter: persistenceFilter(0),
@@ -352,6 +356,8 @@ mount({
         REFRESH.vnf();
         REFRESH.plumes().then(quarterDots);
         // a flare drawn before the terminals land is renamed by this
+        loadSites(ctx.map).catch(err =>
+            console.warn('site outlines unavailable:', err));
         loadTerminals().then(() => { REFRESH.detections(); REFRESH.vnf(); });
         readyResolve();
     },

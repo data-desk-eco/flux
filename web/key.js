@@ -19,7 +19,8 @@ const flareSection = (label, kind, cfg) => ({
 const inPlumeBand = (lo, hi) => p => p.kind !== 'plume'
     || (p.rate_kg_h != null && p.rate_kg_h >= lo && (!hi || p.rate_kg_h < hi));
 
-// no infrastructure group: candidates belong to an open plume card alone
+// candidates belong to an open plume card alone; the one standing structure
+// is the site outlines, a layer switch rather than a filter
 export const keySections = () => [
     flareSection(`S2 flaring (${MODE.s2.unit})`, 'flare', MODE.s2),
     flareSection(`VNF flaring (${MODE.vnf.unit})`, 'vnf', MODE.vnf),
@@ -29,5 +30,10 @@ export const keySections = () => [
             swatch: { mark: 'quantitative', color }, label,
             pred: inPlumeBand(lo, hi),
         })),
+    },
+    {
+        label: 'Facilities',
+        rows: [{ swatch: { mark: 'area' }, label: 'Site (OSM)',
+                 toggle: ['sites-hit', 'sites', 'sites-inset'] }],
     },
 ];
